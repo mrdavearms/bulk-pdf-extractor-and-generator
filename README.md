@@ -1,14 +1,15 @@
 # VCAA Evidence Application PDF Generator
 ## Wangaratta High School - 2026
 
-A Mac application to batch-generate VCAA Special Examination Arrangements Evidence Application forms from Excel data.
+A cross-platform application (macOS & Windows) to batch-generate VCAA Special Examination Arrangements Evidence Application forms from Excel data.
 
 ---
 
 ## What's Included
 
 - `vcaa_pdf_generator.py` — The main application
-- `Launch_VCAA.command` — Double-click launcher for easy access
+- `Launch_VCAA.command` — Double-click launcher for macOS
+- `Launch_VCAA.bat` — Double-click launcher for Windows
 - `README.md` — This file
 
 ---
@@ -17,9 +18,9 @@ A Mac application to batch-generate VCAA Special Examination Arrangements Eviden
 
 ### Step 1: Create the app folder and virtual environment
 
-Open Terminal and run these commands one at a time:
-
-```
+**For macOS:**
+Open Terminal and run:
+```bash
 mkdir -p ~/Documents/VCAA_App
 cd ~/Documents/VCAA_App
 python3 -m venv venv
@@ -27,42 +28,57 @@ source venv/bin/activate
 pip install pypdf pandas openpyxl
 ```
 
+**For Windows:**
+Open PowerShell or Command Prompt and run:
+```powershell
+mkdir "$HOME\Documents\VCAA_App"
+cd "$HOME\Documents\VCAA_App"
+python -m venv venv
+.\venv\Scripts\activate
+pip install pypdf pandas openpyxl
+```
+
 ### Step 2: Install tkinter (if needed)
 
+**For macOS:**
 If you get a tkinter error, run:
-
-```
+```bash
 brew install python-tk@3.14
 ```
-
 (Adjust the version number to match your Python version)
+
+**For Windows:**
+Tkinter is usually included with the standard Python installer from python.org. If it's missing, re-run the installer and ensure "tcl/tk and IDLE" is checked.
 
 ### Step 3: Copy the app files
 
-Copy these files into `~/Documents/VCAA_App/`:
+Copy these files into your `VCAA_App` folder:
 - `vcaa_pdf_generator.py`
-- `Launch_VCAA.command`
+- `Launch_VCAA.command` (macOS) or `Launch_VCAA.bat` (Windows)
 
-### Step 4: Make the launcher executable
+### Step 4: Finalize Launcher (macOS only)
 
-In Terminal, run:
-
-```
+On macOS, you must make the launcher executable. In Terminal, run:
+```bash
 chmod +x ~/Documents/VCAA_App/Launch_VCAA.command
 ```
 
-### Step 5: Add to Dock (optional)
+### Step 5: Easy Access (optional)
 
-1. Open Finder → Documents → VCAA_App
-2. Drag `Launch_VCAA.command` to your Dock
+- **macOS:** Drag `Launch_VCAA.command` to your Dock.
+- **Windows:** Right-click `Launch_VCAA.bat` → *Send to* → *Desktop (create shortcut)*.
 
 ---
 
 ## How to Use
 
-### Starting the App
+### How to Launch
 
-Double-click `Launch_VCAA.command` (or the Dock icon if you added it)
+**For macOS:**
+Double-click `Launch_VCAA.command` (or the Dock icon if you added it).
+
+**For Windows:**
+Double-click `Launch_VCAA.bat` (or the desktop shortcut if you created one).
 
 ### Using the App
 
@@ -128,7 +144,7 @@ Filename format: `FirstName_Surname_Evidence Application Wangaratta High School 
 |---------|----------|
 | "Python not found" | Install Python from python.org |
 | "No module named pypdf" | Run `pip install pypdf pandas openpyxl` in the venv |
-| "No module named tkinter" | Run `brew install python-tk@3.14` |
+| "No module named tkinter" | **Mac:** `brew install python-tk@3.14` <br> **Windows:** Re-run Python installer, check "tcl/tk" |
 | "Permission denied" on Excel file | Close Excel before running the app |
 | Fields not filling | Check column names match exactly |
 | Dates show timestamps | The app handles this automatically |
