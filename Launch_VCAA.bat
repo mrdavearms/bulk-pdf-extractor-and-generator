@@ -13,7 +13,7 @@ if exist "venv\Scripts\activate.bat" (
 )
 
 :: Run the application
-python vcaa_pdf_generator.py
+python vcaa_pdf_generator_v2.py
 
 :: Keep window open if there's an error
 if %ERRORLEVEL% neq 0 (

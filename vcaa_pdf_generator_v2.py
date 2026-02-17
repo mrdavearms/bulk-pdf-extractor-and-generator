@@ -25,8 +25,36 @@ from pathlib import Path
 from typing import List, Optional, Dict
 from io import BytesIO
 from PIL import Image, ImageTk, ImageDraw, ImageFont
+from vcaa_combed_filler import CombedFieldFiller
 
-# Import our new modules
+
+class ScrollableFrame(ttk.Frame):
+    """A helper class to create a scrollable frame."""
+    def __init__(self, container, *args, **kwargs):
+        super().__init__(container, *args, **kwargs)
+        self.canvas = tk.Canvas(self, borderwidth=0, highlightthickness=0)
+        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.scrollable_frame = ttk.Frame(self.canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
+        )
+
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar.pack(side="right", fill="y")
+
+        # Mouse wheel support
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _on_mousewheel(self, event):
+        if self.canvas.winfo_exists():
+            self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 from vcaa_models import PDFField, TemplateConfig, AppSettings
 from vcaa_pdf_analyzer import PDFAnalyzer, auto_name_template
 from vcaa_visual_preview import VisualPreviewGenerator
@@ -39,68 +67,81 @@ class WelcomeDialog(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("Welcome to VCAA PDF Generator")
-        self.geometry("500x300")
+        self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
+
+        # Main container with nice padding
+        container = ttk.Frame(self, padding="30")
+        container.pack(fill=tk.BOTH, expand=True)
 
         self.choice = None
 
         # Title
         title_label = ttk.Label(
-            self,
+            container,
             text="Welcome to VCAA PDF Generator!",
             font=('Helvetica', 16, 'bold')
         )
-        title_label.pack(pady=(20, 10))
+        title_label.pack(pady=(0, 10))
 
         subtitle = ttk.Label(
-            self,
+            container,
             text="It looks like this is your first time.",
             font=('Helvetica', 11)
         )
         subtitle.pack(pady=(0, 20))
 
-        # Instructions
-        instruction = ttk.Label(
-            self,
-            text="Would you like to:",
-            font=('Helvetica', 11)
-        )
-        instruction.pack(pady=10)
+        # Radio buttons frame
+        options_frame = ttk.LabelFrame(container, text="How would you like to start?", padding="15")
+        options_frame.pack(pady=10, fill=tk.X)
 
-        # Radio buttons
         self.choice_var = tk.StringVar(value="analyze")
-
-        options_frame = ttk.Frame(self)
-        options_frame.pack(pady=10, padx=40, fill=tk.X)
 
         ttk.Radiobutton(
             options_frame,
             text="Analyze a PDF template (recommended for new users)",
             variable=self.choice_var,
             value="analyze"
-        ).pack(anchor=tk.W, pady=5)
+        ).pack(anchor=tk.W, pady=8)
 
         ttk.Radiobutton(
             options_frame,
             text="Load an existing template configuration",
             variable=self.choice_var,
             value="load"
-        ).pack(anchor=tk.W, pady=5)
+        ).pack(anchor=tk.W, pady=8)
 
         ttk.Radiobutton(
             options_frame,
             text="Skip to PDF generation (I know what I'm doing)",
             variable=self.choice_var,
             value="skip"
-        ).pack(anchor=tk.W, pady=5)
+        ).pack(anchor=tk.W, pady=8)
 
         # Continue button
         ttk.Button(
-            self,
+            container,
             text="Continue",
+            width=20,
             command=self.on_continue
-        ).pack(pady=20)
+        ).pack(pady=(20, 0))
+
+        # Auto-size to content
+        self.update_idletasks()
+        width = self.winfo_reqwidth()
+        height = self.winfo_reqheight()
+        self.geometry(f"{width}x{height}")
+
+        # Center on parent
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - (width // 2)
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - (height // 2)
+        self.geometry(f"+{x}+{y}")
+
+        # Force to front
+        self.lift()
+        self.attributes('-topmost', True)
+        self.after(100, lambda: self.attributes('-topmost', False))
 
         # Center on parent
         self.update_idletasks()
@@ -119,45 +160,49 @@ class TemplateNameDialog(tk.Toplevel):
     def __init__(self, parent, suggested_name: str):
         super().__init__(parent)
         self.title("Template Name")
-        self.geometry("500x250")
+        self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
+
+        # Main container
+        container = ttk.Frame(self, padding="20")
+        container.pack(fill=tk.BOTH, expand=True)
 
         self.result = None
 
         # Title
         title_label = ttk.Label(
-            self,
+            container,
             text="Template Name",
             font=('Helvetica', 14, 'bold')
         )
-        title_label.pack(pady=(20, 5))
+        title_label.pack(pady=(0, 5))
 
         subtitle = ttk.Label(
-            self,
+            container,
             text="This configuration will be saved for reuse.",
             font=('Helvetica', 10)
         )
         subtitle.pack(pady=(0, 15))
 
-        # Name entry
-        name_frame = ttk.Frame(self)
-        name_frame.pack(pady=10, padx=40, fill=tk.X)
+        # Name entry frame
+        name_frame = ttk.LabelFrame(container, text="Template Settings", padding="15")
+        name_frame.pack(pady=10, fill=tk.X)
 
-        ttk.Label(name_frame, text="Template Name:").pack(anchor=tk.W, pady=(0, 5))
+        ttk.Label(name_frame, text="Display Name:").pack(anchor=tk.W, pady=(0, 5))
 
         self.name_var = tk.StringVar(value=suggested_name)
         name_entry = ttk.Entry(name_frame, textvariable=self.name_var, width=50)
-        name_entry.pack(fill=tk.X)
+        name_entry.pack(fill=tk.X, pady=(0, 5))
 
         # Auto-generated info
         info_label = ttk.Label(
             name_frame,
-            text=f"Auto-generated from: {os.path.basename(suggested_name)}",
+            text=f"Derived from: {os.path.basename(suggested_name)}",
             font=('Helvetica', 9),
             foreground='gray'
         )
-        info_label.pack(anchor=tk.W, pady=(5, 10))
+        info_label.pack(anchor=tk.W, pady=(0, 10))
 
         # Naming option
         self.naming_var = tk.StringVar(value="custom")
@@ -177,20 +222,37 @@ class TemplateNameDialog(tk.Toplevel):
         ).pack(anchor=tk.W, pady=2)
 
         # Buttons
-        button_frame = ttk.Frame(self)
-        button_frame.pack(pady=20, fill=tk.X, padx=40)
+        button_frame = ttk.Frame(container)
+        button_frame.pack(pady=(20, 0), fill=tk.X)
 
         ttk.Button(
             button_frame,
             text="Cancel",
+            width=15,
             command=self.on_cancel
         ).pack(side=tk.LEFT)
 
         ttk.Button(
             button_frame,
             text="Analyze & Save",
+            width=15,
             command=self.on_save
         ).pack(side=tk.RIGHT)
+
+        # Auto-size
+        self.update_idletasks()
+        width = self.winfo_reqwidth()
+        height = self.winfo_reqheight()
+        
+        # Center on parent
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - (width // 2)
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - (height // 2)
+        self.geometry(f"{width}x{height}+{x}+{y}")
+
+        # Force to front
+        self.lift()
+        self.attributes('-topmost', True)
+        self.after(100, lambda: self.attributes('-topmost', False))
 
         # Center on parent
         self.update_idletasks()
@@ -314,13 +376,18 @@ class VCAAPDFGeneratorV2:
         self.notebook.pack(fill=tk.BOTH, expand=True)
 
         # Create tabs
-        self.tab1 = ttk.Frame(self.notebook)
-        self.tab2 = ttk.Frame(self.notebook)
-        self.tab3 = ttk.Frame(self.notebook)
+        self.tab1_container = ScrollableFrame(self.notebook)
+        self.tab2_container = ScrollableFrame(self.notebook)
+        self.tab3_container = ScrollableFrame(self.notebook)
 
-        self.notebook.add(self.tab1, text="1. Analyze Template")
-        self.notebook.add(self.tab2, text="2. Map Fields")
-        self.notebook.add(self.tab3, text="3. Generate PDFs")
+        self.notebook.add(self.tab1_container, text="1. Analyze Template")
+        self.notebook.add(self.tab2_container, text="2. Map Fields")
+        self.notebook.add(self.tab3_container, text="3. Generate PDFs")
+
+        # Set shorthand for actual UI frames
+        self.tab1 = self.tab1_container.scrollable_frame
+        self.tab2 = self.tab2_container.scrollable_frame
+        self.tab3 = self.tab3_container.scrollable_frame
 
         # Setup each tab
         self.setup_tab1_analyze()
@@ -664,26 +731,31 @@ class VCAAPDFGeneratorV2:
 
             df = pd.DataFrame(data)
 
+            # Create Data Entry template DataFrame (horizontal headers)
+            data_entry_cols = [d['Excel_Column_Name'] for d in data if d['Excel_Column_Name']]
+            df_data_entry = pd.DataFrame(columns=data_entry_cols)
+
             # Write to Excel with instructions sheet
             with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
                 df.to_excel(writer, sheet_name='Field Mapping', index=False)
+                df_data_entry.to_excel(writer, sheet_name='Data Entry', index=False)
 
                 # Instructions sheet
                 instructions = pd.DataFrame({
                     'VCAA PDF Generator - Field Mapping Guide': [
                         '',
                         'HOW TO USE THIS FILE:',
-                        '1. Review the "Excel_Column_Name" column',
-                        '2. Update any column names to match YOUR Excel spreadsheet exactly',
-                        '3. Mark "Required" fields as "Yes" if they must be filled',
+                        '1. Review the "Field Mapping" sheet',
+                        '2. Update any "Excel_Column_Name" values to match your preferred headers',
+                        '3. The "Data Entry" sheet is where you can start typing student data',
                         '4. Save this file',
-                        '5. Return to the app and load this mapping in Tab 2',
+                        '5. Return to the app and load this file in Tab 3 (Generate PDFs)',
                         '',
                         'IMPORTANT NOTES:',
-                        '- Do NOT change the "PDF_Field_Name" column',
-                        '- Column names are case-insensitive but must match spelling',
+                        '- The "Data Entry" sheet headers are automatically generated',
+                        '- If you change column names in "Field Mapping", you should also update them in "Data Entry"',
                         '- Combed fields will auto-split text (e.g., "John" → J-o-h-n)',
-                        '- Leave Excel_Column_Name blank to skip a field',
+                        '- The app uses the "Data Entry" sheet for PDF generation',
                         '',
                         'For help: See README.md'
                     ]
@@ -1344,6 +1416,11 @@ class VCAAPDFGeneratorV2:
 
 def main():
     root = tk.Tk()
+
+    # Force window to front on launch
+    root.lift()
+    root.attributes('-topmost', True)
+    root.after(100, lambda: root.attributes('-topmost', False))
 
     # Set app icon and style
     style = ttk.Style()
