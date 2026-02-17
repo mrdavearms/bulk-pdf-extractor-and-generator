@@ -1,0 +1,1227 @@
+#!/usr/bin/env python3
+"""
+VCAA Evidence Application PDF Generator v2.0
+A GUI application to analyze PDF templates, map fields, and batch-fill forms.
+
+Enhanced with:
+- Multi-stage tabbed interface
+- PDF template analysis
+- Combed field detection
+- Field mapping configuration
+- Template library management
+
+For Wangaratta High School - 2026
+"""
+
+import os
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox, simpledialog
+from datetime import datetime
+import pandas as pd
+from pypdf import PdfReader, PdfWriter
+import threading
+import json
+from pathlib import Path
+from typing import List, Optional, Dict
+from io import BytesIO
+from PIL import Image, ImageTk, ImageDraw, ImageFont
+
+# Import our new modules
+from vcaa_models import PDFField, TemplateConfig, AppSettings
+from vcaa_pdf_analyzer import PDFAnalyzer, auto_name_template
+
+
+class WelcomeDialog(tk.Toplevel):
+    """First-run welcome dialog."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("Welcome to VCAA PDF Generator")
+        self.geometry("500x300")
+        self.transient(parent)
+        self.grab_set()
+
+        self.choice = None
+
+        # Title
+        title_label = ttk.Label(
+            self,
+            text="Welcome to VCAA PDF Generator!",
+            font=('Helvetica', 16, 'bold')
+        )
+        title_label.pack(pady=(20, 10))
+
+        subtitle = ttk.Label(
+            self,
+            text="It looks like this is your first time.",
+            font=('Helvetica', 11)
+        )
+        subtitle.pack(pady=(0, 20))
+
+        # Instructions
+        instruction = ttk.Label(
+            self,
+            text="Would you like to:",
+            font=('Helvetica', 11)
+        )
+        instruction.pack(pady=10)
+
+        # Radio buttons
+        self.choice_var = tk.StringVar(value="analyze")
+
+        options_frame = ttk.Frame(self)
+        options_frame.pack(pady=10, padx=40, fill=tk.X)
+
+        ttk.Radiobutton(
+            options_frame,
+            text="Analyze a PDF template (recommended for new users)",
+            variable=self.choice_var,
+            value="analyze"
+        ).pack(anchor=tk.W, pady=5)
+
+        ttk.Radiobutton(
+            options_frame,
+            text="Load an existing template configuration",
+            variable=self.choice_var,
+            value="load"
+        ).pack(anchor=tk.W, pady=5)
+
+        ttk.Radiobutton(
+            options_frame,
+            text="Skip to PDF generation (I know what I'm doing)",
+            variable=self.choice_var,
+            value="skip"
+        ).pack(anchor=tk.W, pady=5)
+
+        # Continue button
+        ttk.Button(
+            self,
+            text="Continue",
+            command=self.on_continue
+        ).pack(pady=20)
+
+        # Center on parent
+        self.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.winfo_width() // 2)
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.winfo_height() // 2)
+        self.geometry(f"+{x}+{y}")
+
+    def on_continue(self):
+        self.choice = self.choice_var.get()
+        self.destroy()
+
+
+class TemplateNameDialog(tk.Toplevel):
+    """Dialog for naming a template before analysis."""
+
+    def __init__(self, parent, suggested_name: str):
+        super().__init__(parent)
+        self.title("Template Name")
+        self.geometry("500x250")
+        self.transient(parent)
+        self.grab_set()
+
+        self.result = None
+
+        # Title
+        title_label = ttk.Label(
+            self,
+            text="Template Name",
+            font=('Helvetica', 14, 'bold')
+        )
+        title_label.pack(pady=(20, 5))
+
+        subtitle = ttk.Label(
+            self,
+            text="This configuration will be saved for reuse.",
+            font=('Helvetica', 10)
+        )
+        subtitle.pack(pady=(0, 15))
+
+        # Name entry
+        name_frame = ttk.Frame(self)
+        name_frame.pack(pady=10, padx=40, fill=tk.X)
+
+        ttk.Label(name_frame, text="Template Name:").pack(anchor=tk.W, pady=(0, 5))
+
+        self.name_var = tk.StringVar(value=suggested_name)
+        name_entry = ttk.Entry(name_frame, textvariable=self.name_var, width=50)
+        name_entry.pack(fill=tk.X)
+
+        # Auto-generated info
+        info_label = ttk.Label(
+            name_frame,
+            text=f"Auto-generated from: {os.path.basename(suggested_name)}",
+            font=('Helvetica', 9),
+            foreground='gray'
+        )
+        info_label.pack(anchor=tk.W, pady=(5, 10))
+
+        # Naming option
+        self.naming_var = tk.StringVar(value="custom")
+
+        ttk.Radiobutton(
+            name_frame,
+            text="Use PDF filename (auto-clean)",
+            variable=self.naming_var,
+            value="auto"
+        ).pack(anchor=tk.W, pady=2)
+
+        ttk.Radiobutton(
+            name_frame,
+            text="Custom name (editable above)",
+            variable=self.naming_var,
+            value="custom"
+        ).pack(anchor=tk.W, pady=2)
+
+        # Buttons
+        button_frame = ttk.Frame(self)
+        button_frame.pack(pady=20, fill=tk.X, padx=40)
+
+        ttk.Button(
+            button_frame,
+            text="Cancel",
+            command=self.on_cancel
+        ).pack(side=tk.LEFT)
+
+        ttk.Button(
+            button_frame,
+            text="Analyze & Save",
+            command=self.on_save
+        ).pack(side=tk.RIGHT)
+
+        # Center on parent
+        self.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.winfo_width() // 2)
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.winfo_height() // 2)
+        self.geometry(f"+{x}+{y}")
+
+    def on_save(self):
+        self.result = self.name_var.get().strip()
+        if not self.result:
+            messagebox.showwarning("Invalid Name", "Please enter a template name.")
+            return
+        self.destroy()
+
+    def on_cancel(self):
+        self.result = None
+        self.destroy()
+
+
+class VCAAPDFGeneratorV2:
+    """Main application class with tabbed interface."""
+
+    def __init__(self, root):
+        self.root = root
+        self.root.title("VCAA PDF Generator v2.0")
+        self.root.geometry("1000x800")
+        self.root.minsize(900, 700)
+
+        # Settings
+        self.settings_file = os.path.expanduser("~/Documents/VCAA_App/settings.json")
+        self.settings = self.load_settings()
+
+        # Ensure templates directory exists
+        os.makedirs(self.settings.templates_directory, exist_ok=True)
+
+        # Current state
+        self.current_template: Optional[TemplateConfig] = None
+        self.analyzed_fields: List[PDFField] = []
+        self.pdf_template_path = tk.StringVar()
+        self.excel_file_path = tk.StringVar()
+
+        # Tab 3 (Generate) state - from original app
+        self.df = None
+        self.selected_rows = {}
+        self.critical_fields = ['surname', 'first name', 'vcaa student number']
+
+        self.setup_ui()
+
+        # Show welcome dialog if first time
+        if self.settings.show_welcome and not self.has_templates():
+            self.root.after(500, self.show_welcome_dialog)
+
+    def load_settings(self) -> AppSettings:
+        """Load app settings or create defaults."""
+        if os.path.exists(self.settings_file):
+            return AppSettings.from_file(self.settings_file)
+        else:
+            # Create default settings
+            settings = AppSettings.get_defaults()
+            os.makedirs(os.path.dirname(self.settings_file), exist_ok=True)
+            settings.save_to_file(self.settings_file)
+            return settings
+
+    def has_templates(self) -> bool:
+        """Check if any templates exist."""
+        if not os.path.exists(self.settings.templates_directory):
+            return False
+        templates = list(Path(self.settings.templates_directory).glob("*.json"))
+        return len(templates) > 0
+
+    def show_welcome_dialog(self):
+        """Show welcome dialog for first-time users."""
+        dialog = WelcomeDialog(self.root)
+        self.root.wait_window(dialog)
+
+        if dialog.choice == "analyze":
+            self.notebook.select(0)  # Go to Tab 1
+        elif dialog.choice == "load":
+            self.load_template_from_file()
+        elif dialog.choice == "skip":
+            self.notebook.select(2)  # Go to Tab 3
+
+    def setup_ui(self):
+        """Create the main UI with tabbed interface."""
+        # Main container
+        main_frame = ttk.Frame(self.root, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Title
+        title_label = ttk.Label(
+            main_frame,
+            text="VCAA PDF Generator",
+            font=('Helvetica', 20, 'bold')
+        )
+        title_label.pack(pady=(0, 5))
+
+        subtitle_label = ttk.Label(
+            main_frame,
+            text="Enhanced Edition v2.0 - Wangaratta High School 2026",
+            font=('Helvetica', 11)
+        )
+        subtitle_label.pack(pady=(0, 15))
+
+        # Notebook (tabs)
+        self.notebook = ttk.Notebook(main_frame)
+        self.notebook.pack(fill=tk.BOTH, expand=True)
+
+        # Create tabs
+        self.tab1 = ttk.Frame(self.notebook)
+        self.tab2 = ttk.Frame(self.notebook)
+        self.tab3 = ttk.Frame(self.notebook)
+
+        self.notebook.add(self.tab1, text="1. Analyze Template")
+        self.notebook.add(self.tab2, text="2. Map Fields")
+        self.notebook.add(self.tab3, text="3. Generate PDFs")
+
+        # Setup each tab
+        self.setup_tab1_analyze()
+        self.setup_tab2_mapping()
+        self.setup_tab3_generate()
+
+    # ========== TAB 1: ANALYZE TEMPLATE ==========
+
+    def setup_tab1_analyze(self):
+        """Setup Tab 1: PDF Template Analysis."""
+        tab = self.tab1
+
+        # Container with padding
+        container = ttk.Frame(tab, padding="15")
+        container.pack(fill=tk.BOTH, expand=True)
+
+        # Section: Load Template
+        load_frame = ttk.LabelFrame(container, text="📁 Load Template", padding="10")
+        load_frame.pack(fill=tk.X, pady=(0, 10))
+
+        # PDF selection row
+        pdf_row = ttk.Frame(load_frame)
+        pdf_row.pack(fill=tk.X, pady=5)
+        ttk.Label(pdf_row, text="PDF Template:", width=15).pack(side=tk.LEFT)
+        ttk.Entry(pdf_row, textvariable=self.pdf_template_path, width=50).pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        ttk.Button(pdf_row, text="Browse...", command=self.select_pdf_tab1).pack(side=tk.LEFT)
+
+        # Template name row
+        name_row = ttk.Frame(load_frame)
+        name_row.pack(fill=tk.X, pady=5)
+        ttk.Label(name_row, text="Template Name:", width=15).pack(side=tk.LEFT)
+        self.template_name_var = tk.StringVar()
+        ttk.Entry(name_row, textvariable=self.template_name_var, width=50).pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+
+        # Naming options
+        naming_row = ttk.Frame(load_frame)
+        naming_row.pack(fill=tk.X, pady=5, padx=(120, 0))
+        self.naming_option_var = tk.StringVar(value="auto")
+        ttk.Radiobutton(naming_row, text="Auto-name from PDF", variable=self.naming_option_var, value="auto").pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(naming_row, text="Custom name", variable=self.naming_option_var, value="custom").pack(side=tk.LEFT, padx=5)
+
+        # Recent templates dropdown
+        recent_row = ttk.Frame(load_frame)
+        recent_row.pack(fill=tk.X, pady=10)
+        ttk.Label(recent_row, text="Recent Templates:", width=15).pack(side=tk.LEFT)
+        self.recent_templates_var = tk.StringVar()
+        self.recent_templates_combo = ttk.Combobox(recent_row, textvariable=self.recent_templates_var, state="readonly", width=47)
+        self.recent_templates_combo.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        ttk.Button(recent_row, text="Load", command=self.load_recent_template).pack(side=tk.LEFT, padx=5)
+
+        self.populate_recent_templates()
+
+        # Analyze button
+        ttk.Button(load_frame, text="Analyze Fields", command=self.analyze_pdf_fields).pack(pady=10)
+
+        # Analysis results section
+        results_frame = ttk.LabelFrame(container, text="Analysis Results", padding="10")
+        results_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        # Stats row
+        self.stats_label = ttk.Label(results_frame, text="No analysis performed yet", font=('Helvetica', 10))
+        self.stats_label.pack(pady=5)
+
+        # Fields table
+        table_frame = ttk.Frame(results_frame)
+        table_frame.pack(fill=tk.BOTH, expand=True)
+
+        columns = ('field_name', 'type', 'page', 'length')
+        self.fields_tree = ttk.Treeview(table_frame, columns=columns, show='headings', height=15)
+
+        self.fields_tree.heading('field_name', text='Field Name')
+        self.fields_tree.heading('type', text='Type')
+        self.fields_tree.heading('page', text='Page')
+        self.fields_tree.heading('length', text='Length/Size')
+
+        self.fields_tree.column('field_name', width=250)
+        self.fields_tree.column('type', width=120)
+        self.fields_tree.column('page', width=60)
+        self.fields_tree.column('length', width=100)
+
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.fields_tree.yview)
+        self.fields_tree.configure(yscrollcommand=scrollbar.set)
+
+        self.fields_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Export buttons
+        export_frame = ttk.Frame(container)
+        export_frame.pack(fill=tk.X, pady=10)
+
+        ttk.Button(export_frame, text="Export Mapping File (.xlsx)", command=self.export_mapping_file).pack(side=tk.LEFT, padx=5)
+        ttk.Button(export_frame, text="Save Template Config", command=self.save_template_config).pack(side=tk.LEFT, padx=5)
+
+        # Quick actions
+        quick_frame = ttk.Frame(container)
+        quick_frame.pack(fill=tk.X, pady=5)
+        ttk.Label(quick_frame, text="Quick Actions:", font=('Helvetica', 10, 'bold')).pack(side=tk.LEFT)
+        ttk.Button(quick_frame, text="Skip to Generate PDFs →", command=lambda: self.notebook.select(2)).pack(side=tk.LEFT, padx=10)
+
+    def select_pdf_tab1(self):
+        """Select PDF file in Tab 1."""
+        filepath = filedialog.askopenfilename(
+            title="Select PDF Template",
+            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
+        )
+        if filepath:
+            self.pdf_template_path.set(filepath)
+            # Auto-generate template name
+            if self.naming_option_var.get() == "auto":
+                suggested_name = auto_name_template(os.path.basename(filepath))
+                self.template_name_var.set(suggested_name)
+
+    def populate_recent_templates(self):
+        """Populate recent templates dropdown."""
+        templates_dir = Path(self.settings.templates_directory)
+        if not templates_dir.exists():
+            return
+
+        template_files = list(templates_dir.glob("*.json"))
+        template_names = [f.stem for f in template_files]
+
+        self.recent_templates_combo['values'] = template_names
+
+    def load_recent_template(self):
+        """Load a template from the recent list."""
+        template_name = self.recent_templates_var.get()
+        if not template_name:
+            return
+
+        template_path = os.path.join(self.settings.templates_directory, f"{template_name}.json")
+        if os.path.exists(template_path):
+            self.load_template_config(template_path)
+
+    def load_template_from_file(self):
+        """Load template config from file dialog."""
+        filepath = filedialog.askopenfilename(
+            title="Select Template Configuration",
+            initialdir=self.settings.templates_directory,
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        )
+        if filepath:
+            self.load_template_config(filepath)
+
+    def load_template_config(self, filepath: str):
+        """Load template configuration."""
+        try:
+            self.current_template = TemplateConfig.from_file(filepath)
+            self.pdf_template_path.set(self.current_template.pdf_path)
+            self.template_name_var.set(self.current_template.template_name)
+
+            messagebox.showinfo("Template Loaded", f"Loaded template: {self.current_template.template_name}")
+
+            # Switch to Tab 2 or 3
+            self.notebook.select(2)  # Go to Generate tab
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load template:\n{str(e)}")
+
+    def analyze_pdf_fields(self):
+        """Analyze PDF fields and detect combed fields."""
+        pdf_path = self.pdf_template_path.get()
+
+        if not pdf_path or not os.path.exists(pdf_path):
+            messagebox.showerror("Error", "Please select a valid PDF template file.")
+            return
+
+        try:
+            # Get template name (show dialog if custom)
+            if self.naming_option_var.get() == "custom":
+                suggested_name = self.template_name_var.get() or auto_name_template(os.path.basename(pdf_path))
+                dialog = TemplateNameDialog(self.root, suggested_name)
+                self.root.wait_window(dialog)
+
+                if dialog.result is None:
+                    return  # User cancelled
+
+                template_name = dialog.result
+            else:
+                template_name = auto_name_template(os.path.basename(pdf_path))
+
+            self.template_name_var.set(template_name)
+
+            # Analyze PDF
+            with PDFAnalyzer(pdf_path) as analyzer:
+                self.analyzed_fields = analyzer.analyze_fields()
+                field_stats = analyzer.get_field_statistics(self.analyzed_fields)
+
+            # Update UI
+            self.display_analyzed_fields()
+
+            # Update stats label
+            total = len(self.analyzed_fields)
+            combed = sum(1 for f in self.analyzed_fields if f.is_combed)
+            pages = len(set(f.page for f in self.analyzed_fields))
+
+            self.stats_label.config(
+                text=f"Template: {template_name} | Total Fields: {total} | Pages: {pages} | Combed Fields: {combed}"
+            )
+
+            messagebox.showinfo("Analysis Complete", f"Found {total} fields ({combed} combed fields)")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to analyze PDF:\n{str(e)}")
+
+    def display_analyzed_fields(self):
+        """Display analyzed fields in the table."""
+        # Clear existing
+        for item in self.fields_tree.get_children():
+            self.fields_tree.delete(item)
+
+        # Add fields
+        for field in self.analyzed_fields:
+            length_display = f"{field.length} chars" if field.is_combed else "Single"
+
+            self.fields_tree.insert('', tk.END, values=(
+                field.field_name,
+                field.field_type,
+                field.page,
+                length_display
+            ))
+
+    def export_mapping_file(self):
+        """Export field mapping to Excel file."""
+        if not self.analyzed_fields:
+            messagebox.showwarning("No Data", "Please analyze a PDF template first.")
+            return
+
+        template_name = self.template_name_var.get() or "template"
+        suggested_filename = f"{template_name}_mapping.xlsx"
+
+        filepath = filedialog.asksaveasfilename(
+            title="Save Mapping File",
+            initialdir=self.settings.templates_directory,
+            initialfile=suggested_filename,
+            defaultextension=".xlsx",
+            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")]
+        )
+
+        if not filepath:
+            return
+
+        try:
+            # Create DataFrame
+            data = []
+            for field in self.analyzed_fields:
+                # Smart guess for Excel column name
+                excel_col = self.smart_guess_excel_column(field.field_name)
+
+                data.append({
+                    'PDF_Field_Name': field.field_name,
+                    'Excel_Column_Name': excel_col,
+                    'Field_Type': field.field_type,
+                    'Page': field.page,
+                    'Required': 'Yes' if field.field_name.lower() in ['surname', 'first_name', 'first name', 'vcaa_number', 'vcaa student number'] else 'No',
+                    'Length': f"{field.length} chars" if field.is_combed else '-',
+                    'Notes': self.generate_field_notes(field)
+                })
+
+            df = pd.DataFrame(data)
+
+            # Write to Excel with instructions sheet
+            with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name='Field Mapping', index=False)
+
+                # Instructions sheet
+                instructions = pd.DataFrame({
+                    'VCAA PDF Generator - Field Mapping Guide': [
+                        '',
+                        'HOW TO USE THIS FILE:',
+                        '1. Review the "Excel_Column_Name" column',
+                        '2. Update any column names to match YOUR Excel spreadsheet exactly',
+                        '3. Mark "Required" fields as "Yes" if they must be filled',
+                        '4. Save this file',
+                        '5. Return to the app and load this mapping in Tab 2',
+                        '',
+                        'IMPORTANT NOTES:',
+                        '- Do NOT change the "PDF_Field_Name" column',
+                        '- Column names are case-insensitive but must match spelling',
+                        '- Combed fields will auto-split text (e.g., "John" → J-o-h-n)',
+                        '- Leave Excel_Column_Name blank to skip a field',
+                        '',
+                        'For help: See README.md'
+                    ]
+                })
+                instructions.to_excel(writer, sheet_name='Instructions', index=False, header=False)
+
+            messagebox.showinfo("Export Successful", f"Mapping file saved to:\n{filepath}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to export mapping file:\n{str(e)}")
+
+    def smart_guess_excel_column(self, pdf_field_name: str) -> str:
+        """Generate a smart guess for Excel column name."""
+        # Convert underscores to spaces
+        name = pdf_field_name.replace('_', ' ')
+
+        # Known mappings
+        mappings = {
+            'first name': 'First name',
+            'surname': 'surname',
+            'vcaa number': 'VCAA student number',
+            'vcaa student number': 'VCAA student number',
+            'school name': 'School name',
+            'vcaa school code': 'VCAA school code',
+        }
+
+        lower_name = name.lower()
+        if lower_name in mappings:
+            return mappings[lower_name]
+
+        return name
+
+    def generate_field_notes(self, field: PDFField) -> str:
+        """Generate helpful notes for a field."""
+        notes = []
+
+        if field.field_name.lower() in ['surname', 'first_name', 'first name']:
+            notes.append('Used for filename')
+
+        if field.field_name.lower() in ['surname', 'first name', 'vcaa student number', 'vcaa_number']:
+            notes.append('Critical field')
+
+        if field.is_combed and 'dob' in field.field_name.lower():
+            notes.append('Auto-format date')
+
+        return ', '.join(notes) if notes else ''
+
+    def save_template_config(self):
+        """Save template configuration to JSON."""
+        if not self.analyzed_fields:
+            messagebox.showwarning("No Data", "Please analyze a PDF template first.")
+            return
+
+        template_name = self.template_name_var.get()
+        if not template_name:
+            messagebox.showwarning("No Name", "Please provide a template name.")
+            return
+
+        try:
+            # Create config
+            field_stats = {}
+            for field in self.analyzed_fields:
+                key = field.field_type.lower().replace('-', '_').replace(' ', '_')
+                field_stats[key] = field_stats.get(key, 0) + 1
+
+            config = TemplateConfig(
+                template_name=template_name,
+                pdf_filename=os.path.basename(self.pdf_template_path.get()),
+                pdf_path=self.pdf_template_path.get(),
+                created_date=datetime.now().isoformat(),
+                last_used=datetime.now().isoformat(),
+                total_fields=len(self.analyzed_fields),
+                field_types=field_stats,
+                mapping_file=f"{template_name}_mapping.xlsx",
+                use_auto_matching=True,
+                critical_fields=['surname', 'First name', 'VCAA student number'],
+                notes="",
+                version="2.0"
+            )
+
+            # Save to file
+            config_path = os.path.join(self.settings.templates_directory, f"{template_name}.json")
+            config.save_to_file(config_path)
+
+            self.current_template = config
+
+            messagebox.showinfo("Saved", f"Template configuration saved to:\n{config_path}")
+
+            # Refresh recent templates
+            self.populate_recent_templates()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save template config:\n{str(e)}")
+
+    # ========== TAB 2: MAP FIELDS ==========
+
+    def setup_tab2_mapping(self):
+        """Setup Tab 2: Field Mapping (Placeholder for now)."""
+        tab = self.tab2
+
+        container = ttk.Frame(tab, padding="15")
+        container.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(
+            container,
+            text="Tab 2: Field Mapping",
+            font=('Helvetica', 16, 'bold')
+        ).pack(pady=20)
+
+        ttk.Label(
+            container,
+            text="This tab will allow manual field mapping configuration.",
+            font=('Helvetica', 11)
+        ).pack(pady=10)
+
+        ttk.Label(
+            container,
+            text="✓ Auto-matching is enabled by default",
+            font=('Helvetica', 10),
+            foreground='green'
+        ).pack(pady=5)
+
+        ttk.Label(
+            container,
+            text="Coming in Phase 3...",
+            font=('Helvetica', 10),
+            foreground='gray'
+        ).pack(pady=20)
+
+    # ========== TAB 3: GENERATE PDFs (From original app) ==========
+
+    def setup_tab3_generate(self):
+        """Setup Tab 3: PDF Generation (original functionality)."""
+        # This is the existing Tab 3 code from the original app
+        # I'll include the complete original Tab 3 code here
+        tab = self.tab3
+
+        container = ttk.Frame(tab, padding="15")
+        container.pack(fill=tk.BOTH, expand=True)
+
+        # Template selection (NEW)
+        template_frame = ttk.Frame(container)
+        template_frame.pack(fill=tk.X, pady=(0, 10))
+
+        ttk.Label(template_frame, text="Template:", font=('Helvetica', 10, 'bold')).pack(side=tk.LEFT, padx=(0, 10))
+
+        self.selected_template_var = tk.StringVar()
+        template_combo = ttk.Combobox(template_frame, textvariable=self.selected_template_var, state="readonly", width=40)
+        template_combo.pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(template_frame, text="Change Template", command=self.change_template_tab3).pack(side=tk.LEFT, padx=5)
+
+        self.matching_status_label = ttk.Label(template_frame, text="Matching: Auto-matching enabled", foreground='green')
+        self.matching_status_label.pack(side=tk.LEFT, padx=10)
+
+        # File Selection Frame (original)
+        file_frame = ttk.LabelFrame(container, text="File Selection", padding="10")
+        file_frame.pack(fill=tk.X, pady=(0, 10))
+
+        # PDF Template selection
+        pdf_row = ttk.Frame(file_frame)
+        pdf_row.pack(fill=tk.X, pady=5)
+        ttk.Label(pdf_row, text="PDF Template:", width=15).pack(side=tk.LEFT)
+        ttk.Entry(pdf_row, textvariable=self.pdf_template_path, width=50).pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        ttk.Button(pdf_row, text="Browse...", command=self.select_pdf_tab3).pack(side=tk.LEFT)
+
+        # Excel file selection
+        excel_row = ttk.Frame(file_frame)
+        excel_row.pack(fill=tk.X, pady=5)
+        ttk.Label(excel_row, text="Excel Data File:", width=15).pack(side=tk.LEFT)
+        ttk.Entry(excel_row, textvariable=self.excel_file_path, width=50).pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        ttk.Button(excel_row, text="Browse...", command=self.select_excel_tab3).pack(side=tk.LEFT)
+
+        # Load button
+        ttk.Button(file_frame, text="Load & Preview Data", command=self.load_data_tab3).pack(pady=10)
+
+        # Rest of Tab 3 continues with original code...
+        # (Validation, Selection, Preview, Generate - from original app)
+        # I'll add the complete original Tab 3 implementation
+
+        # Validation Frame
+        self.validation_frame_tab3 = ttk.LabelFrame(container, text="Validation Warnings", padding="10")
+        self.validation_frame_tab3.pack(fill=tk.X, pady=(0, 10))
+
+        self.validation_text_tab3 = tk.Text(self.validation_frame_tab3, height=3, wrap=tk.WORD, state=tk.DISABLED)
+        self.validation_text_tab3.pack(fill=tk.X)
+
+        # Selection Controls Frame
+        selection_frame = ttk.Frame(container)
+        selection_frame.pack(fill=tk.X, pady=(0, 5))
+
+        ttk.Label(selection_frame, text="Select students to process:", font=('Helvetica', 11, 'bold')).pack(side=tk.LEFT)
+
+        ttk.Button(selection_frame, text="Select All", command=self.select_all_tab3).pack(side=tk.LEFT, padx=(15, 5))
+        ttk.Button(selection_frame, text="Deselect All", command=self.deselect_all_tab3).pack(side=tk.LEFT, padx=5)
+
+        self.selection_count_label_tab3 = ttk.Label(selection_frame, text="")
+        self.selection_count_label_tab3.pack(side=tk.RIGHT)
+
+        # Preview Frame
+        preview_frame = ttk.LabelFrame(container, text="Student Preview (click to select/deselect)", padding="10")
+        preview_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        # Treeview for student list with checkbox column
+        columns = ('selected', 'row', 'surname', 'first_name', 'student_number', 'status')
+        self.tree_tab3 = ttk.Treeview(preview_frame, columns=columns, show='headings', height=12)
+
+        self.tree_tab3.heading('selected', text='✓')
+        self.tree_tab3.heading('row', text='#')
+        self.tree_tab3.heading('surname', text='Surname')
+        self.tree_tab3.heading('first_name', text='First Name')
+        self.tree_tab3.heading('student_number', text='VCAA Number')
+        self.tree_tab3.heading('status', text='Status')
+
+        self.tree_tab3.column('selected', width=40, anchor='center')
+        self.tree_tab3.column('row', width=40, anchor='center')
+        self.tree_tab3.column('surname', width=140)
+        self.tree_tab3.column('first_name', width=140)
+        self.tree_tab3.column('student_number', width=110)
+        self.tree_tab3.column('status', width=180)
+
+        # Bind click event for toggling selection
+        self.tree_tab3.bind('<ButtonRelease-1>', self.toggle_selection_tab3)
+
+        # Scrollbar for treeview
+        scrollbar = ttk.Scrollbar(preview_frame, orient=tk.VERTICAL, command=self.tree_tab3.yview)
+        self.tree_tab3.configure(yscrollcommand=scrollbar.set)
+
+        self.tree_tab3.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Summary label
+        self.summary_label_tab3 = ttk.Label(container, text="No data loaded", font=('Helvetica', 11))
+        self.summary_label_tab3.pack(pady=5)
+
+        # Progress Frame
+        progress_frame = ttk.Frame(container)
+        progress_frame.pack(fill=tk.X, pady=(0, 10))
+
+        self.progress_var_tab3 = tk.DoubleVar()
+        self.progress_bar_tab3 = ttk.Progressbar(progress_frame, variable=self.progress_var_tab3, maximum=100)
+        self.progress_bar_tab3.pack(fill=tk.X, pady=5)
+
+        self.progress_label_tab3 = ttk.Label(progress_frame, text="")
+        self.progress_label_tab3.pack()
+
+        # Generate Button
+        self.generate_btn_tab3 = ttk.Button(
+            container,
+            text="Generate PDFs for Selected Students",
+            command=self.start_generation_tab3,
+            state=tk.DISABLED
+        )
+        self.generate_btn_tab3.pack(pady=10)
+
+    def select_pdf_tab3(self):
+        """Select PDF in Tab 3."""
+        filepath = filedialog.askopenfilename(
+            title="Select VCAA PDF Template",
+            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
+        )
+        if filepath:
+            self.pdf_template_path.set(filepath)
+
+    def select_excel_tab3(self):
+        """Select Excel file in Tab 3."""
+        filepath = filedialog.askopenfilename(
+            title="Select Student Data Excel File",
+            filetypes=[("Excel files", "*.xlsx *.xls"), ("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+        if filepath:
+            self.excel_file_path.set(filepath)
+
+    def change_template_tab3(self):
+        """Change template in Tab 3."""
+        self.load_template_from_file()
+
+    def load_data_tab3(self):
+        """Load Excel data for Tab 3 (original functionality)."""
+        pdf_path = self.pdf_template_path.get()
+        excel_path = self.excel_file_path.get()
+
+        # Validate paths
+        if not pdf_path or not os.path.exists(pdf_path):
+            messagebox.showerror("Error", "Please select a valid PDF template file.")
+            return
+
+        if not excel_path or not os.path.exists(excel_path):
+            messagebox.showerror("Error", "Please select a valid Excel data file.")
+            return
+
+        try:
+            # Load PDF and get field names
+            reader = PdfReader(pdf_path)
+            fields = reader.get_fields()
+            if fields:
+                self.pdf_fields = list(fields.keys())
+            else:
+                messagebox.showerror("Error", "The PDF template has no fillable form fields.")
+                return
+
+            # Load Excel data
+            if excel_path.endswith('.csv'):
+                self.df = pd.read_csv(excel_path)
+            else:
+                self.df = pd.read_excel(excel_path)
+
+            # Clean column names (strip whitespace, lowercase for matching)
+            self.df.columns = [str(col).strip() for col in self.df.columns]
+
+            # Create lowercase mapping for field matching
+            self.column_mapping = {col.lower(): col for col in self.df.columns}
+            self.field_mapping = {field.lower(): field for field in self.pdf_fields}
+
+            # Clear previous selections
+            self.selected_rows = {}
+
+            # Validate and show preview
+            self.validate_data_tab3()
+            self.show_preview_tab3()
+
+            # Select all by default
+            self.select_all_tab3()
+
+            # Enable generate button
+            self.generate_btn_tab3.config(state=tk.NORMAL)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load data:\n{str(e)}")
+
+    def validate_data_tab3(self):
+        """Validate data for Tab 3."""
+        warnings = []
+
+        # Check each row for critical fields
+        for idx, row in self.df.iterrows():
+            row_warnings = []
+            row_dict = {str(col).lower(): val for col, val in row.items()}
+
+            for field in self.critical_fields:
+                val = row_dict.get(field, '')
+                if pd.isna(val) or str(val).strip() == '' or str(val).lower() == 'nan':
+                    row_warnings.append(field)
+
+            if row_warnings:
+                surname = row_dict.get('surname', f'Row {idx+1}')
+                if pd.isna(surname) or str(surname).strip() == '':
+                    surname = f'Row {idx+1}'
+                warnings.append(f"• {surname}: Missing {', '.join(row_warnings)}")
+
+        # Display warnings
+        self.validation_text_tab3.config(state=tk.NORMAL)
+        self.validation_text_tab3.delete(1.0, tk.END)
+
+        if warnings:
+            warning_text = f"⚠️ {len(warnings)} student(s) have missing critical fields:\n"
+            warning_text += "\n".join(warnings[:10])  # Show first 10
+            if len(warnings) > 10:
+                warning_text += f"\n... and {len(warnings) - 10} more"
+            self.validation_text_tab3.insert(1.0, warning_text)
+            self.validation_text_tab3.config(foreground='#B8860B')
+        else:
+            self.validation_text_tab3.insert(1.0, "✓ All students have required fields populated.")
+            self.validation_text_tab3.config(foreground='green')
+
+        self.validation_text_tab3.config(state=tk.DISABLED)
+
+    def show_preview_tab3(self):
+        """Show preview for Tab 3."""
+        # Clear existing items
+        for item in self.tree_tab3.get_children():
+            self.tree_tab3.delete(item)
+
+        # Reset selected rows tracking
+        self.selected_rows = {}
+
+        # Add students to preview
+        valid_count = 0
+        warning_count = 0
+
+        for idx, row in self.df.iterrows():
+            row_dict = {str(col).lower(): val for col, val in row.items()}
+
+            surname = str(row_dict.get('surname', '')).strip()
+            first_name = str(row_dict.get('first name', '')).strip()
+            student_num = str(row_dict.get('vcaa student number', '')).strip()
+
+            # Skip completely empty rows
+            if (pd.isna(row_dict.get('surname')) or surname == '' or surname.lower() == 'nan'):
+                continue
+
+            # Check status
+            missing = []
+            for field in self.critical_fields:
+                val = row_dict.get(field, '')
+                if pd.isna(val) or str(val).strip() == '' or str(val).lower() == 'nan':
+                    missing.append(field)
+
+            if missing:
+                status = f"⚠️ Missing: {', '.join(missing)}"
+                warning_count += 1
+            else:
+                status = "✓ Ready"
+                valid_count += 1
+
+            # Clean display values
+            if surname.lower() == 'nan':
+                surname = ''
+            if first_name.lower() == 'nan':
+                first_name = ''
+            if student_num.lower() == 'nan':
+                student_num = ''
+
+            # Insert with empty checkbox initially
+            item_id = self.tree_tab3.insert('', tk.END, values=('☐', idx+1, surname, first_name, student_num, status))
+            # Store mapping of item_id to dataframe index
+            self.selected_rows[item_id] = {'index': idx, 'selected': False}
+
+        # Update summary
+        total = valid_count + warning_count
+        self.summary_label_tab3.config(
+            text=f"Loaded {total} students: {valid_count} ready, {warning_count} with warnings"
+        )
+
+        self.update_selection_count_tab3()
+
+    def toggle_selection_tab3(self, event):
+        """Toggle selection in Tab 3."""
+        item = self.tree_tab3.identify_row(event.y)
+        if item and item in self.selected_rows:
+            # Toggle the selection
+            self.selected_rows[item]['selected'] = not self.selected_rows[item]['selected']
+
+            # Update the checkbox display
+            current_values = list(self.tree_tab3.item(item, 'values'))
+            current_values[0] = '☑' if self.selected_rows[item]['selected'] else '☐'
+            self.tree_tab3.item(item, values=current_values)
+
+            self.update_selection_count_tab3()
+
+    def select_all_tab3(self):
+        """Select all in Tab 3."""
+        for item_id in self.selected_rows:
+            self.selected_rows[item_id]['selected'] = True
+            current_values = list(self.tree_tab3.item(item_id, 'values'))
+            current_values[0] = '☑'
+            self.tree_tab3.item(item_id, values=current_values)
+
+        self.update_selection_count_tab3()
+
+    def deselect_all_tab3(self):
+        """Deselect all in Tab 3."""
+        for item_id in self.selected_rows:
+            self.selected_rows[item_id]['selected'] = False
+            current_values = list(self.tree_tab3.item(item_id, 'values'))
+            current_values[0] = '☐'
+            self.tree_tab3.item(item_id, values=current_values)
+
+        self.update_selection_count_tab3()
+
+    def update_selection_count_tab3(self):
+        """Update selection count for Tab 3."""
+        selected = sum(1 for item in self.selected_rows.values() if item['selected'])
+        total = len(self.selected_rows)
+        self.selection_count_label_tab3.config(text=f"Selected: {selected} of {total}")
+
+        # Update button text
+        if selected == 0:
+            self.generate_btn_tab3.config(text="Generate PDFs (none selected)", state=tk.DISABLED)
+        elif selected == 1:
+            self.generate_btn_tab3.config(text="Generate PDF for 1 Student", state=tk.NORMAL)
+        else:
+            self.generate_btn_tab3.config(text=f"Generate PDFs for {selected} Students", state=tk.NORMAL)
+
+    def start_generation_tab3(self):
+        """Start PDF generation for Tab 3."""
+        # Check if any students are selected
+        selected_count = sum(1 for item in self.selected_rows.values() if item['selected'])
+        if selected_count == 0:
+            messagebox.showwarning("No Selection", "Please select at least one student to generate PDFs.")
+            return
+
+        # Disable button during generation
+        self.generate_btn_tab3.config(state=tk.DISABLED)
+
+        # Start generation in background thread
+        thread = threading.Thread(target=self.run_generation_tab3)
+        thread.start()
+
+    def run_generation_tab3(self):
+        """Run PDF generation (original functionality)."""
+        try:
+            # Create output folder
+            excel_dir = os.path.dirname(self.excel_file_path.get())
+            output_folder = os.path.join(excel_dir, "Completed Applications")
+            os.makedirs(output_folder, exist_ok=True)
+
+            # Get only selected rows
+            selected_indices = [
+                item['index'] for item in self.selected_rows.values()
+                if item['selected']
+            ]
+
+            total = len(selected_indices)
+            success_count = 0
+            error_count = 0
+
+            for i, idx in enumerate(selected_indices):
+                row = self.df.iloc[idx]
+                row_dict = {str(col).lower(): val for col, val in row.items()}
+
+                # Get name for filename
+                first_name = str(row_dict.get('first name', 'Unknown')).strip()
+                surname = str(row_dict.get('surname', 'Unknown')).strip()
+
+                if first_name.lower() == 'nan':
+                    first_name = 'Unknown'
+                if surname.lower() == 'nan':
+                    surname = 'Unknown'
+
+                # Clean names for filename (remove invalid characters)
+                safe_first = "".join(c for c in first_name if c.isalnum() or c in ' -_').strip()
+                safe_surname = "".join(c for c in surname if c.isalnum() or c in ' -_').strip()
+
+                # Create filename
+                filename = f"{safe_first}_{safe_surname}_Evidence Application Wangaratta High School 2026.pdf"
+                output_path = os.path.join(output_folder, filename)
+
+                try:
+                    self.generate_pdf_tab3(row, output_path)
+                    success_count += 1
+                    status_text = f"Created: {filename}"
+                except Exception as e:
+                    error_count += 1
+                    status_text = f"Error: {surname} - {str(e)}"
+
+                # Update progress
+                progress = ((i + 1) / total) * 100
+                self.root.after(0, self.update_progress_tab3, progress, status_text, i+1, total)
+
+            # Final message
+            final_message = f"Complete! {success_count} PDFs created"
+            if error_count > 0:
+                final_message += f", {error_count} errors"
+            final_message += f"\n\nOutput folder: {output_folder}"
+
+            self.root.after(0, self.generation_complete_tab3, final_message, output_folder)
+
+        except Exception as e:
+            self.root.after(0, lambda: messagebox.showerror("Error", f"Generation failed:\n{str(e)}"))
+            self.root.after(0, lambda: self.generate_btn_tab3.config(state=tk.NORMAL))
+
+    def generate_pdf_tab3(self, row_data, output_path):
+        """Generate a single PDF (original functionality)."""
+        reader = PdfReader(self.pdf_template_path.get())
+        writer = PdfWriter()
+
+        # Clone the PDF
+        writer.append(reader)
+
+        # Create a dictionary of field values to fill
+        field_values = {}
+
+        # Map Excel columns to PDF fields (case-insensitive matching)
+        row_dict_lower = {str(col).lower(): val for col, val in row_data.items()}
+
+        for pdf_field in self.pdf_fields:
+            pdf_field_lower = pdf_field.lower()
+
+            # Try to find matching Excel column
+            if pdf_field_lower in row_dict_lower:
+                val = self.format_value_tab3(row_dict_lower[pdf_field_lower])
+                field_values[pdf_field] = val
+
+        # Fill all pages
+        for page in writer.pages:
+            writer.update_page_form_field_values(page, field_values)
+
+        # Save the filled PDF
+        with open(output_path, 'wb') as f:
+            writer.write(f)
+
+    def format_value_tab3(self, val):
+        """Format a value for PDF insertion."""
+        if pd.isna(val):
+            return ""
+
+        # Handle datetime objects (Australian format)
+        if isinstance(val, (datetime, pd.Timestamp)):
+            return val.strftime('%d/%m/%Y')
+
+        # Convert to string and clean
+        str_val = str(val).strip()
+        if str_val.lower() == 'nan':
+            return ""
+
+        return str_val
+
+    def update_progress_tab3(self, progress, status, current, total):
+        """Update progress for Tab 3."""
+        self.progress_var_tab3.set(progress)
+        self.progress_label_tab3.config(text=f"[{current}/{total}] {status}")
+
+    def generation_complete_tab3(self, message, output_folder):
+        """Handle generation completion for Tab 3."""
+        self.progress_label_tab3.config(text="Generation complete!")
+        self.update_selection_count_tab3()  # Re-enable button with correct state
+
+        # Ask to open folder
+        result = messagebox.askyesno(
+            "Generation Complete",
+            f"{message}\n\nWould you like to open the output folder?"
+        )
+
+        if result:
+            # Open folder in Finder (Mac) or Explorer (Windows)
+            import subprocess
+            import sys
+
+            if sys.platform == 'darwin':  # Mac
+                subprocess.run(['open', output_folder])
+            elif sys.platform == 'win32':  # Windows
+                subprocess.run(['explorer', output_folder])
+            else:  # Linux
+                subprocess.run(['xdg-open', output_folder])
+
+
+def main():
+    root = tk.Tk()
+
+    # Set app icon and style
+    style = ttk.Style()
+    style.theme_use('clam')  # Use a modern-looking theme
+
+    app = VCAAPDFGeneratorV2(root)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()
