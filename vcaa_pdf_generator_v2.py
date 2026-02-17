@@ -29,6 +29,8 @@ from PIL import Image, ImageTk, ImageDraw, ImageFont
 # Import our new modules
 from vcaa_models import PDFField, TemplateConfig, AppSettings
 from vcaa_pdf_analyzer import PDFAnalyzer, auto_name_template
+from vcaa_visual_preview import VisualPreviewGenerator
+from vcaa_combed_filler import CombedFieldFiller
 
 
 class WelcomeDialog(tk.Toplevel):
@@ -235,11 +237,26 @@ class VCAAPDFGeneratorV2:
         self.selected_rows = {}
         self.critical_fields = ['surname', 'first name', 'vcaa student number']
 
+        # Register cleanup on close
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
         self.setup_ui()
 
         # Show welcome dialog if first time
         if self.settings.show_welcome and not self.has_templates():
             self.root.after(500, self.show_welcome_dialog)
+
+    def on_closing(self):
+        """Clean up resources before closing."""
+        # Close preview generator if open
+        if hasattr(self, 'preview_generator') and self.preview_generator:
+            try:
+                self.preview_generator.__exit__(None, None, None)
+            except:
+                pass
+
+        # Destroy window
+        self.root.destroy()
 
     def load_settings(self) -> AppSettings:
         """Load app settings or create defaults."""
@@ -391,6 +408,20 @@ class VCAAPDFGeneratorV2:
         self.fields_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
+        # Bind selection event for field preview
+        self.fields_tree.bind('<<TreeviewSelect>>', self.on_field_selected)
+
+        # Visual Preview Frame
+        preview_frame = ttk.LabelFrame(results_frame, text="Field Preview (click a field above to preview)", padding="10")
+        preview_frame.pack(fill=tk.X, pady=10)
+
+        # Preview canvas
+        self.preview_canvas = tk.Canvas(preview_frame, width=600, height=300, bg='white')
+        self.preview_canvas.pack(fill=tk.BOTH, expand=True)
+
+        self.preview_image = None  # Store reference to prevent garbage collection
+        self.preview_generator = None  # Will be initialized when PDF is loaded
+
         # Export buttons
         export_frame = ttk.Frame(container)
         export_frame.pack(fill=tk.X, pady=10)
@@ -492,6 +523,11 @@ class VCAAPDFGeneratorV2:
                 self.analyzed_fields = analyzer.analyze_fields()
                 field_stats = analyzer.get_field_statistics(self.analyzed_fields)
 
+            # Initialize preview generator
+            cache_dir = os.path.join(self.settings.templates_directory, '.preview_cache')
+            self.preview_generator = VisualPreviewGenerator(pdf_path, cache_dir)
+            self.preview_generator.__enter__()  # Open the PDF
+
             # Update UI
             self.display_analyzed_fields()
 
@@ -525,6 +561,69 @@ class VCAAPDFGeneratorV2:
                 field.page,
                 length_display
             ))
+
+    def on_field_selected(self, event):
+        """Handle field selection in Tab 1 - show visual preview."""
+        if not self.analyzed_fields or not self.preview_generator:
+            return
+
+        selection = self.fields_tree.selection()
+        if not selection:
+            return
+
+        # Get selected item index
+        item = selection[0]
+        item_index = self.fields_tree.index(item)
+
+        if item_index >= len(self.analyzed_fields):
+            return
+
+        # Get the selected field
+        field = self.analyzed_fields[item_index]
+
+        try:
+            # Generate preview
+            preview_img = self.preview_generator.generate_field_preview(field, dpi=150)
+
+            # Resize to fit canvas (maintain aspect ratio)
+            canvas_width = self.preview_canvas.winfo_width()
+            canvas_height = self.preview_canvas.winfo_height()
+
+            # Use default size if canvas not yet rendered
+            if canvas_width <= 1:
+                canvas_width = 600
+            if canvas_height <= 1:
+                canvas_height = 300
+
+            img_width, img_height = preview_img.size
+            scale = min(canvas_width / img_width, canvas_height / img_height)
+
+            new_width = int(img_width * scale * 0.95)  # 95% to add margin
+            new_height = int(img_height * scale * 0.95)
+
+            preview_img = preview_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+            # Convert to PhotoImage
+            self.preview_image = ImageTk.PhotoImage(preview_img)
+
+            # Clear canvas and display
+            self.preview_canvas.delete("all")
+            self.preview_canvas.create_image(
+                canvas_width // 2,
+                canvas_height // 2,
+                image=self.preview_image,
+                anchor=tk.CENTER
+            )
+
+        except Exception as e:
+            print(f"Preview error: {e}")
+            self.preview_canvas.delete("all")
+            self.preview_canvas.create_text(
+                300, 150,
+                text=f"Preview unavailable\n{str(e)}",
+                fill='red',
+                font=('Helvetica', 12)
+            )
 
     def export_mapping_file(self):
         """Export field mapping to Excel file."""
@@ -1138,7 +1237,7 @@ class VCAAPDFGeneratorV2:
             self.root.after(0, lambda: self.generate_btn_tab3.config(state=tk.NORMAL))
 
     def generate_pdf_tab3(self, row_data, output_path):
-        """Generate a single PDF (original functionality)."""
+        """Generate a single PDF with combed field support."""
         reader = PdfReader(self.pdf_template_path.get())
         writer = PdfWriter()
 
@@ -1148,16 +1247,47 @@ class VCAAPDFGeneratorV2:
         # Create a dictionary of field values to fill
         field_values = {}
 
-        # Map Excel columns to PDF fields (case-insensitive matching)
-        row_dict_lower = {str(col).lower(): val for col, val in row_data.items()}
+        # Check if we have analyzed fields with combed field metadata
+        if self.analyzed_fields:
+            # Use combed field filler for smart filling
+            combed_filler = CombedFieldFiller(settings={
+                'padding': self.settings.combed_field_padding,
+                'align': self.settings.combed_field_align
+            })
 
-        for pdf_field in self.pdf_fields:
-            pdf_field_lower = pdf_field.lower()
+            # Map Excel columns to values (case-insensitive)
+            row_dict_lower = {str(col).lower(): self.format_value_tab3(val)
+                             for col, val in row_data.items()}
 
-            # Try to find matching Excel column
-            if pdf_field_lower in row_dict_lower:
-                val = self.format_value_tab3(row_dict_lower[pdf_field_lower])
-                field_values[pdf_field] = val
+            # Process each analyzed field
+            for field in self.analyzed_fields:
+                # Find matching Excel column
+                field_name_lower = field.field_name.lower()
+                value = None
+
+                for col_name, col_value in row_dict_lower.items():
+                    if col_name == field_name_lower:
+                        value = col_value
+                        break
+
+                if value is None:
+                    continue
+
+                # Fill field (handles both combed and regular)
+                filled_values = combed_filler.fill_field(field, value)
+                field_values.update(filled_values)
+
+        else:
+            # Fallback to original auto-matching (no combed field support)
+            row_dict_lower = {str(col).lower(): val for col, val in row_data.items()}
+
+            for pdf_field in self.pdf_fields:
+                pdf_field_lower = pdf_field.lower()
+
+                # Try to find matching Excel column
+                if pdf_field_lower in row_dict_lower:
+                    val = self.format_value_tab3(row_dict_lower[pdf_field_lower])
+                    field_values[pdf_field] = val
 
         # Fill all pages
         for page in writer.pages:
