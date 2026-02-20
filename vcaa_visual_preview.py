@@ -86,10 +86,12 @@ class VisualPreviewGenerator:
 
         # Draw label with background
         try:
-            # Try to use a nice font
-            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 14)
+            import platform
+            if platform.system() == 'Windows':
+                font = ImageFont.truetype("segoeui.ttf", 14)
+            else:
+                font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 14)
         except:
-            # Fallback to default
             font = ImageFont.load_default()
 
         # Get text size for background
