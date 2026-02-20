@@ -13,6 +13,7 @@ Features:
 """
 
 import os
+import sys
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
 from datetime import datetime
@@ -37,7 +38,12 @@ from vcaa_theme import (
 
 
 class ScrollableFrame(ttk.Frame):
-    """A helper class to create a scrollable frame with dark-themed canvas."""
+    """A helper class to create a scrollable frame with dark-themed canvas.
+
+    Mousewheel scrolling is scoped: only the frame under the cursor
+    scrolls, and the delta calculation is platform-aware (Windows,
+    macOS, Linux all behave differently).
+    """
 
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
@@ -61,11 +67,41 @@ class ScrollableFrame(ttk.Frame):
         self.canvas.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
 
-        # Mouse wheel support
-        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        # Scoped mousewheel: only bind when cursor is over this frame
+        self.canvas.bind("<Enter>", self._bind_mousewheel)
+        self.canvas.bind("<Leave>", self._unbind_mousewheel)
+        self.scrollable_frame.bind("<Enter>", self._bind_mousewheel)
+        self.scrollable_frame.bind("<Leave>", self._unbind_mousewheel)
+
+    def _bind_mousewheel(self, event=None):
+        """Bind mousewheel events to this specific canvas."""
+        if sys.platform == 'linux':
+            self.canvas.bind_all("<Button-4>", self._on_mousewheel)
+            self.canvas.bind_all("<Button-5>", self._on_mousewheel)
+        else:
+            self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _unbind_mousewheel(self, event=None):
+        """Unbind mousewheel events when cursor leaves."""
+        if sys.platform == 'linux':
+            self.canvas.unbind_all("<Button-4>")
+            self.canvas.unbind_all("<Button-5>")
+        else:
+            self.canvas.unbind_all("<MouseWheel>")
 
     def _on_mousewheel(self, event):
-        if self.canvas.winfo_exists():
+        """Scroll the canvas. Delta handling is platform-aware."""
+        if not self.canvas.winfo_exists():
+            return
+        if sys.platform == 'darwin':
+            # macOS: delta is already ±1 (or small integers)
+            self.canvas.yview_scroll(int(-1 * event.delta), "units")
+        elif sys.platform == 'linux':
+            # Linux: Button-4 = scroll up, Button-5 = scroll down
+            direction = -1 if event.num == 4 else 1
+            self.canvas.yview_scroll(direction * 3, "units")
+        else:
+            # Windows: delta is ±120 per notch
             self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
 
@@ -152,6 +188,127 @@ class WelcomeDialog(tk.Toplevel):
 
     def on_continue(self):
         self.choice = self.choice_var.get()
+        self.destroy()
+
+
+class SchoolSetupDialog(tk.Toplevel):
+    """One-time dialog to capture school name and academic year."""
+
+    def __init__(self, parent, current_name: str = "", current_year: str = ""):
+        super().__init__(parent)
+        self.title("School Setup")
+        self.configure(bg=COLORS['bg_elevated'])
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        self.result_name = None
+        self.result_year = None
+        C = COLORS
+        ff = SYSTEM_FONTS['family']
+
+        # Title
+        tk.Label(
+            self,
+            text="School Details",
+            font=(ff, 18, 'bold'),
+            fg=C['text_primary'],
+            bg=C['bg_elevated'],
+        ).pack(pady=(30, 4))
+
+        tk.Label(
+            self,
+            text="These details are used in generated PDF filenames\n"
+                 "and are saved so you only need to enter them once.",
+            font=(ff, 10),
+            fg=C['text_secondary'],
+            bg=C['bg_elevated'],
+            justify=tk.CENTER,
+        ).pack(pady=(0, 20))
+
+        # Form area
+        form = tk.Frame(self, bg=C['bg_elevated'])
+        form.pack(padx=40, fill=tk.X)
+
+        # School name
+        tk.Label(
+            form,
+            text="School Name",
+            font=(ff, 10, 'bold'),
+            fg=C['text_primary'],
+            bg=C['bg_elevated'],
+            anchor=tk.W,
+        ).pack(fill=tk.X, pady=(0, 4))
+
+        self.name_var = tk.StringVar(value=current_name)
+        name_entry = ttk.Entry(form, textvariable=self.name_var, width=45,
+                               style='Elevated.TEntry')
+        name_entry.pack(fill=tk.X, pady=(0, 4))
+        name_entry.focus_set()
+
+        tk.Label(
+            form,
+            text='e.g. "Wangaratta High School"',
+            font=(ff, 9),
+            fg=C['text_muted'],
+            bg=C['bg_elevated'],
+            anchor=tk.W,
+        ).pack(fill=tk.X, pady=(0, 16))
+
+        # Academic year
+        tk.Label(
+            form,
+            text="Academic Year",
+            font=(ff, 10, 'bold'),
+            fg=C['text_primary'],
+            bg=C['bg_elevated'],
+            anchor=tk.W,
+        ).pack(fill=tk.X, pady=(0, 4))
+
+        # Default to current year if not provided
+        if not current_year:
+            current_year = str(datetime.now().year)
+        self.year_var = tk.StringVar(value=current_year)
+        year_entry = ttk.Entry(form, textvariable=self.year_var, width=10,
+                               style='Elevated.TEntry')
+        year_entry.pack(anchor=tk.W, pady=(0, 16))
+
+        # Save button
+        ttk.Button(
+            self,
+            text="Save",
+            command=self.on_save,
+            style='Accent.TButton',
+        ).pack(pady=(8, 25))
+
+        # Bind Enter key
+        self.bind('<Return>', lambda e: self.on_save())
+
+        # Auto-size and centre on parent
+        self.update_idletasks()
+        width = self.winfo_reqwidth()
+        height = self.winfo_reqheight()
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - (width // 2)
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - (height // 2)
+        self.geometry(f"{width}x{height}+{x}+{y}")
+
+        self.lift()
+        self.attributes('-topmost', True)
+        self.after(100, lambda: self.attributes('-topmost', False))
+
+    def on_save(self):
+        name = self.name_var.get().strip()
+        year = self.year_var.get().strip()
+        if not name:
+            messagebox.showwarning("Required", "Please enter your school name.",
+                                   parent=self)
+            return
+        if not year:
+            messagebox.showwarning("Required", "Please enter the academic year.",
+                                   parent=self)
+            return
+        self.result_name = name
+        self.result_year = year
         self.destroy()
 
 
@@ -300,8 +457,11 @@ class VCAAPDFGeneratorV2:
 
         self.setup_ui()
 
+        # First-launch: ask for school details (runs once, then never again)
+        if not self.settings.school_configured:
+            self.root.after(300, self.prompt_school_setup)
         # Show welcome dialog if first time
-        if self.settings.show_welcome and not self.has_templates():
+        elif self.settings.show_welcome and not self.has_templates():
             self.root.after(500, self.show_welcome_dialog)
 
     def on_closing(self):
@@ -333,6 +493,32 @@ class VCAAPDFGeneratorV2:
             return False
         templates = list(Path(self.settings.templates_directory).glob("*.json"))
         return len(templates) > 0
+
+    def prompt_school_setup(self):
+        """Show school setup dialog (first launch only)."""
+        dialog = SchoolSetupDialog(
+            self.root,
+            current_name=self.settings.school_name,
+            current_year=self.settings.school_year,
+        )
+        self.root.wait_window(dialog)
+
+        if dialog.result_name:
+            self.settings.school_name = dialog.result_name
+            self.settings.school_year = dialog.result_year
+            self.settings.save_to_file(self.settings_file)
+            self.update_status(
+                f"School set: {dialog.result_name} ({dialog.result_year})", 'success'
+            )
+            # Update header if it's showing
+            if hasattr(self, 'header_school'):
+                self.header_school.config(
+                    text=f"{self.settings.school_name}  |  {self.settings.school_year}"
+                )
+
+        # Now show the regular welcome dialog if applicable
+        if self.settings.show_welcome and not self.has_templates():
+            self.root.after(200, self.show_welcome_dialog)
 
     def show_welcome_dialog(self):
         """Show welcome dialog for first-time users."""
@@ -379,6 +565,20 @@ class VCAAPDFGeneratorV2:
 
         info_area = tk.Frame(header, bg=C['bg_surface'])
         info_area.pack(side=tk.RIGHT, padx=20, pady=10)
+
+        # School name (clickable to edit)
+        school_text = ""
+        if self.settings.school_configured:
+            school_text = f"{self.settings.school_name}  |  {self.settings.school_year}"
+        self.header_school = tk.Label(info_area,
+            text=school_text,
+            font=(ff, 10, 'bold'),
+            fg=C['accent'],
+            bg=C['bg_surface'],
+            cursor="hand2",
+        )
+        self.header_school.pack(anchor=tk.E)
+        self.header_school.bind("<Button-1>", lambda e: self.prompt_school_setup())
 
         self.header_status = tk.Label(info_area,
             text="No template loaded",
@@ -1330,41 +1530,62 @@ class VCAAPDFGeneratorV2:
             self.generate_btn_tab3.config(text=f"Generate PDFs for {selected} Students", state=tk.NORMAL)
 
     def start_generation_tab3(self):
-        """Start PDF generation for Tab 3."""
+        """Start PDF generation for Tab 3.
+
+        All shared state is snapshot here (main thread) so the worker
+        thread never touches tkinter StringVars or mutable instance data.
+        """
         # Check if any students are selected
         selected_count = sum(1 for item in self.selected_rows.values() if item['selected'])
         if selected_count == 0:
             messagebox.showwarning("No Selection", "Please select at least one student to generate PDFs.")
             return
 
-        # Disable button during generation
+        # ── Snapshot all shared state in the main thread ──
+        ctx = {
+            'pdf_path': self.pdf_template_path.get(),
+            'excel_path': self.excel_file_path.get(),
+            'df': self.df.copy(),
+            'selected_indices': [
+                item['index'] for item in self.selected_rows.values()
+                if item['selected']
+            ],
+            'analyzed_fields': list(self.analyzed_fields),
+            'pdf_fields': list(self.pdf_fields) if hasattr(self, 'pdf_fields') else [],
+            'school_name': self.settings.school_name or "School",
+            'school_year': self.settings.school_year or str(datetime.now().year),
+            'combed_padding': self.settings.combed_field_padding,
+            'combed_align': self.settings.combed_field_align,
+        }
+
+        # Reset progress bar and disable button
+        self.progress_var_tab3.set(0)
         self.generate_btn_tab3.config(state=tk.DISABLED)
         self.update_status(f"Generating PDFs for {selected_count} students...", 'info')
 
-        # Start generation in background thread
-        thread = threading.Thread(target=self.run_generation_tab3)
+        # Start generation in background thread with snapshot
+        thread = threading.Thread(target=self.run_generation_tab3, args=(ctx,))
+        thread.daemon = True
         thread.start()
 
-    def run_generation_tab3(self):
-        """Run PDF generation (original functionality)."""
+    def run_generation_tab3(self, ctx):
+        """Run PDF generation in a background thread.
+
+        Uses only the snapshot *ctx* dict — never reads tkinter
+        StringVars or mutable instance state directly.
+        """
         try:
             # Create output folder
-            excel_dir = os.path.dirname(self.excel_file_path.get())
+            excel_dir = os.path.dirname(ctx['excel_path'])
             output_folder = os.path.join(excel_dir, "Completed Applications")
             os.makedirs(output_folder, exist_ok=True)
 
-            # Get only selected rows
-            selected_indices = [
-                item['index'] for item in self.selected_rows.values()
-                if item['selected']
-            ]
-
-            total = len(selected_indices)
+            total = len(ctx['selected_indices'])
             success_count = 0
             error_count = 0
 
-            for i, idx in enumerate(selected_indices):
-                row = self.df.iloc[idx]
+            for i, idx in enumerate(ctx['selected_indices']):
+                row = ctx['df'].iloc[idx]
                 row_dict = {str(col).lower(): val for col, val in row.items()}
 
                 # Get name for filename
@@ -1381,18 +1602,18 @@ class VCAAPDFGeneratorV2:
                 safe_surname = "".join(c for c in surname if c.isalnum() or c in ' -_').strip()
 
                 # Create filename
-                filename = f"{safe_first}_{safe_surname}_Evidence Application Wangaratta High School 2026.pdf"
+                filename = f"{safe_first}_{safe_surname}_Evidence Application {ctx['school_name']} {ctx['school_year']}.pdf"
                 output_path = os.path.join(output_folder, filename)
 
                 try:
-                    self.generate_pdf_tab3(row, output_path)
+                    self._generate_single_pdf(ctx, row, output_path)
                     success_count += 1
                     status_text = f"Created: {filename}"
                 except Exception as e:
                     error_count += 1
                     status_text = f"Error: {surname} - {str(e)}"
 
-                # Update progress
+                # Update progress (UI calls are safe via root.after)
                 progress = ((i + 1) / total) * 100
                 self.root.after(0, self.update_progress_tab3, progress, status_text, i+1, total)
 
@@ -1408,9 +1629,13 @@ class VCAAPDFGeneratorV2:
             self.root.after(0, lambda: messagebox.showerror("Error", f"Generation failed:\n{str(e)}"))
             self.root.after(0, lambda: self.generate_btn_tab3.config(state=tk.NORMAL))
 
-    def generate_pdf_tab3(self, row_data, output_path):
-        """Generate a single PDF with combed field support."""
-        reader = PdfReader(self.pdf_template_path.get())
+    def _generate_single_pdf(self, ctx, row_data, output_path):
+        """Generate a single PDF with combed field support.
+
+        Uses only the snapshot *ctx* dict for configuration and field
+        metadata — safe to call from any thread.
+        """
+        reader = PdfReader(ctx['pdf_path'])
         writer = PdfWriter()
 
         # Clone the PDF
@@ -1420,11 +1645,11 @@ class VCAAPDFGeneratorV2:
         field_values = {}
 
         # Check if we have analyzed fields with combed field metadata
-        if self.analyzed_fields:
+        if ctx['analyzed_fields']:
             # Use combed field filler for smart filling
             combed_filler = CombedFieldFiller(settings={
-                'padding': self.settings.combed_field_padding,
-                'align': self.settings.combed_field_align
+                'padding': ctx['combed_padding'],
+                'align': ctx['combed_align']
             })
 
             # Map Excel columns to values (case-insensitive)
@@ -1432,7 +1657,7 @@ class VCAAPDFGeneratorV2:
                              for col, val in row_data.items()}
 
             # Process each analyzed field
-            for field in self.analyzed_fields:
+            for field in ctx['analyzed_fields']:
                 # Find matching Excel column
                 field_name_lower = field.field_name.lower()
                 value = None
@@ -1453,7 +1678,7 @@ class VCAAPDFGeneratorV2:
             # Fallback to original auto-matching (no combed field support)
             row_dict_lower = {str(col).lower(): val for col, val in row_data.items()}
 
-            for pdf_field in self.pdf_fields:
+            for pdf_field in ctx['pdf_fields']:
                 pdf_field_lower = pdf_field.lower()
 
                 # Try to find matching Excel column

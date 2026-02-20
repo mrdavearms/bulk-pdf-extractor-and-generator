@@ -108,6 +108,13 @@ class AppSettings:
     last_template: Optional[str] = None
     combed_field_padding: bool = False
     combed_field_align: str = "left"  # "left" or "right"
+    school_name: str = ""
+    school_year: str = ""
+
+    @property
+    def school_configured(self) -> bool:
+        """True if school name has been set by the user."""
+        return bool(self.school_name.strip())
 
     def to_json(self) -> str:
         """Serialize to JSON string."""
@@ -116,9 +123,18 @@ class AppSettings:
 
     @classmethod
     def from_json(cls, json_str: str) -> 'AppSettings':
-        """Deserialize from JSON string."""
+        """Deserialize from JSON string.
+
+        Handles missing keys gracefully so that older settings files
+        (saved before new fields were added) still load without error.
+        """
         data = json.loads(json_str)
-        return cls(**data)
+        # Build kwargs using only keys the dataclass actually accepts,
+        # letting missing keys fall back to their field defaults.
+        import dataclasses
+        valid_keys = {f.name for f in dataclasses.fields(cls)}
+        filtered = {k: v for k, v in data.items() if k in valid_keys}
+        return cls(**filtered)
 
     @classmethod
     def from_file(cls, filepath: str) -> 'AppSettings':
@@ -126,7 +142,7 @@ class AppSettings:
         try:
             with open(filepath, 'r') as f:
                 return cls.from_json(f.read())
-        except FileNotFoundError:
+        except (FileNotFoundError, json.JSONDecodeError):
             return cls.get_defaults()
 
     def save_to_file(self, filepath: str):
