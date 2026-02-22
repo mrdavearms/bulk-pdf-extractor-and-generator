@@ -1,289 +1,192 @@
-# VCAA Evidence Application PDF Generator v2.0
-## Wangaratta High School - 2026
+# Bulk PDF Generator v2.0
 
-A powerful cross-platform application (macOS & Windows) to analyze PDF templates, map form fields, and batch-generate VCAA Special Examination Arrangements Evidence Application forms from Excel data.
+A cross-platform desktop application that batch-fills PDF form templates from spreadsheet data. Built with Python and tkinter, it handles regular text fields, checkboxes, and combed (character-by-character) fields automatically.
 
-**NEW in v2.0:**
-- 🔍 **Visual field preview** - Click any field to see its exact location on the PDF
-- 🔤 **Automatic combed field detection** - Character-by-character fields handled automatically
-- 📊 **Template analysis** - Understand your PDF structure before generating
-- 💾 **Template library** - Save and reuse configurations
-- 🎯 **Smart Excel mapping** - Intelligent column name suggestions
+Originally built to streamline VCAA Special Examination Arrangements Evidence Application forms for schools, but works with any PDF form template.
+
+**Repository:** [github.com/mrdavearms/VCAA-PDF-Generator](https://github.com/mrdavearms/VCAA-PDF-Generator)
 
 ---
 
-## What's Included
+## Features
 
-**Main Application:**
-- `vcaa_pdf_generator_v2.py` — Enhanced v2.0 application with tabbed interface
-- `vcaa_pdf_generator.py` — Original v1.0 application (preserved)
-
-**Supporting Modules:**
-- `vcaa_models.py` — Data structures and settings
-- `vcaa_pdf_analyzer.py` — PDF field extraction engine
-- `vcaa_visual_preview.py` — Visual field preview generator
-- `vcaa_combed_filler.py` — Character-by-character field filler
-
-**Launchers:**
-- `Launch_VCAA.command` — macOS launcher
-- `Launch_VCAA.bat` — Windows launcher (if available)
-
-**Documentation:**
-- `README.md` — This file
-- `TECHNICAL_SPEC.md` — Complete technical specification
-- `PHASE_1_SUMMARY.md` — Phase 1 implementation details
-- `PHASE_2_SUMMARY.md` — Phase 2 implementation details
+- **PDF template analysis** -- scans any PDF form and extracts all fields with type detection
+- **Combed field auto-detection** -- character-by-character fields (e.g. student numbers) detected and filled automatically
+- **Visual field preview** -- click any detected field to see its exact location highlighted on the PDF page, with zoom and pan controls
+- **Batch generation** -- fill hundreds of PDFs from a single Excel/CSV spreadsheet in one click
+- **Template library** -- save analysed templates for instant reuse
+- **Excel mapping export** -- generates a ready-to-use spreadsheet with smart column name suggestions
+- **Cross-platform** -- Windows and macOS, with platform-aware fonts, file handling, and launchers
 
 ---
 
-## First-Time Setup (Do Once)
+## Quick Start
 
-### Step 1: Create the app folder and virtual environment
+### 1. Clone the repository
 
-**For macOS:**
-Open Terminal and run:
 ```bash
-mkdir -p ~/Documents/VCAA_App
-cd ~/Documents/VCAA_App
-python3 -m venv venv
-source venv/bin/activate
-pip install pypdf pandas openpyxl PyMuPDF Pillow
+git clone https://github.com/mrdavearms/VCAA-PDF-Generator.git
+cd VCAA-PDF-Generator
 ```
 
-**For Windows:**
-Open PowerShell or Command Prompt and run:
+### 2. Create a virtual environment and install dependencies
+
+**Windows (PowerShell):**
 ```powershell
-mkdir "$HOME\Documents\VCAA_App"
-cd "$HOME\Documents\VCAA_App"
 python -m venv venv
 .\venv\Scripts\activate
-pip install pypdf pandas openpyxl PyMuPDF Pillow
+pip install -r requirements.txt
 ```
 
-### Step 2: Install tkinter (if needed)
-
-**For macOS:**
-If you get a tkinter error, run:
+**macOS / Linux:**
 ```bash
-brew install python-tk@3.14
-```
-(Adjust the version number to match your Python version)
-
-**For Windows:**
-Tkinter is usually included with the standard Python installer from python.org. If it's missing, re-run the installer and ensure "tcl/tk and IDLE" is checked.
-
-### Step 3: Copy the app files
-
-Copy all Python files from this repository into your `VCAA_App` folder:
-- `vcaa_pdf_generator_v2.py` (recommended)
-- `vcaa_models.py`
-- `vcaa_pdf_analyzer.py`
-- `vcaa_visual_preview.py`
-- `vcaa_combed_filler.py`
-- `vcaa_pdf_generator.py` (original, optional)
-- `Launch_VCAA.command` (macOS) or `Launch_VCAA.bat` (Windows)
-
-### Step 4: Finalize Launcher (macOS only)
-
-On macOS, make the launcher executable:
-```bash
-chmod +x ~/Documents/VCAA_App/Launch_VCAA.command
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-**Update the launcher** to use v2.0:
+> **Note:** tkinter is required but ships with standard Python on Windows. On macOS, install via `brew install python-tk@3.xx` (matching your Python version). On Linux, install `python3-tk` via your package manager.
+
+### 3. Run the application
+
 ```bash
-# Edit Launch_VCAA.command and change the last line to:
 python vcaa_pdf_generator_v2.py
 ```
 
-### Step 5: Easy Access (optional)
-
-- **macOS:** Drag `Launch_VCAA.command` to your Dock
-- **Windows:** Right-click `Launch_VCAA.bat` → *Send to* → *Desktop (create shortcut)*
-
----
-
-## How to Use v2.0
-
-### Launch the Application
-
-**For macOS:**
-Double-click `Launch_VCAA.command` (or the Dock icon)
-
-**For Windows:**
-Double-click `Launch_VCAA.bat` (or desktop shortcut)
-
-**Or run directly:**
-```bash
-cd ~/Documents/VCAA_App
-source venv/bin/activate  # macOS/Linux
-# or
-.\venv\Scripts\activate  # Windows
-python vcaa_pdf_generator_v2.py
-```
+Or use the platform launchers:
+- **Windows:** Double-click `Launch_BulkPDFGenerator.bat`
+- **macOS:** Double-click `Launch_BulkPDFGenerator.command` (make executable first: `chmod +x Launch_BulkPDFGenerator.command`)
 
 ---
 
-## v2.0 Three-Stage Workflow
+## How It Works
 
-### Tab 1: Analyze Template 🔍
+The app uses a tabbed workflow:
 
-**Purpose:** Understand your PDF structure
+### Tab 0: Getting Started
 
-1. **Load PDF Template**
-   - Click "Browse..." and select your `Evidence_Application.pdf`
-   - Template name auto-suggested (or customize)
-   - View recent templates
+An in-app guide explaining how to prepare PDF templates in Adobe Acrobat Pro -- naming form fields, editing properties, and setting up combed fields. Rendered from markdown with clickable hyperlinks.
 
-2. **Analyze Fields**
-   - Click "Analyze Fields" button
-   - See all 47 fields discovered
-   - View breakdown: regular fields vs. combed (character-by-character) fields
+### Tab 1: Analyse Template
 
-3. **Visual Preview**
-   - Click any field in the table
-   - **See red highlight** showing exact field location on PDF
-   - **Yellow label** displays field name + character count
-   - Verify field positions before generating
+1. Load a PDF template (browse or select from recent templates)
+2. Click **Analyse Fields** to scan for all form fields
+3. Review the field list -- regular text fields, combed fields, checkboxes, and signatures are identified
+4. Click any field to see its exact location highlighted on the PDF page
+5. Export a mapping spreadsheet (`.xlsx`) with smart column name suggestions
+6. Save the template configuration for future use
 
-4. **Export & Save**
-   - Click "Export Mapping File (.xlsx)"
-   - Excel file created with smart column name suggestions
-   - Click "Save Template Config" to reuse later
+### Tab 2: Map Fields
 
-**What are Combed Fields?**
-Combed fields are character-by-character boxes (like `☐☐☐☐☐☐☐☐☐☐` for a 10-letter name). v2.0 **automatically detects** these and splits your text accordingly:
-- "John" → J-o-h-n (fills 4 boxes, leaves 6 empty)
-- "Christopher" → Christophe (truncates to 10 characters)
+Displays auto-matching status. Fields are matched to Excel columns by case-insensitive name comparison. Reserved for future manual mapping UI.
 
----
+### Tab 3: Generate PDFs
 
-### Tab 2: Map Fields (Optional) 📊
+1. Select the PDF template and Excel/CSV data file
+2. Click **Load & Preview Data** to validate
+3. Review warnings (missing required fields, combed field overflow)
+4. Select/deselect individual students
+5. Click **Generate PDFs** -- progress bar tracks each file
+6. Output folder opens automatically when complete
 
-**Purpose:** Manual field mapping (future feature)
+### Tab 4: About
 
-Currently shows auto-matching status. Future versions will allow custom field-to-column mappings.
-
-**Default Behavior:** Auto-matching enabled (Excel column names must match PDF field names, case-insensitive)
+Developer information and project links.
 
 ---
 
-### Tab 3: Generate PDFs ⚡
+## Combed Field Detection
 
-**Purpose:** Batch-generate filled PDFs
+Combed fields are character-by-character boxes common in government forms (e.g. `[ J ][ o ][ h ][ n ]` for a name field). The analyser automatically detects three naming patterns:
 
-1. **Select Template** (optional)
-   - Choose from analyzed templates
-   - Or load PDF + Excel directly
+| Pattern | Example | Detected As |
+|---------|---------|-------------|
+| Bracketed | `StudentNumber[0]`, `StudentNumber[1]`, ... | `StudentNumber` (combed) |
+| Underscore | `Name_0`, `Name_1`, ... | `Name` (combed) |
+| Sequential | `DOB0`, `DOB1`, ... | `DOB` (combed) |
 
-2. **Select Files**
-   - **PDF Template:** Your blank form
-   - **Excel Data File:** Student data spreadsheet
-
-3. **Load & Preview Data**
-   - Click "Load & Preview Data"
-   - See validation warnings (missing required fields)
-   - All students selected by default
-
-4. **Select Students**
-   - Click rows to toggle selection
-   - Use "Select All" / "Deselect All" buttons
-
-5. **Generate PDFs**
-   - Click "Generate PDFs for X Students"
-   - Progress bar shows status
-   - Files saved to `Completed Applications/` folder
-
-6. **Result**
-   - Perfect PDFs with combed fields automatically filled!
-   - Open folder to view generated files
+The app groups these into a single logical field, splits input text character-by-character, and fills each box. Text longer than the field length is truncated automatically.
 
 ---
 
-## Excel Spreadsheet Requirements
+## Excel / CSV Requirements
 
-Your Excel file needs these column headers (spelling matters, but capitalization doesn't):
+Your spreadsheet needs column headers that match your PDF field names. Matching is **case-insensitive**, so `Surname` matches `surname`, `SURNAME`, etc.
 
-### Required for filenames:
-- `surname`
-- `First name`
+Two columns are required for output filenames:
+- `surname` (or matching variant)
+- `First name` (or matching variant)
 
-### Student details:
-- `School name`
-- `VCAA school code`
-- `VCAA student number`
-- `day of birth`
-- `DOB month`
-- `dob year`
+All other columns are matched to PDF fields by name. Unmatched columns are silently skipped.
 
-### Condition information:
-- `List the students conditions egdysgraphia anxiety`
-- `how has each of these conditions or issues impacted`
-
-### Provisions (up to 5):
-- `Provision 1` through `Provision 5`
-- `Date implemented 1` through `Date implemented 5`
-- `How have EACH of these PROVISIONS assisted the student to access andor respond to Schoolbased Assessments andor examinations`
-- `What evidence was used to make decisions regarding the provisions used by the student`
-- `Any other relevant social and educational information to support the application optional`
-
-### Staff details:
-- `STAFF MEMBER NAME`
-- `STAFF MEMBER Position`
-- `SIGNATURE DAY`
-- `SIGNATURE MONTH`
-- `SIGNATURE YEAR`
-
-**Note:** If your PDF has combed (character-by-character) fields, v2.0 will **automatically split** text like names and dates into individual boxes!
+**Supported formats:** `.xlsx`, `.xls`, `.csv` (UTF-8 and Latin-1 encoding auto-detected for CSV)
 
 ---
 
 ## Output
 
-**Location:** `[Excel folder]/Completed Applications/`
+Generated PDFs are saved to a `Completed Applications` subfolder (configurable via the output folder browse button). Filename format:
 
-**Filename format:** `FirstName_Surname_Evidence Application Wangaratta High School 2026.pdf`
+```
+FirstName_Surname_Evidence Application SchoolName Year.pdf
+```
 
-**Features:**
-- All fields filled automatically
-- Combed fields split character-by-character
-- Dates formatted as DD/MM/YYYY (Australian format)
-- Names truncated if too long for boxes
+If a file already exists, a counter suffix is appended: `(1)`, `(2)`, etc. School name and year are sanitised to remove special characters.
 
 ---
 
-## Advanced Features (v2.0)
+## Configuration
 
-### Template Library
+Settings are stored in `~/Documents/VCAA_App/settings.json` and created automatically on first run:
 
-Save analyzed templates for reuse:
-1. Analyze PDF in Tab 1
-2. Click "Save Template Config"
-3. Next time: Select from "Recent Templates" dropdown
-4. Skip re-analysis!
+```json
+{
+  "templates_directory": "~/Documents/VCAA_App/templates",
+  "show_welcome": true,
+  "auto_load_last_template": true,
+  "combed_field_padding": false,
+  "combed_field_align": "left",
+  "school_name": "",
+  "school_year": ""
+}
+```
 
-**Storage:** `~/Documents/VCAA_App/templates/`
+Template configurations are saved as JSON files in the templates directory alongside their mapping spreadsheets.
 
-### Visual Preview Caching
+---
 
-Field previews are cached for speed:
-- First click: ~500-800ms (renders page)
-- Subsequent clicks: ~50-100ms (from cache)
-- Cache persists between sessions
+## Dependencies
 
-**Cache location:** `~/Documents/VCAA_App/templates/.preview_cache/`
+| Package | Version | Purpose |
+|---------|---------|---------|
+| pypdf | >= 4.0.0 | PDF form filling (read/write) |
+| pandas | >= 2.0.0 | Excel/CSV data processing |
+| openpyxl | >= 3.0.0 | Excel file creation for mapping export |
+| PyMuPDF (fitz) | >= 1.23.0 | PDF analysis, field extraction, page rendering |
+| Pillow | >= 10.0.0 | Image manipulation for visual preview |
+| tkinter | (stdlib) | GUI framework |
 
-### Combed Field Auto-Detection
+---
 
-Supports 3 patterns:
-- `Field[0]`, `Field[1]`, ... (bracketed)
-- `Field_0`, `Field_1`, ... (underscore)
-- `Field0`, `Field1`, ... (sequential)
+## Project Structure
 
-**Behavior:**
-- Left-aligned by default
-- No space padding (future: configurable)
-- Truncates if text too long
+```
+VCAA-PDF-Generator/
+├── vcaa_pdf_generator_v2.py      # Main application (GUI + orchestration)
+├── vcaa_models.py                # Data models (PDFField, TemplateConfig, AppSettings)
+├── vcaa_pdf_analyzer.py          # PDF field extraction and combed detection
+├── vcaa_visual_preview.py        # PDF page rendering and field highlighting
+├── vcaa_combed_filler.py         # Character-by-character field filling
+├── vcaa_theme.py                 # Centralised theme system (colours, fonts, styles)
+├── vcaa_markdown_renderer.py     # Markdown-to-tkinter Text widget renderer
+├── getting_started.md            # In-app Getting Started guide content
+├── requirements.txt              # Python dependencies
+├── Launch_BulkPDFGenerator.bat   # Windows launcher
+├── Launch_BulkPDFGenerator.command  # macOS launcher
+├── README.md                     # This file
+├── ARCHITECTURE.md               # Technical architecture documentation
+└── LICENSE                       # MIT licence
+```
 
 ---
 
@@ -291,141 +194,26 @@ Supports 3 patterns:
 
 | Problem | Solution |
 |---------|----------|
-| "Python not found" | Install Python from python.org |
-| "No module named pypdf" | Run `pip install pypdf pandas openpyxl PyMuPDF Pillow` |
-| "No module named tkinter" | **Mac:** `brew install python-tk@3.14` <br> **Windows:** Re-run Python installer, check "tcl/tk" |
-| "No module named vcaa_models" | Copy all `.py` files to your VCAA_App folder |
-| "Permission denied" on Excel | Close Excel before running the app |
-| Fields not filling | Check column names match exactly (case-insensitive) |
-| Preview not showing | Click "Analyze Fields" first in Tab 1 |
-| Combed fields not splitting | Ensure you analyzed the PDF in Tab 1 before generating |
-| Text truncated in boxes | Normal behavior - combed fields have character limits |
+| `ModuleNotFoundError: No module named 'tkinter'` | **macOS:** `brew install python-tk@3.xx` / **Windows:** re-run Python installer, tick "tcl/tk and IDLE" / **Linux:** `sudo apt install python3-tk` |
+| `ModuleNotFoundError: No module named 'pypdf'` | Run `pip install -r requirements.txt` inside your virtual environment |
+| Fields not filling in generated PDFs | Ensure Excel column headers match PDF field names (case-insensitive) |
+| Visual preview not showing | Click **Analyse Fields** first in Tab 1 |
+| Combed fields not splitting | Analyse the PDF in Tab 1 before generating in Tab 3 |
+| Permission denied on Excel file | Close Excel/LibreOffice before running the app |
+| Text truncated in combed boxes | Expected behaviour -- combed fields have fixed character limits |
 
 ---
 
-## Upgrading from v1.0
+## Developer
 
-**v1.0 still works!** Both versions are included.
+**Dave Armstrong**
+Victorian Department of Education
+[Dave.Armstrong@education.vic.gov.au](mailto:Dave.Armstrong@education.vic.gov.au)
 
-**To use v2.0:**
-1. Install new dependencies: `pip install PyMuPDF Pillow`
-2. Copy new `.py` files to your VCAA_App folder
-3. Update launcher to run `vcaa_pdf_generator_v2.py`
-4. Enjoy new features!
-
-**Backward Compatibility:**
-- v2.0's Tab 3 works exactly like v1.0
-- Can skip Tab 1/2 and go straight to generation
-- No changes to Excel format required
+Built with Python, tkinter, and Claude.
 
 ---
 
-## Configuration
+## Licence
 
-Settings stored in: `~/Documents/VCAA_App/settings.json`
-
-```json
-{
-  "templates_directory": "/path/to/templates",
-  "show_welcome": true,
-  "auto_load_last_template": true,
-  "combed_field_padding": false,
-  "combed_field_align": "left"
-}
-```
-
-**Future:** Settings dialog to change these from the app.
-
----
-
-## Notes
-
-- The **Signature** field in the PDF cannot be filled automatically — sign manually after generation
-- Always **close Excel** before running the app
-- Dates are formatted as Australian DD/MM/YYYY automatically
-- Combed fields (character boxes) are filled automatically in v2.0
-- Visual preview requires analyzing the PDF first (Tab 1)
-- Template configurations save time on repeat use
-
----
-
-## File Structure
-
-```
-~/Documents/VCAA_App/
-├── venv/                          # Virtual environment
-├── vcaa_pdf_generator_v2.py       # v2.0 application (recommended)
-├── vcaa_pdf_generator.py          # v1.0 application (original)
-├── vcaa_models.py                 # Data structures
-├── vcaa_pdf_analyzer.py           # PDF analysis engine
-├── vcaa_visual_preview.py         # Preview generator
-├── vcaa_combed_filler.py          # Combed field filler
-├── Launch_VCAA.command            # Launcher
-├── settings.json                  # App settings (auto-created)
-└── templates/                     # Template library (auto-created)
-    ├── .preview_cache/            # Preview image cache
-    ├── Evidence Application 2026.json
-    └── Evidence Application 2026_mapping.xlsx
-```
-
----
-
-## What's New in v2.0
-
-### Phase 1 Features:
-- ✅ Tabbed interface (Analyze | Map Fields | Generate)
-- ✅ PDF field extraction and analysis
-- ✅ Combed field detection (3 pattern types)
-- ✅ Template library with JSON configs
-- ✅ Smart Excel column mapping export
-- ✅ Recent templates dropdown
-- ✅ First-run welcome dialog
-
-### Phase 2 Features:
-- ✅ Visual field preview with highlighting
-- ✅ Click-to-preview interaction
-- ✅ Two-tier caching (memory + disk)
-- ✅ Combed field auto-splitting in generation
-- ✅ Character-by-character box filling
-- ✅ Automatic text truncation
-- ✅ Date splitting (DD/MM/YYYY → boxes)
-
-### Coming Soon (Phase 3+):
-- Tab 2: Manual field mapping UI
-- Overflow warnings before generation
-- Settings dialog for preferences
-- Cache management controls
-
----
-
-## Credits
-
-**Created:** February 2026
-**For:** Wangaratta High School
-**Version:** 2.0 (Enhanced Edition)
-
-Built with:
-- Python 3
-- tkinter (GUI)
-- pypdf (PDF generation)
-- PyMuPDF (PDF analysis & rendering)
-- pandas (Excel data processing)
-- openpyxl (Excel file handling)
-- Pillow (Image manipulation)
-
-**Development:** Co-created with Claude Sonnet 4.5
-
----
-
-## Support
-
-For technical documentation, see:
-- `TECHNICAL_SPEC.md` - Complete v2.0 specification
-- `PHASE_1_SUMMARY.md` - Phase 1 implementation details
-- `PHASE_2_SUMMARY.md` - Phase 2 implementation details
-
-**Repository:** https://github.com/mrdavearms/VCAA-PDF-Generator
-
----
-
-*VCAA Evidence Application PDF Generator v2.0 - Making form filling easier, one PDF at a time.*
+MIT -- see [LICENSE](LICENSE) for details.

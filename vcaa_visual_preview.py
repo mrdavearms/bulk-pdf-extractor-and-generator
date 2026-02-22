@@ -5,10 +5,13 @@ Handles PDF page rendering and field highlighting for visual preview.
 """
 
 import os
+from collections import OrderedDict
 from typing import Optional, Tuple
 from PIL import Image, ImageDraw, ImageFont
 import fitz  # PyMuPDF
 from vcaa_models import PDFField
+
+_MAX_CACHED_PAGES = 5  # Cap memory cache (~60 MB at 200 DPI)
 
 
 class VisualPreviewGenerator:
@@ -21,7 +24,7 @@ class VisualPreviewGenerator:
             '.preview_cache'
         )
         self.doc = None
-        self._cached_pages = {}  # {page_num: Image}
+        self._cached_pages = OrderedDict()  # LRU cache {cache_key: Image}
 
     def __enter__(self):
         """Open PDF document."""
@@ -84,16 +87,28 @@ class VisualPreviewGenerator:
         if field.is_combed:
             label_text += f" ({field.length} chars)"
 
-        # Draw label with background
+        # Draw label with background - try platform fonts with absolute paths
+        font = None
         try:
             import platform
             if platform.system() == 'Windows':
-                font = ImageFont.truetype("segoeui.ttf", 14)
+                # Use absolute path to Windows font directory
+                win_font = os.path.join(
+                    os.environ.get('WINDIR', r'C:\Windows'),
+                    'Fonts', 'segoeui.ttf'
+                )
+                font = ImageFont.truetype(win_font, 14)
             elif platform.system() == 'Darwin':
-                font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 14)
-            else:
-                font = ImageFont.load_default()
+                for mac_font in (
+                    '/System/Library/Fonts/Helvetica.ttc',
+                    '/System/Library/Fonts/SFNSText.ttf',
+                ):
+                    if os.path.exists(mac_font):
+                        font = ImageFont.truetype(mac_font, 14)
+                        break
         except (IOError, OSError):
+            pass
+        if font is None:
             font = ImageFont.load_default()
 
         # Get text size for background
@@ -136,8 +151,9 @@ class VisualPreviewGenerator:
         """
         cache_key = f"{page_num}_{dpi}"
 
-        # Check memory cache
+        # Check memory cache (LRU touch)
         if cache_key in self._cached_pages:
+            self._cached_pages.move_to_end(cache_key)
             return self._cached_pages[cache_key]
 
         # Check disk cache
@@ -146,6 +162,7 @@ class VisualPreviewGenerator:
 
         if os.path.exists(cache_path):
             img = Image.open(cache_path)
+            img.load()  # Force full read into memory; releases file handle
             self._cached_pages[cache_key] = img
             return img
 
@@ -159,8 +176,10 @@ class VisualPreviewGenerator:
         # Save to disk cache
         img.save(cache_path, "PNG")
 
-        # Save to memory cache
+        # Save to memory cache with LRU eviction
         self._cached_pages[cache_key] = img
+        while len(self._cached_pages) > _MAX_CACHED_PAGES:
+            self._cached_pages.popitem(last=False)  # Evict oldest
 
         return img
 
@@ -168,11 +187,14 @@ class VisualPreviewGenerator:
         """Clear both memory and disk cache."""
         self._cached_pages.clear()
 
-        # Clear disk cache
+        # Clear disk cache (only app-generated files, with error handling)
         if os.path.exists(self.cache_dir):
             for file in os.listdir(self.cache_dir):
-                if file.endswith('.png'):
-                    os.remove(os.path.join(self.cache_dir, file))
+                if file.startswith('page_') and file.endswith('.png'):
+                    try:
+                        os.remove(os.path.join(self.cache_dir, file))
+                    except OSError:
+                        pass  # File may be locked; skip silently
 
     def get_cache_size(self) -> int:
         """Get total size of disk cache in bytes."""

@@ -8,6 +8,8 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 import json
+import os
+import tempfile
 
 
 @dataclass
@@ -96,14 +98,25 @@ class TemplateConfig:
 
     @classmethod
     def from_file(cls, filepath: str) -> 'TemplateConfig':
-        """Load from JSON file."""
-        with open(filepath, 'r') as f:
-            return cls.from_json(f.read())
+        """Load from JSON file. Raises ValueError on bad data."""
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                return cls.from_json(f.read())
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Template file is not valid JSON: {filepath}") from e
+        except (TypeError, KeyError) as e:
+            raise ValueError(f"Template file has missing or invalid fields: {filepath}") from e
 
     def save_to_file(self, filepath: str):
-        """Save to JSON file."""
-        with open(filepath, 'w') as f:
-            f.write(self.to_json())
+        """Save to JSON file atomically to prevent corruption on crash."""
+        dir_name = os.path.dirname(os.path.abspath(filepath))
+        os.makedirs(dir_name, exist_ok=True)
+        with tempfile.NamedTemporaryFile('w', dir=dir_name,
+                                         suffix='.tmp', delete=False,
+                                         encoding='utf-8') as tmp:
+            tmp.write(self.to_json())
+            tmp_path = tmp.name
+        os.replace(tmp_path, filepath)
 
 
 @dataclass
@@ -149,13 +162,19 @@ class AppSettings:
         try:
             with open(filepath, 'r') as f:
                 return cls.from_json(f.read())
-        except (FileNotFoundError, json.JSONDecodeError):
+        except (FileNotFoundError, json.JSONDecodeError, TypeError, KeyError):
             return cls.get_defaults()
 
     def save_to_file(self, filepath: str):
-        """Save to JSON file."""
-        with open(filepath, 'w') as f:
-            f.write(self.to_json())
+        """Save to JSON file atomically to prevent corruption on crash."""
+        dir_name = os.path.dirname(os.path.abspath(filepath))
+        os.makedirs(dir_name, exist_ok=True)
+        with tempfile.NamedTemporaryFile('w', dir=dir_name,
+                                         suffix='.tmp', delete=False,
+                                         encoding='utf-8') as tmp:
+            tmp.write(self.to_json())
+            tmp_path = tmp.name
+        os.replace(tmp_path, filepath)
 
     @classmethod
     def get_defaults(cls) -> 'AppSettings':

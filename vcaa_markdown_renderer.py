@@ -92,6 +92,12 @@ class MarkdownRenderer:
             spacing1=0,
             spacing3=0,
         )
+        self.text.tag_configure('hr',
+            font=(ff, 1),
+            foreground=C['border_subtle'],
+            spacing1=12,
+            spacing3=12,
+        )
 
     # ── public API ─────────────────────────────────────────────
 
@@ -108,6 +114,9 @@ class MarkdownRenderer:
             if line.strip() == '':
                 # Blank line -> small vertical spacer
                 self.text.insert(tk.END, '\n', 'spacer')
+            elif line.strip() in ('---', '***', '___'):
+                # Horizontal rule
+                self.text.insert(tk.END, '\u2500' * 60 + '\n', 'hr')
             elif line.startswith('### '):
                 self._insert_inline(line[4:], 'h3')
                 self.text.insert(tk.END, '\n')

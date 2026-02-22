@@ -171,15 +171,9 @@ class PDFAnalyzer:
         indices = [item[0] for item in items]
         indices.sort()
 
-        # Check if sequential starting from 0 or 1
-        if indices[0] == 0:
-            expected = list(range(len(indices)))
-        elif indices[0] == 1:
-            expected = list(range(1, len(indices) + 1))
-        else:
-            # Doesn't start at 0 or 1 - likely not a combed field
-            return False
-
+        # Check if indices form a contiguous sequence from any start value
+        start = indices[0]
+        expected = list(range(start, start + len(indices)))
         return indices == expected
 
     def get_field_statistics(self, fields: List[PDFField]) -> Dict[str, int]:

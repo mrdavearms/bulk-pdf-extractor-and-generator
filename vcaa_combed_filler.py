@@ -117,7 +117,7 @@ class CombedFieldFiller:
         self,
         field: PDFField,
         text_value: str
-    ) -> Dict[str, any]:
+    ) -> Dict[str, object]:
         """
         Check if text will overflow a combed field.
 

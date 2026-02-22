@@ -75,20 +75,20 @@ class ScrollableFrame(ttk.Frame):
         self.scrollable_frame.bind("<Leave>", self._unbind_mousewheel)
 
     def _bind_mousewheel(self, event=None):
-        """Bind mousewheel events to this specific canvas."""
+        """Bind mousewheel events to this specific canvas (not bind_all)."""
         if sys.platform == 'linux':
-            self.canvas.bind_all("<Button-4>", self._on_mousewheel)
-            self.canvas.bind_all("<Button-5>", self._on_mousewheel)
+            self.canvas.bind("<Button-4>", self._on_mousewheel)
+            self.canvas.bind("<Button-5>", self._on_mousewheel)
         else:
-            self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+            self.canvas.bind("<MouseWheel>", self._on_mousewheel)
 
     def _unbind_mousewheel(self, event=None):
         """Unbind mousewheel events when cursor leaves."""
         if sys.platform == 'linux':
-            self.canvas.unbind_all("<Button-4>")
-            self.canvas.unbind_all("<Button-5>")
+            self.canvas.unbind("<Button-4>")
+            self.canvas.unbind("<Button-5>")
         else:
-            self.canvas.unbind_all("<MouseWheel>")
+            self.canvas.unbind("<MouseWheel>")
 
     def _on_mousewheel(self, event):
         """Scroll the canvas. Delta handling is platform-aware."""
@@ -447,6 +447,7 @@ class VCAAPDFGeneratorV2:
         self.analyzed_fields: List[PDFField] = []
         self.pdf_template_path = tk.StringVar()
         self.excel_file_path = tk.StringVar()
+        self.pdf_fields: List[str] = []
 
         # Tab 3 (Generate) state - from original app
         self.df = None
@@ -625,6 +626,10 @@ class VCAAPDFGeneratorV2:
         self.notebook.add(self.tab2_container, text="  2  Map Fields  ")
         self.notebook.add(self.tab3_container, text="  3  Generate PDFs  ")
 
+        # About tab (plain frame, right-hand side)
+        self.tab_about_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab_about_frame, text="  About  ")
+
         # Shorthand for actual UI frames
         self.tab1 = self.tab1_container.scrollable_frame
         self.tab2 = self.tab2_container.scrollable_frame
@@ -659,6 +664,7 @@ class VCAAPDFGeneratorV2:
         self.setup_tab1_analyze()
         self.setup_tab2_mapping()
         self.setup_tab3_generate()
+        self.setup_tab_about()
 
         # Disable Tab 2 (placeholder until Phase 3)
         self.notebook.tab(2, state='disabled')
@@ -740,7 +746,6 @@ class VCAAPDFGeneratorV2:
         scrollbar.config(command=text_widget.yview)
 
         # Load and render the markdown file
-        import os
         md_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'getting_started.md')
         try:
             load_and_render(text_widget, md_path)
@@ -749,6 +754,78 @@ class VCAAPDFGeneratorV2:
                                "Expected file: getting_started.md\n"
                                "Place it in the same folder as the application.")
             text_widget.config(state=tk.DISABLED)
+        except (PermissionError, UnicodeDecodeError, OSError) as e:
+            text_widget.insert(tk.END, f"Could not load Getting Started content:\n{e}")
+            text_widget.config(state=tk.DISABLED)
+
+    def setup_tab_about(self):
+        """Build the About tab with developer info and project links."""
+        import webbrowser
+        C = COLORS
+        ff = SYSTEM_FONTS['family']
+
+        # Outer wrapper centres content vertically and horizontally
+        outer = tk.Frame(self.tab_about_frame, bg=C['bg_base'])
+        outer.pack(fill=tk.BOTH, expand=True)
+        outer.columnconfigure(0, weight=1)
+        outer.rowconfigure(0, weight=1)
+
+        # Centred card
+        card_border = tk.Frame(outer, bg=C['border_subtle'], padx=1, pady=1)
+        card_border.grid(row=0, column=0)  # centres in the expanded cell
+        card = tk.Frame(card_border, bg=C['bg_surface'], padx=48, pady=40)
+        card.pack()
+
+        # App icon + title
+        tk.Label(card, text="\u25c6", font=(ff, 36), fg=C['accent'],
+                 bg=C['bg_surface']).pack(pady=(0, 4))
+        tk.Label(card, text="Bulk PDF Generator", font=(ff, 22, 'bold'),
+                 fg=C['text_primary'], bg=C['bg_surface']).pack()
+        tk.Label(card, text="Generate filled PDFs from spreadsheet data",
+                 font=(ff, 11), fg=C['text_secondary'],
+                 bg=C['bg_surface']).pack(pady=(2, 20))
+
+        # Divider
+        tk.Frame(card, bg=C['border_subtle'], height=1).pack(fill=tk.X, pady=(0, 20))
+
+        # Mission statement
+        mission = (
+            "Designed to take the pain out of complicated, repetitive\n"
+            "PDF form-filling tasks in schools \u2014 turning hours of manual\n"
+            "data entry into a single click, so staff can focus on the\n"
+            "work that actually matters."
+        )
+        tk.Label(card, text=mission, font=(ff, 11), fg=C['text_primary'],
+                 bg=C['bg_surface'], justify=tk.CENTER,
+                 wraplength=420).pack(pady=(0, 24))
+
+        # Developer info
+        tk.Label(card, text="Developed by", font=(ff, 10),
+                 fg=C['text_tertiary'], bg=C['bg_surface']).pack()
+        tk.Label(card, text="Dave Armstrong", font=(ff, 14, 'bold'),
+                 fg=C['text_primary'], bg=C['bg_surface']).pack(pady=(2, 2))
+        tk.Label(card, text="Victorian Department of Education", font=(ff, 10),
+                 fg=C['text_secondary'], bg=C['bg_surface']).pack(pady=(0, 16))
+
+        # Email link
+        email_label = tk.Label(card, text="Dave.Armstrong@education.vic.gov.au",
+                               font=(ff, 11, 'underline'), fg=C['info'],
+                               bg=C['bg_surface'], cursor='hand2')
+        email_label.pack(pady=(0, 6))
+        email_label.bind('<Button-1>',
+                         lambda e: webbrowser.open('mailto:Dave.Armstrong@education.vic.gov.au'))
+
+        # GitHub link
+        github_label = tk.Label(card, text="github.com/mrdavearms/VCAA-PDF-Generator",
+                                font=(ff, 11, 'underline'), fg=C['info'],
+                                bg=C['bg_surface'], cursor='hand2')
+        github_label.pack(pady=(0, 20))
+        github_label.bind('<Button-1>',
+                          lambda e: webbrowser.open('https://github.com/mrdavearms/VCAA-PDF-Generator'))
+
+        # Version
+        tk.Label(card, text="v2.0", font=(ff, 10),
+                 fg=C['text_tertiary'], bg=C['bg_surface']).pack()
 
     def update_status(self, message, level='info'):
         """Update the status bar message."""
@@ -1032,6 +1109,7 @@ class VCAAPDFGeneratorV2:
             messagebox.showinfo("Analysis Complete", f"Found {total} fields ({combed} combed fields)")
 
         except Exception as e:
+            self._close_preview_generator()  # Guarantee cleanup on error
             self.update_status(f"Analysis failed: {str(e)}", 'error')
             messagebox.showerror("Error", f"Failed to analyze PDF:\n{str(e)}")
 
@@ -1106,7 +1184,9 @@ class VCAAPDFGeneratorV2:
 
     def on_field_selected(self, event):
         """Handle field selection in Tab 1 - show visual preview."""
-        if not self.analyzed_fields or not self.preview_generator:
+        if (not self.analyzed_fields
+                or not self.preview_generator
+                or not self.preview_generator.doc):
             return
 
         selection = self.fields_tree.selection()
@@ -1600,6 +1680,7 @@ class VCAAPDFGeneratorV2:
         try:
             # Load PDF and get field names
             reader = PdfReader(pdf_path)
+            self.pdf_fields = []  # Always reset before re-reading
             fields = reader.get_fields()
             if fields:
                 self.pdf_fields = list(fields.keys())
@@ -1607,9 +1688,12 @@ class VCAAPDFGeneratorV2:
                 messagebox.showerror("Error", "The PDF template has no fillable form fields.")
                 return
 
-            # Load Excel data
-            if excel_path.endswith('.csv'):
-                self.df = pd.read_csv(excel_path)
+            # Load Excel data (case-insensitive extension check)
+            if excel_path.lower().endswith('.csv'):
+                try:
+                    self.df = pd.read_csv(excel_path, encoding='utf-8-sig')
+                except UnicodeDecodeError:
+                    self.df = pd.read_csv(excel_path, encoding='latin-1')
             else:
                 self.df = pd.read_excel(excel_path)
 
@@ -1863,10 +1947,20 @@ class VCAAPDFGeneratorV2:
                 # Clean names for filename (remove invalid characters)
                 safe_first = "".join(c for c in first_name if c.isalnum() or c in ' -_').strip()
                 safe_surname = "".join(c for c in surname if c.isalnum() or c in ' -_').strip()
+                safe_school = "".join(c for c in ctx['school_name'] if c.isalnum() or c in ' -_').strip()
+                safe_year = "".join(c for c in ctx['school_year'] if c.isalnum() or c in ' -_').strip()
 
                 # Create filename
-                filename = f"{safe_first}_{safe_surname}_Evidence Application {ctx['school_name']} {ctx['school_year']}.pdf"
+                filename = f"{safe_first}_{safe_surname}_Evidence Application {safe_school} {safe_year}.pdf"
                 output_path = os.path.join(output_folder, filename)
+
+                # Avoid overwriting existing files (e.g. duplicate names, re-runs)
+                if os.path.exists(output_path):
+                    base, ext = os.path.splitext(output_path)
+                    counter = 1
+                    while os.path.exists(f"{base} ({counter}){ext}"):
+                        counter += 1
+                    output_path = f"{base} ({counter}){ext}"
 
                 try:
                     self._generate_single_pdf(ctx, row, output_path)
@@ -1889,7 +1983,8 @@ class VCAAPDFGeneratorV2:
             self.root.after(0, self.generation_complete_tab3, final_message, output_folder)
 
         except Exception as e:
-            self.root.after(0, lambda: messagebox.showerror("Error", f"Generation failed:\n{str(e)}"))
+            err_msg = str(e)  # Capture before 'e' goes out of scope (PEP 3110)
+            self.root.after(0, lambda msg=err_msg: messagebox.showerror("Error", f"Generation failed:\n{msg}"))
             self.root.after(0, lambda: self.generate_btn_tab3.config(state=tk.NORMAL))
 
     def _generate_single_pdf(self, ctx, row_data, output_path):
@@ -1957,7 +2052,8 @@ class VCAAPDFGeneratorV2:
         with open(output_path, 'wb') as f:
             writer.write(f)
 
-    def format_value_tab3(self, val):
+    @staticmethod
+    def format_value_tab3(val):
         """Format a value for PDF insertion."""
         if pd.isna(val):
             return ""
@@ -1991,16 +2087,18 @@ class VCAAPDFGeneratorV2:
         )
 
         if result:
-            # Open folder in Finder (Mac) or Explorer (Windows)
-            import subprocess
-            import sys
-
-            if sys.platform == 'darwin':  # Mac
-                subprocess.run(['open', output_folder])
-            elif sys.platform == 'win32':  # Windows
-                subprocess.run(['explorer', output_folder])
-            else:  # Linux
-                subprocess.run(['xdg-open', output_folder])
+            # Open folder in system file manager
+            try:
+                if sys.platform == 'darwin':
+                    import subprocess
+                    subprocess.run(['open', output_folder], check=False)
+                elif sys.platform == 'win32':
+                    os.startfile(output_folder)
+                else:
+                    import subprocess
+                    subprocess.run(['xdg-open', output_folder], check=False)
+            except Exception:
+                pass  # Failing to open folder is non-critical
 
 
 def main():
