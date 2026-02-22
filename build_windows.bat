@@ -35,7 +35,7 @@ if exist "venv\Scripts\python.exe" (
 )
 
 :: Install / upgrade PyInstaller
-echo [1/3] Installing PyInstaller...
+echo [1/4] Installing PyInstaller...
 %PYTHON% -m pip install --upgrade pyinstaller --quiet
 if %ERRORLEVEL% neq 0 (
     echo ERROR: Failed to install PyInstaller.
@@ -43,13 +43,20 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
+:: Bake git version info into _version.py
+echo [2/4] Generating version info...
+%PYTHON% _generate_version.py
+if %ERRORLEVEL% neq 0 (
+    echo WARNING: Could not generate version info. Using fallback.
+)
+
 :: Clean previous build artifacts
-echo [2/3] Cleaning previous build...
+echo [3/4] Cleaning previous build...
 if exist "build\" rmdir /s /q "build"
 if exist "dist\Bulk PDF Generator.exe" del /f /q "dist\Bulk PDF Generator.exe"
 
 :: Run PyInstaller
-echo [3/3] Building executable (this takes 1-3 minutes)...
+echo [4/4] Building executable (this takes 1-3 minutes)...
 echo.
 %PYTHON% -m PyInstaller BulkPDFGenerator.spec --clean
 echo.

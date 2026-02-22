@@ -38,6 +38,37 @@ def get_resource_path(filename: str) -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
 
 
+def _get_build_info() -> tuple:
+    """Return (commit_hash, build_date) for display in the About tab.
+
+    Priority:
+    1. _version.py — baked in at build time by _generate_version.py (works in frozen exe)
+    2. git subprocess — live read when running from source
+    3. Fallback strings if neither is available
+    """
+    try:
+        import _version
+        return (_version.BUILD_COMMIT, _version.BUILD_DATE)
+    except ImportError:
+        pass
+
+    try:
+        import subprocess
+        commit = subprocess.check_output(
+            ['git', 'log', '-1', '--format=%h'],
+            stderr=subprocess.DEVNULL, text=True
+        ).strip()
+        date = subprocess.check_output(
+            ['git', 'log', '-1', '--format=%cd', '--date=format:%d %b %Y'],
+            stderr=subprocess.DEVNULL, text=True
+        ).strip()
+        return (commit, date)
+    except Exception:
+        pass
+
+    return ('dev', 'local build')
+
+
 # Import our new modules
 from vcaa_models import PDFField, TemplateConfig, AppSettings
 from vcaa_pdf_analyzer import PDFAnalyzer, auto_name_template
@@ -894,8 +925,10 @@ class VCAAPDFGeneratorV2:
         tk.Label(card, text=disclaimer, font=(ff, 9), fg=C['text_tertiary'],
                  bg=C['bg_surface'], justify=tk.CENTER).pack(pady=(0, 12))
 
-        # Version
-        tk.Label(card, text="v2.0", font=(ff, 10),
+        # Version — commit hash and build date baked in at build time
+        _commit, _date = _get_build_info()
+        version_str = f"v2.1  ·  {_commit}  ·  {_date}"
+        tk.Label(card, text=version_str, font=(ff, 10),
                  fg=C['text_tertiary'], bg=C['bg_surface']).pack()
 
     def update_status(self, message, level='info'):
