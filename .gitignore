@@ -50,3 +50,6 @@ dist/
 
 # OS
 Thumbs.db
+
+# Claude Code project settings (local only)
+.claude/

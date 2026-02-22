@@ -4,12 +4,12 @@
 
 **Batch-fill PDF forms from spreadsheet data — turning hours of manual data entry into a single click.**
 
-[![Download](https://img.shields.io/github/v/release/mrdavearms/VCAA-PDF-Generator?label=⬇%EF%B8%8F%20download&color=0078d4&style=for-the-badge)](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/latest/download/Bulk%20PDF%20Generator.exe)
+[![Download](https://img.shields.io/github/v/release/mrdavearms/Bulk-PDF-generator-for-Vic-schools?label=⬇%EF%B8%8F%20download&color=0078d4&style=for-the-badge)](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/latest/download/Bulk%20PDF%20Generator.exe)
 
-[![Platform](https://img.shields.io/badge/platform-Windows-0078d4?logo=windows&logoColor=white)](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Windows-0078d4?logo=windows&logoColor=white)](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-22c55e)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3b82f6?logo=python&logoColor=white)](https://python.org)
-[![Downloads](https://img.shields.io/github/downloads/mrdavearms/VCAA-PDF-Generator/total?color=7c3aed&label=total%20downloads)](https://github.com/mrdavearms/VCAA-PDF-Generator/releases)
+[![Downloads](https://img.shields.io/github/downloads/mrdavearms/Bulk-PDF-generator-for-Vic-schools/total?color=7c3aed&label=total%20downloads)](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases)
 
 </div>
 
@@ -71,7 +71,7 @@ flowchart LR
 
 **No Python or technical setup required.**
 
-### ➡️ [Download Bulk PDF Generator.exe](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/latest/download/Bulk%20PDF%20Generator.exe)
+### ➡️ [Download Bulk PDF Generator.exe](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/latest/download/Bulk%20PDF%20Generator.exe)
 
 Save the file somewhere convenient — your Desktop, a shared school drive, or a dedicated apps folder.
 
@@ -102,7 +102,7 @@ Because this app is not commercially code-signed (certificates cost hundreds of 
 You only need to do this **once**. Windows remembers your choice and the app opens normally from then on.
 
 > [!TIP]
-> **School IT environments:** If your managed security policy shows no "Run anyway" option, ask your IT administrator to whitelist the app or add an exclusion. The complete source code is at [github.com/mrdavearms/VCAA-PDF-Generator](https://github.com/mrdavearms/VCAA-PDF-Generator) for their review.
+> **School IT environments:** If your managed security policy shows no "Run anyway" option, ask your IT administrator to whitelist the app or add an exclusion. The complete source code is at [github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools) for their review.
 
 </details>
 
@@ -114,7 +114,7 @@ Not sure where to start? Download the sample files to see exactly how the app wo
 
 <div align="center">
 
-### ⬇️ [Download All Sample Files — ZIP, 2 MB](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/download/v2.1/Sample.Files.zip)
+### ⬇️ [Download All Sample Files — ZIP, 2 MB](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Sample.Files.zip)
 
 </div>
 
@@ -122,12 +122,12 @@ Not sure where to start? Download the sample files to see exactly how the app wo
 
 | File | Download | Description |
 |------|:--------:|-------------|
-| `Evidence Application sample PDF from VCAA.pdf` | [⬇️](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/download/v2.1/Evidence.Application.sample.PDF.from.VCAA.pdf) | **The blank PDF template** — this is the form the app fills in |
-| `Evidence Application spreadsheet with data.xlsx` | [⬇️](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/download/v2.1/Evidence.Application.spreadsheet.with.data.xlsx) | **Full data spreadsheet** — 3 fictional students; multi-sheet workbook that demonstrates the sheet-picker dialog |
-| `sample data.xlsx` | [⬇️](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/download/v2.1/sample.data.xlsx) | **Simple single-sheet version** — loads instantly, no sheet-picker dialog |
-| `Duis_Ex_Evidence Application … 2026.pdf` | [⬇️](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/download/v2.1/Duis_Ex_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 1 |
-| `Minim_Elit_Evidence Application … 2026.pdf` | [⬇️](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/download/v2.1/Minim_Elit_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 2 |
-| `Sunt_Culpa_Evidence Application … 2026.pdf` | [⬇️](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/download/v2.1/Sunt_Culpa_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 3 |
+| `Evidence Application sample PDF from VCAA.pdf` | [⬇️](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Evidence.Application.sample.PDF.from.VCAA.pdf) | **The blank PDF template** — this is the form the app fills in |
+| `Evidence Application spreadsheet with data.xlsx` | [⬇️](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Evidence.Application.spreadsheet.with.data.xlsx) | **Full data spreadsheet** — 3 fictional students; multi-sheet workbook that demonstrates the sheet-picker dialog |
+| `sample data.xlsx` | [⬇️](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/sample.data.xlsx) | **Simple single-sheet version** — loads instantly, no sheet-picker dialog |
+| `Duis_Ex_Evidence Application … 2026.pdf` | [⬇️](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Duis_Ex_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 1 |
+| `Minim_Elit_Evidence Application … 2026.pdf` | [⬇️](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Minim_Elit_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 2 |
+| `Sunt_Culpa_Evidence Application … 2026.pdf` | [⬇️](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Sunt_Culpa_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 3 |
 
 ### How to run the sample
 
@@ -239,7 +239,7 @@ If a file with the same name already exists, the app adds `(1)`, `(2)`, etc. rat
 | Problem | Solution |
 |---------|----------|
 | Windows shows "Windows protected your PC" | Click **More info** → **Run anyway** — see the [warning guide](#step-2--run-the-app) above |
-| IT security blocks the app with no "Run anyway" option | Ask your IT admin to whitelist it; share the [open source repo](https://github.com/mrdavearms/VCAA-PDF-Generator) for their review |
+| IT security blocks the app with no "Run anyway" option | Ask your IT admin to whitelist it; share the [open source repo](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools) for their review |
 | A "Select Sheet" dialog appeared | Expected — your file has multiple sheets. Select the one with your data and click **Load this sheet** |
 | Accidentally closed the sheet-picker dialog | Click **Load & Preview Data** again to re-open it |
 | Fields not filling in output PDFs | Check that Excel column headers exactly match PDF field names (case-insensitive) |
@@ -264,8 +264,8 @@ If a file with the same name already exists, the app adds `(1)`, `(2)`, etc. rat
 ### Setup
 
 ```bash
-git clone https://github.com/mrdavearms/VCAA-PDF-Generator.git
-cd VCAA-PDF-Generator
+git clone https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools.git
+cd Bulk-PDF-generator-for-Vic-schools
 python -m venv venv
 
 # Windows
@@ -302,7 +302,7 @@ Or double-click **`build_windows.bat`** for a guided, one-step build.
 ### Project Structure
 
 ```
-VCAA-PDF-Generator/
+Bulk-PDF-generator-for-Vic-schools/
 ├── vcaa_pdf_generator_v2.py         # Main application
 ├── vcaa_models.py                   # Data models and persistence
 ├── vcaa_pdf_analyzer.py             # PDF field extraction engine
@@ -333,7 +333,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for a full technical breakdown of every m
 A Principal-developed app for educators and school leaders.
 
 📧 [Dave.Armstrong@education.vic.gov.au](mailto:Dave.Armstrong@education.vic.gov.au)
-🐙 [github.com/mrdavearms/VCAA-PDF-Generator](https://github.com/mrdavearms/VCAA-PDF-Generator)
+🐙 [github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools)
 
 ---
 
