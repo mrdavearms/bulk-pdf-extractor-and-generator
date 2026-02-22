@@ -1,26 +1,79 @@
-# Bulk PDF Generator v2.0
+# Bulk PDF Generator
 
-A desktop application that batch-fills PDF form templates from spreadsheet data — turning hours of manual data entry into a single click, so staff can focus on the work that actually matters.
+<div align="center">
 
-Originally built to streamline VCAA Special Examination Arrangements Evidence Application forms, but works with **any** PDF form template.
+**Batch-fill PDF forms from spreadsheet data — turning hours of manual data entry into a single click.**
 
-> A Principal-developed app for educators and school leaders. Use with care and always review all generated outputs before use.
+[![Download](https://img.shields.io/github/v/release/mrdavearms/VCAA-PDF-Generator?label=⬇%EF%B8%8F%20download&color=0078d4&style=for-the-badge)](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/latest/download/Bulk%20PDF%20Generator.exe)
 
----
+[![Platform](https://img.shields.io/badge/platform-Windows-0078d4?logo=windows&logoColor=white)](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT-22c55e)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-3b82f6?logo=python&logoColor=white)](https://python.org)
+[![Downloads](https://img.shields.io/github/downloads/mrdavearms/VCAA-PDF-Generator/total?color=7c3aed&label=total%20downloads)](https://github.com/mrdavearms/VCAA-PDF-Generator/releases)
 
-## ⬇️ Download for Windows
-
-**No Python or technical setup required. Just download and run.**
-
-### [Download Bulk PDF Generator.exe](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/latest/download/Bulk%20PDF%20Generator.exe)
-
-Or visit the [Releases page](https://github.com/mrdavearms/VCAA-PDF-Generator/releases) to see all versions.
+</div>
 
 ---
 
-### Step 1 — Download the file
+Originally built to streamline VCAA Special Examination Arrangements Evidence Application forms, but works with **any** PDF form — TAFE enrolments, leave applications, compliance forms, consent forms, and more.
 
-Click the download link above. Your browser will save **`Bulk PDF Generator.exe`** — put it somewhere convenient, like your Desktop or a shared school drive.
+> [!NOTE]
+> A Principal-developed app for educators and school leaders. Always review all generated outputs before use.
+
+---
+
+<div align="center">
+  <img src="app_visualisation.png" alt="Bulk PDF Generator — select a template, load your spreadsheet, generate filled PDFs instantly" width="820">
+</div>
+
+---
+
+## ✨ Features
+
+| | |
+|:---:|---|
+| 📊 | **Batch processing** — generate hundreds of filled PDFs from a single spreadsheet |
+| 🔍 | **Auto field detection** — scans any PDF and maps every form field automatically |
+| ✏️ | **Combed field support** — handles character-by-character boxes without any manual setup |
+| 👁️ | **Visual field preview** — click any field to see it highlighted on the PDF page |
+| 📋 | **Multi-sheet Excel** — prompts you to pick the right sheet when a workbook has multiple tabs |
+| 💾 | **One-click output** — all PDFs saved to a named folder; output opens automatically |
+| 🖥️ | **No tech skills needed** — single `.exe` file, no Python or IT support required |
+
+---
+
+## How It Works
+
+```mermaid
+flowchart LR
+    PDF[("📄 PDF Form\nTemplate")] --> Analyse
+    PDF --> Generate
+    Data[("📊 Excel · CSV\nSpreadsheet")] --> Generate
+
+    subgraph app["  Bulk PDF Generator  "]
+        Analyse["🔍 Tab 1 — Analyse Template\nDiscover & map all form fields"]
+        Generate["⚡ Tab 3 — Generate PDFs\nOne filled PDF per row"]
+        Analyse -. "exports column headers" .-> Generate
+    end
+
+    Generate --> Output[("📁 Completed\nApplications")]
+```
+
+1. **Analyse** your blank PDF to discover every form field name
+2. **Fill in** a spreadsheet — one row per person, column headers matching field names
+3. **Generate** — the app fills and saves a complete, separate PDF for every row
+
+---
+
+## ⬇️ Quick Start
+
+### Step 1 — Download
+
+**No Python or technical setup required.**
+
+### ➡️ [Download Bulk PDF Generator.exe](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/latest/download/Bulk%20PDF%20Generator.exe)
+
+Save the file somewhere convenient — your Desktop, a shared school drive, or a dedicated apps folder.
 
 ---
 
@@ -28,13 +81,12 @@ Click the download link above. Your browser will save **`Bulk PDF Generator.exe`
 
 Double-click **`Bulk PDF Generator.exe`**.
 
-> **The first time you run it, Windows may show a security warning.** This is expected — see below for how to get past it.
+<details>
+<summary>⚠️ <strong>Windows Security Warning — what to do if you see it</strong></summary>
 
----
+<br>
 
-### ⚠️ Windows Security Warning
-
-Because this app is not commercially signed (signing certificates cost hundreds of dollars per year), Windows Defender SmartScreen will flag it the first time you run it. **The app is safe.** This is a standard false positive with self-distributed software.
+Because this app is not commercially code-signed (certificates cost hundreds of dollars per year), Windows Defender SmartScreen will flag it on first run. **The app is safe.** This is a known false positive for self-distributed software — the full source code is open for inspection.
 
 **What you'll see:**
 
@@ -47,139 +99,153 @@ Because this app is not commercially signed (signing certificates cost hundreds 
 2. A **"Run anyway"** button will appear at the bottom
 3. Click **"Run anyway"**
 
-You'll only need to do this **once**. After that, Windows remembers your choice and the app opens normally.
+You only need to do this **once**. Windows remembers your choice and the app opens normally from then on.
 
-> **Note for school IT environments:** If your school's managed security software blocks the app entirely (with no "Run anyway" option), your IT administrator can whitelist the application or add an exclusion. The source code is fully open at [github.com/mrdavearms/VCAA-PDF-Generator](https://github.com/mrdavearms/VCAA-PDF-Generator) for inspection.
+> [!TIP]
+> **School IT environments:** If your managed security policy shows no "Run anyway" option, ask your IT administrator to whitelist the app or add an exclusion. The complete source code is at [github.com/mrdavearms/VCAA-PDF-Generator](https://github.com/mrdavearms/VCAA-PDF-Generator) for their review.
+
+</details>
 
 ---
 
 ## 🎓 Try It With Sample Data
 
-Not sure where to start? A set of sample files is included alongside the app so you can see exactly how it works before touching any of your own data.
+Not sure where to start? A set of ready-to-use sample files is included alongside the app so you can see exactly how it works before touching any real data.
 
 ### What's included
 
-| File | What it is |
-|------|-----------|
-| `Sample_Template.pdf` | A blank PDF form with named fields ready to fill |
-| `Sample_Data.xlsx` | A sample spreadsheet with four rows of fictional student data |
-| `Sample_Output_1.pdf` – `Sample_Output_4.pdf` | Four pre-generated PDFs showing what the app produces |
+| File | Description |
+|------|-------------|
+| `Sample_Template.pdf` | A blank PDF form with named fields, ready to fill |
+| `Sample_Data.xlsx` | A spreadsheet with four rows of fictional student data |
+| `Sample_Output_1.pdf` – `Sample_Output_4.pdf` | Pre-generated output PDFs showing the expected result |
 
-### How to use them
+### How to run the sample
 
-1. Open the app and go to **Tab 3 — Generate PDFs**
+1. Open the app and go to **Generate PDFs** (Tab 3)
 2. Under **PDF Template**, browse to `Sample_Template.pdf`
 3. Under **Excel / CSV Data File**, browse to `Sample_Data.xlsx`
-4. Click **Load & Preview Data** — four rows will appear
+4. Click **Load & Preview Data** — four rows appear instantly
 5. Click **Generate PDFs**
-6. Compare your output with the four sample output files to confirm everything is working correctly
+6. Compare your output with the four pre-generated sample files to confirm everything is working
 
-Once you're comfortable with how it works, you're ready to use it with your own PDF template and real data.
+Once you're comfortable, you're ready to use it with your own template and real data.
 
 ---
 
-## How to Use
+## 📖 How to Use
 
-The app has four tabs:
+The app has five tabs:
 
 ### Getting Started (Tab 0)
 
-An in-app guide explaining how to prepare PDF templates — naming form fields, setting up combed fields, and getting your spreadsheet ready. Read this first if you're setting up a new template.
+An in-app guide covering how to prepare PDF templates — naming form fields, understanding combed fields, and setting up your spreadsheet. **Read this first** when working with a new template.
 
-### Analyse Template (Tab 1)
+---
+
+### 🔍 Analyse Template (Tab 1)
 
 1. Click **Browse** and select your blank PDF form
-2. Click **Analyse Fields** — the app scans every form field
+2. Click **Analyse Fields** — every form field is listed with its name and type
 3. Click any field in the list to see it **highlighted in red** on the PDF preview
-4. Click **Export Mapping File** to get a ready-made Excel template with the right column headers
-5. Click **Save Template Config** to save your setup for next time
+4. Click **Export Mapping File** to download a ready-made Excel template with the correct column headers
+5. Click **Save Template Config** to remember this template's setup for next time
 
-### Generate PDFs (Tab 3)
+---
 
-1. Select your PDF template and your filled-in Excel/CSV data file
+### ⚡ Generate PDFs (Tab 3)
+
+1. Select your PDF template and your filled-in Excel or CSV data file
 2. Click **Load & Preview Data**
 
-   > **If your Excel file has multiple sheets**, a dialog will appear asking which sheet contains your data. This is normal — especially if you're using a file exported by the app itself (which includes a *Data*, *Field Mapping*, and *Instructions* sheet). Simply select the sheet that holds your rows of student or applicant data and click **Load this sheet**. If you cancel the dialog, nothing is loaded.
+   > **Multi-sheet Excel files:** If your workbook has more than one sheet, a dialog will appear asking which sheet contains your data. This commonly occurs with files exported by the Analyse Template tab (which include a *Data*, *Field Mapping*, and *Instructions* sheet). Select your data sheet and click **Load this sheet**. If you cancel, nothing is loaded — just click **Load & Preview Data** again to retry.
 
-3. You'll see a row for each person in your data
-4. Select the rows you want (all are selected by default)
-5. Click **Generate PDFs** — a progress bar shows each file being created
-6. When finished, the output folder opens automatically
-
-### About (Tab 4)
-
-Developer info and contact details.
+3. You'll see a row for each person in your data — all rows are selected by default
+4. Deselect any rows you want to skip
+5. Click **Generate PDFs** — a progress bar tracks each file as it's created
+6. When finished, your output folder opens automatically
 
 ---
 
-## What Are Combed Fields?
+### ℹ️ About (Tab 4)
 
-Government PDF forms often use character-by-character boxes for things like student numbers:
-
-```
-[ V ][ C ][ A ][ A ][ 1 ][ 2 ][ 3 ][ 4 ][ 5 ][ 6 ]
-```
-
-The app **automatically detects** these and splits your data correctly — you just put the full value in your spreadsheet and it handles the rest.
+Developer information and contact details.
 
 ---
 
-## Spreadsheet Requirements
+## ✏️ What Are Combed Fields?
 
-Your Excel or CSV file needs column headers that **match your PDF field names** (case-insensitive — `Surname`, `SURNAME`, and `surname` all work).
+Government PDF forms often use individual character boxes for identifiers like student numbers:
 
-Two columns are needed to name the output files:
-- A column containing the person's **surname**
-- A column containing their **first name**
+```
+┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐
+│ V │ C │ A │ A │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │
+└───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
+```
 
-All other columns are matched to PDF fields automatically. Unmatched columns are ignored.
+The app **automatically detects** these and splits your data character-by-character — just put the full value in your spreadsheet and it handles the rest.
 
-**Supported formats:** `.xlsx`, `.xls`, `.csv`
+---
+
+## 📊 Spreadsheet Setup
+
+Column headers must **match your PDF field names** (case-insensitive — `Surname`, `SURNAME`, and `surname` all work).
+
+Two columns are required to name the output files:
+
+- A column for the person's **surname**
+- A column for their **first name**
+
+All other columns are matched to PDF fields automatically. Unmatched columns are silently ignored.
+
+**Supported formats:** `.xlsx` · `.xls` · `.csv`
 
 ### Multi-sheet Excel files
 
-If your workbook contains more than one sheet, the app will ask you to pick which one holds your data before loading. This is particularly relevant if you're using an Excel file that was exported by the **Analyse Template** tab — that file contains three sheets (*Data*, *Field Mapping*, and *Instructions*) and only the *Data* sheet has the rows you want to fill.
+If your workbook contains more than one sheet, the app prompts you to choose which sheet holds your data before loading. This is especially common when using a file exported by the Analyse Template tab (which includes three sheets: *Data*, *Field Mapping*, and *Instructions*).
 
-> **Tip:** If you'd prefer to avoid the prompt entirely, save a copy of your data sheet as a separate single-sheet `.xlsx` or `.csv` file. Single-sheet files always load immediately without any confirmation step.
+> [!TIP]
+> To skip the prompt entirely, save your data as a single-sheet `.xlsx` or `.csv`. Single-sheet files always load immediately with no confirmation step.
 
 ---
 
-## Output Files
+## 📁 Output Files
 
-Generated PDFs are saved to a **`Completed Applications`** folder next to your data file (or a custom folder you choose). Filename format:
+Generated PDFs are saved to a **`Completed Applications`** folder next to your data file (or a custom folder you specify). Files are named:
 
 ```
 FirstName_Surname_Evidence Application SchoolName Year.pdf
 ```
 
-If a file already exists, the app adds `(1)`, `(2)`, etc. rather than overwriting.
+If a file with the same name already exists, the app adds `(1)`, `(2)`, etc. rather than overwriting.
 
 ---
 
-## Troubleshooting
+## 🛠️ Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| Windows shows "Windows protected your PC" | Click **More info** → **Run anyway** (see above) |
-| IT security blocks the app entirely | Ask your IT administrator to whitelist it, or point them to the open source code |
-| A "Select Sheet" dialog appeared when loading my Excel file | This is expected. Your file has multiple sheets — select the one containing your student/applicant data rows and click **Load this sheet** |
-| I accidentally cancelled the sheet-picker dialog | Just click **Load & Preview Data** again to re-open it |
-| Fields not filling in output PDFs | Check that your Excel column headers match the PDF field names (case-insensitive) |
+| Windows shows "Windows protected your PC" | Click **More info** → **Run anyway** — see the [warning guide](#step-2--run-the-app) above |
+| IT security blocks the app with no "Run anyway" option | Ask your IT admin to whitelist it; share the [open source repo](https://github.com/mrdavearms/VCAA-PDF-Generator) for their review |
+| A "Select Sheet" dialog appeared | Expected — your file has multiple sheets. Select the one with your data and click **Load this sheet** |
+| Accidentally closed the sheet-picker dialog | Click **Load & Preview Data** again to re-open it |
+| Fields not filling in output PDFs | Check that Excel column headers exactly match PDF field names (case-insensitive) |
 | Visual preview not showing | Click **Analyse Fields** first in Tab 1 |
-| Combed fields not splitting into boxes | Analyse the PDF in Tab 1 before generating in Tab 3 |
-| "Permission denied" error on Excel file | Close the file in Excel before running the app |
-| Text cut off in combed boxes | Expected — combed fields have a fixed number of characters |
+| Combed fields not splitting into separate boxes | Run **Analyse Fields** in Tab 1 before generating in Tab 3 |
+| "Permission denied" error when loading Excel | Close the file in Excel before running the app |
+| Text cut off in combed boxes | Expected — combed fields have a fixed character limit set by the PDF |
 
 ---
 
-## For Developers — Running from Source
+## 👨‍💻 For Developers — Running from Source
 
-If you want to run the Python source directly, or contribute to the project:
+<details>
+<summary>Expand setup and build instructions</summary>
 
 ### Requirements
 
 - Python 3.10+
-- Packages: `pip install -r requirements.txt`
+- `pip install -r requirements.txt`
 - tkinter (included with standard Python on Windows; on macOS: `brew install python-tk@3.xx`)
 
 ### Setup
@@ -207,17 +273,17 @@ python -m PyInstaller BulkPDFGenerator.spec --clean
 # Output: dist/Bulk PDF Generator.exe
 ```
 
-Or just double-click **`build_windows.bat`**.
+Or double-click **`build_windows.bat`** for a guided, one-step build.
 
 ### Dependencies
 
 | Package | Purpose |
 |---------|---------|
 | pypdf | PDF form filling |
-| pandas | Excel/CSV data processing |
+| pandas | Excel / CSV data processing |
 | openpyxl | Excel file creation |
 | PyMuPDF (fitz) | PDF analysis, field extraction, page rendering |
-| Pillow | Image manipulation for visual preview |
+| Pillow | Image processing for visual preview |
 | tkinter | GUI framework (stdlib) |
 
 ### Project Structure
@@ -242,13 +308,19 @@ VCAA-PDF-Generator/
 └── ARCHITECTURE.md                  # Technical architecture documentation
 ```
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) for a full technical breakdown of every module, data flow, threading model, and design decisions.
+
+</details>
+
 ---
 
 ## Developer
 
 **Dave Armstrong**
 A Principal-developed app for educators and school leaders.
-[Dave.Armstrong@education.vic.gov.au](mailto:Dave.Armstrong@education.vic.gov.au)
+
+📧 [Dave.Armstrong@education.vic.gov.au](mailto:Dave.Armstrong@education.vic.gov.au)
+🐙 [github.com/mrdavearms/VCAA-PDF-Generator](https://github.com/mrdavearms/VCAA-PDF-Generator)
 
 ---
 
