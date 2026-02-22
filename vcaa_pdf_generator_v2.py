@@ -435,6 +435,10 @@ class VCAAPDFGeneratorV2:
         self.root.geometry("1000x800")
         self.root.minsize(900, 700)
 
+        # Icon references — must live on self to prevent garbage collection
+        self._icon_refs = {}
+        self._load_app_icon()
+
         # Settings
         self.settings_file = os.path.expanduser("~/Documents/VCAA_App/settings.json")
         self.settings = self.load_settings()
@@ -466,6 +470,40 @@ class VCAAPDFGeneratorV2:
         # Show welcome dialog if first time
         elif self.settings.show_welcome and not self.has_templates():
             self.root.after(500, self.show_welcome_dialog)
+
+    def _load_app_icon(self):
+        """Load icon.png / icon.ico and apply to window and pre-scale for UI use.
+
+        Pre-scaled ImageTk.PhotoImage objects are stored in self._icon_refs so
+        they are never garbage-collected while the app is running:
+          'header' → 32×32  used in the header bar
+          'about'  → 72×72  used in the About tab card
+        """
+        icon_dir = os.path.dirname(os.path.abspath(__file__))
+        ico_path = os.path.join(icon_dir, 'icon.ico')
+        png_path = os.path.join(icon_dir, 'icon.png')
+
+        # Set taskbar / title-bar icon
+        try:
+            if sys.platform == 'win32' and os.path.exists(ico_path):
+                self.root.iconbitmap(ico_path)
+            elif os.path.exists(png_path):
+                _img = Image.open(png_path).convert('RGBA')
+                _photo = ImageTk.PhotoImage(_img.resize((64, 64), Image.LANCZOS))
+                self.root.iconphoto(True, _photo)
+                self._icon_refs['window'] = _photo
+        except Exception:
+            pass  # Fall back to default tkinter icon
+
+        # Pre-scale for UI use
+        if os.path.exists(png_path):
+            try:
+                _img = Image.open(png_path).convert('RGBA')
+                for size, key in [(32, 'header'), (72, 'about')]:
+                    _scaled = _img.resize((size, size), Image.LANCZOS)
+                    self._icon_refs[key] = ImageTk.PhotoImage(_scaled)
+            except Exception:
+                pass  # UI falls back to diamond glyph
 
     def _close_preview_generator(self):
         """Safely close the preview generator if open."""
@@ -554,15 +592,21 @@ class VCAAPDFGeneratorV2:
         title_area = tk.Frame(header, bg=C['bg_surface'])
         title_area.pack(side=tk.LEFT, padx=24, pady=12)
 
-        # Title row with accent icon
+        # Title row with app icon
         title_row = tk.Frame(title_area, bg=C['bg_surface'])
         title_row.pack(anchor=tk.W)
-        tk.Label(title_row,
-            text="\u25c6",
-            font=(ff, 18),
-            fg=C['accent'],
-            bg=C['bg_surface'],
-        ).pack(side=tk.LEFT, padx=(0, 8))
+        if 'header' in self._icon_refs:
+            tk.Label(title_row,
+                image=self._icon_refs['header'],
+                bg=C['bg_surface'],
+            ).pack(side=tk.LEFT, padx=(0, 8))
+        else:
+            tk.Label(title_row,
+                text="\u25c6",
+                font=(ff, 18),
+                fg=C['accent'],
+                bg=C['bg_surface'],
+            ).pack(side=tk.LEFT, padx=(0, 8))
         tk.Label(title_row,
             text="Bulk PDF Generator",
             font=(ff, 22, 'bold'),
@@ -777,8 +821,12 @@ class VCAAPDFGeneratorV2:
         card.pack()
 
         # App icon + title
-        tk.Label(card, text="\u25c6", font=(ff, 36), fg=C['accent'],
-                 bg=C['bg_surface']).pack(pady=(0, 4))
+        if 'about' in self._icon_refs:
+            tk.Label(card, image=self._icon_refs['about'],
+                     bg=C['bg_surface']).pack(pady=(0, 8))
+        else:
+            tk.Label(card, text="\u25c6", font=(ff, 36), fg=C['accent'],
+                     bg=C['bg_surface']).pack(pady=(0, 4))
         tk.Label(card, text="Bulk PDF Generator", font=(ff, 22, 'bold'),
                  fg=C['text_primary'], bg=C['bg_surface']).pack()
         tk.Label(card, text="Generate filled PDFs from spreadsheet data",
