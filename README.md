@@ -1,192 +1,123 @@
 # Bulk PDF Generator v2.0
 
-A cross-platform desktop application that batch-fills PDF form templates from spreadsheet data. Built with Python and tkinter, it handles regular text fields, checkboxes, and combed (character-by-character) fields automatically.
+A desktop application that batch-fills PDF form templates from spreadsheet data — turning hours of manual data entry into a single click, so staff can focus on the work that actually matters.
 
-Originally built to streamline VCAA Special Examination Arrangements Evidence Application forms for schools, but works with any PDF form template.
+Originally built to streamline VCAA Special Examination Arrangements Evidence Application forms, but works with **any** PDF form template.
 
-**Repository:** [github.com/mrdavearms/VCAA-PDF-Generator](https://github.com/mrdavearms/VCAA-PDF-Generator)
-
----
-
-## Features
-
-- **PDF template analysis** -- scans any PDF form and extracts all fields with type detection
-- **Combed field auto-detection** -- character-by-character fields (e.g. student numbers) detected and filled automatically
-- **Visual field preview** -- click any detected field to see its exact location highlighted on the PDF page, with zoom and pan controls
-- **Batch generation** -- fill hundreds of PDFs from a single Excel/CSV spreadsheet in one click
-- **Template library** -- save analysed templates for instant reuse
-- **Excel mapping export** -- generates a ready-to-use spreadsheet with smart column name suggestions
-- **Cross-platform** -- Windows and macOS, with platform-aware fonts, file handling, and launchers
+> A Principal-developed app for educators and school leaders. Use with care and always review all generated outputs before use.
 
 ---
 
-## Quick Start
+## ⬇️ Download for Windows
 
-### 1. Clone the repository
+**No Python or technical setup required. Just download and run.**
 
-```bash
-git clone https://github.com/mrdavearms/VCAA-PDF-Generator.git
-cd VCAA-PDF-Generator
+### [Download Bulk PDF Generator.exe](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/latest/download/Bulk%20PDF%20Generator.exe)
+
+Or visit the [Releases page](https://github.com/mrdavearms/VCAA-PDF-Generator/releases) to see all versions.
+
+---
+
+### Step 1 — Download the file
+
+Click the download link above. Your browser will save **`Bulk PDF Generator.exe`** — put it somewhere convenient, like your Desktop or a shared school drive.
+
+---
+
+### Step 2 — Run the app
+
+Double-click **`Bulk PDF Generator.exe`**.
+
+> **The first time you run it, Windows may show a security warning.** This is expected — see below for how to get past it.
+
+---
+
+### ⚠️ Windows Security Warning
+
+Because this app is not commercially signed (signing certificates cost hundreds of dollars per year), Windows Defender SmartScreen will flag it the first time you run it. **The app is safe.** This is a standard false positive with self-distributed software.
+
+**What you'll see:**
+
+> *"Windows protected your PC"*
+> *"Microsoft Defender SmartScreen prevented an unrecognised app from starting."*
+
+**What to do:**
+
+1. Click **"More info"** (the small link below the warning message)
+2. A **"Run anyway"** button will appear at the bottom
+3. Click **"Run anyway"**
+
+You'll only need to do this **once**. After that, Windows remembers your choice and the app opens normally.
+
+> **Note for school IT environments:** If your school's managed security software blocks the app entirely (with no "Run anyway" option), your IT administrator can whitelist the application or add an exclusion. The source code is fully open at [github.com/mrdavearms/VCAA-PDF-Generator](https://github.com/mrdavearms/VCAA-PDF-Generator) for inspection.
+
+---
+
+## How to Use
+
+The app has four tabs:
+
+### Getting Started (Tab 0)
+
+An in-app guide explaining how to prepare PDF templates — naming form fields, setting up combed fields, and getting your spreadsheet ready. Read this first if you're setting up a new template.
+
+### Analyse Template (Tab 1)
+
+1. Click **Browse** and select your blank PDF form
+2. Click **Analyse Fields** — the app scans every form field
+3. Click any field in the list to see it **highlighted in red** on the PDF preview
+4. Click **Export Mapping File** to get a ready-made Excel template with the right column headers
+5. Click **Save Template Config** to save your setup for next time
+
+### Generate PDFs (Tab 3)
+
+1. Select your PDF template and your filled-in Excel/CSV data file
+2. Click **Load & Preview Data** — you'll see a row for each person
+3. Select the rows you want (all are selected by default)
+4. Click **Generate PDFs** — a progress bar shows each file being created
+5. When finished, the output folder opens automatically
+
+### About (Tab 4)
+
+Developer info and contact details.
+
+---
+
+## What Are Combed Fields?
+
+Government PDF forms often use character-by-character boxes for things like student numbers:
+
+```
+[ V ][ C ][ A ][ A ][ 1 ][ 2 ][ 3 ][ 4 ][ 5 ][ 6 ]
 ```
 
-### 2. Create a virtual environment and install dependencies
-
-**Windows (PowerShell):**
-```powershell
-python -m venv venv
-.\venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-**macOS / Linux:**
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-> **Note:** tkinter is required but ships with standard Python on Windows. On macOS, install via `brew install python-tk@3.xx` (matching your Python version). On Linux, install `python3-tk` via your package manager.
-
-### 3. Run the application
-
-```bash
-python vcaa_pdf_generator_v2.py
-```
-
-Or use the platform launchers:
-- **Windows:** Double-click `Launch_BulkPDFGenerator.bat`
-- **macOS:** Double-click `Launch_BulkPDFGenerator.command` (make executable first: `chmod +x Launch_BulkPDFGenerator.command`)
+The app **automatically detects** these and splits your data correctly — you just put the full value in your spreadsheet and it handles the rest.
 
 ---
 
-## How It Works
+## Spreadsheet Requirements
 
-The app uses a tabbed workflow:
+Your Excel or CSV file needs column headers that **match your PDF field names** (case-insensitive — `Surname`, `SURNAME`, and `surname` all work).
 
-### Tab 0: Getting Started
+Two columns are needed to name the output files:
+- A column containing the person's **surname**
+- A column containing their **first name**
 
-An in-app guide explaining how to prepare PDF templates in Adobe Acrobat Pro -- naming form fields, editing properties, and setting up combed fields. Rendered from markdown with clickable hyperlinks.
+All other columns are matched to PDF fields automatically. Unmatched columns are ignored.
 
-### Tab 1: Analyse Template
-
-1. Load a PDF template (browse or select from recent templates)
-2. Click **Analyse Fields** to scan for all form fields
-3. Review the field list -- regular text fields, combed fields, checkboxes, and signatures are identified
-4. Click any field to see its exact location highlighted on the PDF page
-5. Export a mapping spreadsheet (`.xlsx`) with smart column name suggestions
-6. Save the template configuration for future use
-
-### Tab 2: Map Fields
-
-Displays auto-matching status. Fields are matched to Excel columns by case-insensitive name comparison. Reserved for future manual mapping UI.
-
-### Tab 3: Generate PDFs
-
-1. Select the PDF template and Excel/CSV data file
-2. Click **Load & Preview Data** to validate
-3. Review warnings (missing required fields, combed field overflow)
-4. Select/deselect individual students
-5. Click **Generate PDFs** -- progress bar tracks each file
-6. Output folder opens automatically when complete
-
-### Tab 4: About
-
-Developer information and project links.
+**Supported formats:** `.xlsx`, `.xls`, `.csv`
 
 ---
 
-## Combed Field Detection
+## Output Files
 
-Combed fields are character-by-character boxes common in government forms (e.g. `[ J ][ o ][ h ][ n ]` for a name field). The analyser automatically detects three naming patterns:
-
-| Pattern | Example | Detected As |
-|---------|---------|-------------|
-| Bracketed | `StudentNumber[0]`, `StudentNumber[1]`, ... | `StudentNumber` (combed) |
-| Underscore | `Name_0`, `Name_1`, ... | `Name` (combed) |
-| Sequential | `DOB0`, `DOB1`, ... | `DOB` (combed) |
-
-The app groups these into a single logical field, splits input text character-by-character, and fills each box. Text longer than the field length is truncated automatically.
-
----
-
-## Excel / CSV Requirements
-
-Your spreadsheet needs column headers that match your PDF field names. Matching is **case-insensitive**, so `Surname` matches `surname`, `SURNAME`, etc.
-
-Two columns are required for output filenames:
-- `surname` (or matching variant)
-- `First name` (or matching variant)
-
-All other columns are matched to PDF fields by name. Unmatched columns are silently skipped.
-
-**Supported formats:** `.xlsx`, `.xls`, `.csv` (UTF-8 and Latin-1 encoding auto-detected for CSV)
-
----
-
-## Output
-
-Generated PDFs are saved to a `Completed Applications` subfolder (configurable via the output folder browse button). Filename format:
+Generated PDFs are saved to a **`Completed Applications`** folder next to your data file (or a custom folder you choose). Filename format:
 
 ```
 FirstName_Surname_Evidence Application SchoolName Year.pdf
 ```
 
-If a file already exists, a counter suffix is appended: `(1)`, `(2)`, etc. School name and year are sanitised to remove special characters.
-
----
-
-## Configuration
-
-Settings are stored in `~/Documents/VCAA_App/settings.json` and created automatically on first run:
-
-```json
-{
-  "templates_directory": "~/Documents/VCAA_App/templates",
-  "show_welcome": true,
-  "auto_load_last_template": true,
-  "combed_field_padding": false,
-  "combed_field_align": "left",
-  "school_name": "",
-  "school_year": ""
-}
-```
-
-Template configurations are saved as JSON files in the templates directory alongside their mapping spreadsheets.
-
----
-
-## Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| pypdf | >= 4.0.0 | PDF form filling (read/write) |
-| pandas | >= 2.0.0 | Excel/CSV data processing |
-| openpyxl | >= 3.0.0 | Excel file creation for mapping export |
-| PyMuPDF (fitz) | >= 1.23.0 | PDF analysis, field extraction, page rendering |
-| Pillow | >= 10.0.0 | Image manipulation for visual preview |
-| tkinter | (stdlib) | GUI framework |
-
----
-
-## Project Structure
-
-```
-VCAA-PDF-Generator/
-├── vcaa_pdf_generator_v2.py      # Main application (GUI + orchestration)
-├── vcaa_models.py                # Data models (PDFField, TemplateConfig, AppSettings)
-├── vcaa_pdf_analyzer.py          # PDF field extraction and combed detection
-├── vcaa_visual_preview.py        # PDF page rendering and field highlighting
-├── vcaa_combed_filler.py         # Character-by-character field filling
-├── vcaa_theme.py                 # Centralised theme system (colours, fonts, styles)
-├── vcaa_markdown_renderer.py     # Markdown-to-tkinter Text widget renderer
-├── getting_started.md            # In-app Getting Started guide content
-├── requirements.txt              # Python dependencies
-├── Launch_BulkPDFGenerator.bat   # Windows launcher
-├── Launch_BulkPDFGenerator.command  # macOS launcher
-├── README.md                     # This file
-├── ARCHITECTURE.md               # Technical architecture documentation
-└── LICENSE                       # MIT licence
-```
+If a file already exists, the app adds `(1)`, `(2)`, etc. rather than overwriting.
 
 ---
 
@@ -194,26 +125,96 @@ VCAA-PDF-Generator/
 
 | Problem | Solution |
 |---------|----------|
-| `ModuleNotFoundError: No module named 'tkinter'` | **macOS:** `brew install python-tk@3.xx` / **Windows:** re-run Python installer, tick "tcl/tk and IDLE" / **Linux:** `sudo apt install python3-tk` |
-| `ModuleNotFoundError: No module named 'pypdf'` | Run `pip install -r requirements.txt` inside your virtual environment |
-| Fields not filling in generated PDFs | Ensure Excel column headers match PDF field names (case-insensitive) |
+| Windows shows "Windows protected your PC" | Click **More info** → **Run anyway** (see above) |
+| IT security blocks the app entirely | Ask your IT administrator to whitelist it, or point them to the open source code |
+| Fields not filling in output PDFs | Check that your Excel column headers match the PDF field names (case-insensitive) |
 | Visual preview not showing | Click **Analyse Fields** first in Tab 1 |
-| Combed fields not splitting | Analyse the PDF in Tab 1 before generating in Tab 3 |
-| Permission denied on Excel file | Close Excel/LibreOffice before running the app |
-| Text truncated in combed boxes | Expected behaviour -- combed fields have fixed character limits |
+| Combed fields not splitting into boxes | Analyse the PDF in Tab 1 before generating in Tab 3 |
+| "Permission denied" error on Excel file | Close the file in Excel before running the app |
+| Text cut off in combed boxes | Expected — combed fields have a fixed number of characters |
+
+---
+
+## For Developers — Running from Source
+
+If you want to run the Python source directly, or contribute to the project:
+
+### Requirements
+
+- Python 3.10+
+- Packages: `pip install -r requirements.txt`
+- tkinter (included with standard Python on Windows; on macOS: `brew install python-tk@3.xx`)
+
+### Setup
+
+```bash
+git clone https://github.com/mrdavearms/VCAA-PDF-Generator.git
+cd VCAA-PDF-Generator
+python -m venv venv
+
+# Windows
+.\venv\Scripts\activate
+
+# macOS / Linux
+source venv/bin/activate
+
+pip install -r requirements.txt
+python vcaa_pdf_generator_v2.py
+```
+
+### Building the Windows Executable
+
+```bash
+pip install pyinstaller
+python -m PyInstaller BulkPDFGenerator.spec --clean
+# Output: dist/Bulk PDF Generator.exe
+```
+
+Or just double-click **`build_windows.bat`**.
+
+### Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| pypdf | PDF form filling |
+| pandas | Excel/CSV data processing |
+| openpyxl | Excel file creation |
+| PyMuPDF (fitz) | PDF analysis, field extraction, page rendering |
+| Pillow | Image manipulation for visual preview |
+| tkinter | GUI framework (stdlib) |
+
+### Project Structure
+
+```
+VCAA-PDF-Generator/
+├── vcaa_pdf_generator_v2.py         # Main application
+├── vcaa_models.py                   # Data models and persistence
+├── vcaa_pdf_analyzer.py             # PDF field extraction engine
+├── vcaa_visual_preview.py           # PDF page rendering + field highlighting
+├── vcaa_combed_filler.py            # Character-by-character field filling
+├── vcaa_theme.py                    # Theme system (colours, fonts, styles)
+├── vcaa_markdown_renderer.py        # Markdown renderer for Getting Started tab
+├── getting_started.md               # In-app guide content
+├── icon.png / icon.ico              # Application icon
+├── requirements.txt                 # Python dependencies
+├── BulkPDFGenerator.spec            # PyInstaller build config
+├── build_windows.bat                # Windows build script
+├── Launch_BulkPDFGenerator.bat      # Windows launcher (from source)
+├── Launch_BulkPDFGenerator.command  # macOS launcher (from source)
+├── README.md                        # This file
+└── ARCHITECTURE.md                  # Technical architecture documentation
+```
 
 ---
 
 ## Developer
 
 **Dave Armstrong**
-Victorian Department of Education
+A Principal-developed app for educators and school leaders.
 [Dave.Armstrong@education.vic.gov.au](mailto:Dave.Armstrong@education.vic.gov.au)
-
-Built with Python, tkinter, and Claude.
 
 ---
 
 ## Licence
 
-MIT -- see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE) for details.
