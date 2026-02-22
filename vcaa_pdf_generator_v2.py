@@ -852,8 +852,9 @@ class VCAAPDFGeneratorV2:
                  fg=C['text_tertiary'], bg=C['bg_surface']).pack()
         tk.Label(card, text="Dave Armstrong", font=(ff, 14, 'bold'),
                  fg=C['text_primary'], bg=C['bg_surface']).pack(pady=(2, 2))
-        tk.Label(card, text="Victorian Department of Education", font=(ff, 10),
-                 fg=C['text_secondary'], bg=C['bg_surface']).pack(pady=(0, 16))
+        tk.Label(card, text="A Principal-developed app for educators and school leaders",
+                 font=(ff, 10), fg=C['text_secondary'],
+                 bg=C['bg_surface']).pack(pady=(0, 16))
 
         # Email link
         email_label = tk.Label(card, text="Dave.Armstrong@education.vic.gov.au",
@@ -870,6 +871,17 @@ class VCAAPDFGeneratorV2:
         github_label.pack(pady=(0, 20))
         github_label.bind('<Button-1>',
                           lambda e: webbrowser.open('https://github.com/mrdavearms/VCAA-PDF-Generator'))
+
+        # Divider
+        tk.Frame(card, bg=C['border_subtle'], height=1).pack(fill=tk.X, pady=(0, 16))
+
+        # Disclaimer
+        disclaimer = (
+            "This is a Principal-developed tool shared in good faith.\n"
+            "Always review all generated outputs before use."
+        )
+        tk.Label(card, text=disclaimer, font=(ff, 9), fg=C['text_tertiary'],
+                 bg=C['bg_surface'], justify=tk.CENTER).pack(pady=(0, 12))
 
         # Version
         tk.Label(card, text="v2.0", font=(ff, 10),
