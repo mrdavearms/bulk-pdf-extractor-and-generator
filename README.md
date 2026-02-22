@@ -4,9 +4,10 @@
 
 **Batch-fill PDF forms from spreadsheet data — turning hours of manual data entry into a single click.**
 
-[![Download](https://img.shields.io/github/v/release/mrdavearms/Bulk-PDF-generator-for-Vic-schools?label=⬇%EF%B8%8F%20download&color=0078d4&style=for-the-badge)](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/latest/download/Bulk%20PDF%20Generator.exe)
+[![Download](https://img.shields.io/github/v/release/mrdavearms/Bulk-PDF-generator-for-Vic-schools?label=⬇%EF%B8%8F%20download&color=0078d4&style=for-the-badge)](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/latest/download/Bulk.PDF.Generator.exe)
 
-[![Platform](https://img.shields.io/badge/platform-Windows-0078d4?logo=windows&logoColor=white)](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078d4?logo=windows&logoColor=white)](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/latest)
+[![Mac](https://img.shields.io/badge/macOS-coming%20soon-888888?logo=apple&logoColor=white)](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases)
 [![License](https://img.shields.io/badge/license-MIT-22c55e)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3b82f6?logo=python&logoColor=white)](https://python.org)
 [![Downloads](https://img.shields.io/github/downloads/mrdavearms/Bulk-PDF-generator-for-Vic-schools/total?color=7c3aed&label=total%20downloads)](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases)
@@ -69,9 +70,12 @@ flowchart LR
 
 ### Step 1 — Download
 
-**No Python or technical setup required.**
+> [!IMPORTANT]
+> **Windows only (10 or 11).** A macOS version is coming soon — watch this repo or check back shortly.
 
-### ➡️ [Download Bulk PDF Generator.exe](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/latest/download/Bulk%20PDF%20Generator.exe)
+### ➡️ [Download Bulk PDF Generator.exe](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/latest/download/Bulk.PDF.Generator.exe)
+
+**No Python, no installation, no IT support required** — just download and double-click.
 
 Save the file somewhere convenient — your Desktop, a shared school drive, or a dedicated apps folder.
 
