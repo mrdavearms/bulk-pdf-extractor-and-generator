@@ -1,0 +1,97 @@
+# -*- mode: python ; coding: utf-8 -*-
+#
+# BulkPDFGenerator.spec  —  PyInstaller build config for Bulk PDF Generator v2.0
+#
+# Build with:
+#   pyinstaller BulkPDFGenerator.spec --clean
+#
+# Output:  dist/Bulk PDF Generator.exe  (~80-120 MB, single file)
+
+from PyInstaller.utils.hooks import collect_all, collect_data_files
+
+# ── PyMuPDF (fitz) ──────────────────────────────────────────────────────────
+# PyMuPDF ships native DLLs and data files that must be bundled explicitly.
+pymupdf_datas, pymupdf_binaries, pymupdf_hidden = collect_all('PyMuPDF')
+
+# Older installs may have fitz as a separate entry point — collect both safely
+try:
+    fitz_datas, fitz_binaries, fitz_hidden = collect_all('fitz')
+except Exception:
+    fitz_datas, fitz_binaries, fitz_hidden = [], [], []
+
+# ── openpyxl ────────────────────────────────────────────────────────────────
+# openpyxl needs its templates/ directory (contains styles.xml, etc.)
+openpyxl_datas = collect_data_files('openpyxl')
+
+# ── pandas ───────────────────────────────────────────────────────────────────
+# pandas carries timezone/locale data files
+pandas_datas = collect_data_files('pandas')
+
+# ── Analysis ─────────────────────────────────────────────────────────────────
+a = Analysis(
+    ['vcaa_pdf_generator_v2.py'],
+    pathex=[],
+    binaries=pymupdf_binaries + fitz_binaries,
+    datas=[
+        # App resources bundled into the executable root
+        ('getting_started.md', '.'),
+        ('icon.png',           '.'),
+        ('icon.ico',           '.'),
+    ] + pymupdf_datas + fitz_datas + openpyxl_datas + pandas_datas,
+    hiddenimports=(
+        pymupdf_hidden
+        + fitz_hidden
+        + [
+            # openpyxl internals not always auto-detected
+            'openpyxl.cell._writer',
+            'openpyxl.styles.stylesheet',
+            # pandas time-series internals
+            'pandas._libs.tslibs.np_datetime',
+            'pandas._libs.tslibs.nattype',
+            'pandas._libs.tslibs.offsets',
+            'pandas._libs.tslibs.timestamps',
+            # tkinter extras (usually present, belt-and-braces)
+            'tkinter',
+            'tkinter.filedialog',
+            'tkinter.messagebox',
+            'tkinter.simpledialog',
+            'tkinter.ttk',
+        ]
+    ),
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    # Exclude heavy packages we definitely don't use to keep exe size down
+    excludes=[
+        'matplotlib', 'scipy', 'IPython', 'jupyter', 'notebook',
+        'pytest', 'setuptools', 'pip',
+    ],
+    noarchive=False,
+)
+
+pyz = PYZ(a.pure)
+
+# ── Single-file EXE ──────────────────────────────────────────────────────────
+# Passing a.binaries and a.datas into EXE (not a separate COLLECT) produces
+# a --onefile executable that extracts to a temp dir at runtime.
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.datas,
+    [],
+    name='Bulk PDF Generator',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,        # Don't strip symbols — can cause issues on Windows
+    upx=False,          # Disable UPX — reduces antivirus false-positive risk
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,      # No console / command-prompt window
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon='icon.ico',
+)

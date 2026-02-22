@@ -26,6 +26,18 @@ from typing import List, Optional, Dict
 from io import BytesIO
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 
+def get_resource_path(filename: str) -> str:
+    """Return the absolute path to a bundled resource file.
+
+    Works correctly in both normal Python execution and when frozen as a
+    PyInstaller single-file executable (where files are extracted to a
+    temporary directory referenced by sys._MEIPASS at runtime).
+    """
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, filename)
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
+
+
 # Import our new modules
 from vcaa_models import PDFField, TemplateConfig, AppSettings
 from vcaa_pdf_analyzer import PDFAnalyzer, auto_name_template
@@ -479,9 +491,8 @@ class VCAAPDFGeneratorV2:
           'header' → 32×32  used in the header bar
           'about'  → 72×72  used in the About tab card
         """
-        icon_dir = os.path.dirname(os.path.abspath(__file__))
-        ico_path = os.path.join(icon_dir, 'icon.ico')
-        png_path = os.path.join(icon_dir, 'icon.png')
+        ico_path = get_resource_path('icon.ico')
+        png_path = get_resource_path('icon.png')
 
         # Set taskbar / title-bar icon
         try:
@@ -790,7 +801,7 @@ class VCAAPDFGeneratorV2:
         scrollbar.config(command=text_widget.yview)
 
         # Load and render the markdown file
-        md_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'getting_started.md')
+        md_path = get_resource_path('getting_started.md')
         try:
             load_and_render(text_widget, md_path)
         except FileNotFoundError:
