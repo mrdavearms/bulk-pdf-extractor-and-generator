@@ -97,10 +97,14 @@ An in-app guide explaining how to prepare PDF templates — naming form fields, 
 ### Generate PDFs (Tab 3)
 
 1. Select your PDF template and your filled-in Excel/CSV data file
-2. Click **Load & Preview Data** — you'll see a row for each person
-3. Select the rows you want (all are selected by default)
-4. Click **Generate PDFs** — a progress bar shows each file being created
-5. When finished, the output folder opens automatically
+2. Click **Load & Preview Data**
+
+   > **If your Excel file has multiple sheets**, a dialog will appear asking which sheet contains your data. This is normal — especially if you're using a file exported by the app itself (which includes a *Data*, *Field Mapping*, and *Instructions* sheet). Simply select the sheet that holds your rows of student or applicant data and click **Load this sheet**. If you cancel the dialog, nothing is loaded.
+
+3. You'll see a row for each person in your data
+4. Select the rows you want (all are selected by default)
+5. Click **Generate PDFs** — a progress bar shows each file being created
+6. When finished, the output folder opens automatically
 
 ### About (Tab 4)
 
@@ -132,6 +136,12 @@ All other columns are matched to PDF fields automatically. Unmatched columns are
 
 **Supported formats:** `.xlsx`, `.xls`, `.csv`
 
+### Multi-sheet Excel files
+
+If your workbook contains more than one sheet, the app will ask you to pick which one holds your data before loading. This is particularly relevant if you're using an Excel file that was exported by the **Analyse Template** tab — that file contains three sheets (*Data*, *Field Mapping*, and *Instructions*) and only the *Data* sheet has the rows you want to fill.
+
+> **Tip:** If you'd prefer to avoid the prompt entirely, save a copy of your data sheet as a separate single-sheet `.xlsx` or `.csv` file. Single-sheet files always load immediately without any confirmation step.
+
 ---
 
 ## Output Files
@@ -152,6 +162,8 @@ If a file already exists, the app adds `(1)`, `(2)`, etc. rather than overwritin
 |---------|----------|
 | Windows shows "Windows protected your PC" | Click **More info** → **Run anyway** (see above) |
 | IT security blocks the app entirely | Ask your IT administrator to whitelist it, or point them to the open source code |
+| A "Select Sheet" dialog appeared when loading my Excel file | This is expected. Your file has multiple sheets — select the one containing your student/applicant data rows and click **Load this sheet** |
+| I accidentally cancelled the sheet-picker dialog | Just click **Load & Preview Data** again to re-open it |
 | Fields not filling in output PDFs | Check that your Excel column headers match the PDF field names (case-insensitive) |
 | Visual preview not showing | Click **Analyse Fields** first in Tab 1 |
 | Combed fields not splitting into boxes | Analyse the PDF in Tab 1 before generating in Tab 3 |
