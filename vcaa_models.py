@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Data models for VCAA PDF Generator v2.0
+Data models for Bulk PDF Generator v2.0
 Defines data structures for templates, fields, and configurations.
 """
 
@@ -180,5 +180,5 @@ class AppSettings:
     def get_defaults(cls) -> 'AppSettings':
         """Get default settings."""
         import os
-        default_dir = os.path.expanduser("~/Documents/VCAA_App/templates")
+        default_dir = os.path.expanduser("~/Documents/BulkPDFGenerator/templates")
         return cls(templates_directory=default_dir)

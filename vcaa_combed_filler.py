@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Combed Field Filler Module for VCAA PDF Generator v2.0
+Combed Field Filler Module for Bulk PDF Generator v2.0
 Handles splitting text into character-by-character fields.
 """
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple Markdown-to-tkinter renderer for VCAA PDF Generator v2.0
+Simple Markdown-to-tkinter renderer for Bulk PDF Generator v2.0
 
 Parses a subset of markdown and renders it into a tkinter Text widget
 using the tag system.  Supports headings, bold, bullet lists, and

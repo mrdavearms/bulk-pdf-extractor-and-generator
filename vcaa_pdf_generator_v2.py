@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-VCAA Evidence Application PDF Generator v2.0
+Bulk PDF Generator v2.0
 A GUI application to analyze PDF templates, map fields, and batch-fill forms.
 
 Features:
@@ -452,7 +452,7 @@ class VCAAPDFGeneratorV2:
         self._load_app_icon()
 
         # Settings
-        self.settings_file = os.path.expanduser("~/Documents/VCAA_App/settings.json")
+        self.settings_file = os.path.expanduser("~/Documents/BulkPDFGenerator/settings.json")
         self.settings = self.load_settings()
 
         # Ensure templates directory exists
@@ -876,12 +876,12 @@ class VCAAPDFGeneratorV2:
                          lambda e: webbrowser.open('mailto:Dave.Armstrong@education.vic.gov.au'))
 
         # GitHub link
-        github_label = tk.Label(card, text="github.com/mrdavearms/VCAA-PDF-Generator",
+        github_label = tk.Label(card, text="github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools",
                                 font=(ff, 11, 'underline'), fg=C['info'],
                                 bg=C['bg_surface'], cursor='hand2')
         github_label.pack(pady=(0, 20))
         github_label.bind('<Button-1>',
-                          lambda e: webbrowser.open('https://github.com/mrdavearms/VCAA-PDF-Generator'))
+                          lambda e: webbrowser.open('https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools'))
 
         # Divider
         tk.Frame(card, bg=C['border_subtle'], height=1).pack(fill=tk.X, pady=(0, 16))

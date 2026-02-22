@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PDF Field Analyzer for VCAA PDF Generator v2.0
+PDF Field Analyzer for Bulk PDF Generator v2.0
 Extracts form fields and detects combed (character-by-character) fields.
 """
 

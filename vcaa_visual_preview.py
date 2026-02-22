@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visual Field Preview Module for VCAA PDF Generator v2.0
+Visual Field Preview Module for Bulk PDF Generator v2.0
 Handles PDF page rendering and field highlighting for visual preview.
 """
 
