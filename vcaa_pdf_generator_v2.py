@@ -1734,6 +1734,65 @@ class VCAAPDFGeneratorV2:
         """Change template in Tab 3."""
         self.load_template_from_file()
 
+    def _pick_excel_sheet(self, sheet_names: list) -> Optional[str]:
+        """Show a modal sheet-picker dialog and return the chosen sheet name.
+
+        Returns None if the user cancels.
+        """
+        C = COLORS
+        ff = SYSTEM_FONTS['family']
+        result = {'choice': None}
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Select Sheet")
+        dialog.resizable(False, False)
+        dialog.configure(bg=C['bg_base'])
+        dialog.grab_set()
+
+        # Centre over the main window
+        dialog.update_idletasks()
+        px = self.root.winfo_x() + (self.root.winfo_width() // 2) - 220
+        py = self.root.winfo_y() + (self.root.winfo_height() // 2) - 80
+        dialog.geometry(f"440x160+{px}+{py}")
+
+        # Content
+        inner = tk.Frame(dialog, bg=C['bg_base'], padx=24, pady=20)
+        inner.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(inner,
+            text="This workbook has multiple sheets.",
+            font=(ff, 12, 'bold'), fg=C['text_primary'], bg=C['bg_base'],
+        ).pack(anchor=tk.W)
+        tk.Label(inner,
+            text="Please select the sheet that contains your data:",
+            font=(ff, 10), fg=C['text_secondary'], bg=C['bg_base'],
+        ).pack(anchor=tk.W, pady=(2, 10))
+
+        combo = ttk.Combobox(inner, values=sheet_names, state='readonly',
+                             font=(ff, 11), width=36)
+        combo.current(0)
+        combo.pack(anchor=tk.W)
+
+        # Buttons
+        btn_row = tk.Frame(inner, bg=C['bg_base'])
+        btn_row.pack(anchor=tk.E, pady=(14, 0))
+
+        def on_ok():
+            result['choice'] = combo.get()
+            dialog.destroy()
+
+        def on_cancel():
+            dialog.destroy()
+
+        ttk.Button(btn_row, text="Cancel", command=on_cancel).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="Load this sheet", style='Accent.TButton',
+                   command=on_ok).pack(side=tk.LEFT)
+
+        dialog.bind('<Return>', lambda e: on_ok())
+        dialog.bind('<Escape>', lambda e: on_cancel())
+        dialog.wait_window()
+        return result['choice']
+
     def load_data_tab3(self):
         """Load Excel data for Tab 3 (original functionality)."""
         pdf_path = self.pdf_template_path.get()
@@ -1766,7 +1825,15 @@ class VCAAPDFGeneratorV2:
                 except UnicodeDecodeError:
                     self.df = pd.read_csv(excel_path, encoding='latin-1')
             else:
-                self.df = pd.read_excel(excel_path)
+                xl = pd.ExcelFile(excel_path)
+                sheet_names = xl.sheet_names
+                if len(sheet_names) == 1:
+                    chosen_sheet = sheet_names[0]
+                else:
+                    chosen_sheet = self._pick_excel_sheet(sheet_names)
+                    if chosen_sheet is None:
+                        return  # User cancelled the dialog
+                self.df = xl.parse(chosen_sheet)
 
             # Clean column names (strip whitespace, lowercase for matching)
             self.df.columns = [str(col).strip() for col in self.df.columns]
