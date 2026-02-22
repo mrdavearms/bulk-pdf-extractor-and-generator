@@ -53,6 +53,31 @@ You'll only need to do this **once**. After that, Windows remembers your choice 
 
 ---
 
+## 🎓 Try It With Sample Data
+
+Not sure where to start? A set of sample files is included alongside the app so you can see exactly how it works before touching any of your own data.
+
+### What's included
+
+| File | What it is |
+|------|-----------|
+| `Sample_Template.pdf` | A blank PDF form with named fields ready to fill |
+| `Sample_Data.xlsx` | A sample spreadsheet with four rows of fictional student data |
+| `Sample_Output_1.pdf` – `Sample_Output_4.pdf` | Four pre-generated PDFs showing what the app produces |
+
+### How to use them
+
+1. Open the app and go to **Tab 3 — Generate PDFs**
+2. Under **PDF Template**, browse to `Sample_Template.pdf`
+3. Under **Excel / CSV Data File**, browse to `Sample_Data.xlsx`
+4. Click **Load & Preview Data** — four rows will appear
+5. Click **Generate PDFs**
+6. Compare your output with the four sample output files to confirm everything is working correctly
+
+Once you're comfortable with how it works, you're ready to use it with your own PDF template and real data.
+
+---
+
 ## How to Use
 
 The app has four tabs:
