@@ -35,6 +35,7 @@ from vcaa_theme import (
     COLORS, SPACING, SYSTEM_FONTS, font,
     apply_dark_theme, setup_treeview_tags, bind_treeview_hover,
 )
+from vcaa_markdown_renderer import load_and_render
 
 
 class ScrollableFrame(ttk.Frame):
@@ -110,8 +111,8 @@ class WelcomeDialog(tk.Toplevel):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.title("Welcome to VCAA PDF Generator")
-        self.geometry("520x340")
+        self.title("Welcome to Bulk PDF Generator")
+        self.geometry("560x380")
         self.configure(bg=COLORS['bg_elevated'])
         self.transient(parent)
         self.grab_set()
@@ -123,7 +124,7 @@ class WelcomeDialog(tk.Toplevel):
         # Title
         tk.Label(
             self,
-            text="Welcome to VCAA PDF Generator",
+            text="Welcome to Bulk PDF Generator",
             font=(ff, 18, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_elevated'],
@@ -250,7 +251,7 @@ class SchoolSetupDialog(tk.Toplevel):
             form,
             text='e.g. "Wangaratta High School"',
             font=(ff, 9),
-            fg=C['text_muted'],
+            fg=C['text_tertiary'],
             bg=C['bg_elevated'],
             anchor=tk.W,
         ).pack(fill=tk.X, pady=(0, 16))
@@ -430,7 +431,7 @@ class VCAAPDFGeneratorV2:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("VCAA PDF Generator v2.0")
+        self.root.title("Bulk PDF Generator v2.0")
         self.root.geometry("1000x800")
         self.root.minsize(900, 700)
 
@@ -451,6 +452,7 @@ class VCAAPDFGeneratorV2:
         self.df = None
         self.selected_rows = {}
         self.critical_fields = ['surname', 'first name', 'vcaa student number']
+        self.output_dir_path = tk.StringVar()  # Optional custom output directory
 
         # Register cleanup on close
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -464,16 +466,18 @@ class VCAAPDFGeneratorV2:
         elif self.settings.show_welcome and not self.has_templates():
             self.root.after(500, self.show_welcome_dialog)
 
-    def on_closing(self):
-        """Clean up resources before closing."""
-        # Close preview generator if open
+    def _close_preview_generator(self):
+        """Safely close the preview generator if open."""
         if hasattr(self, 'preview_generator') and self.preview_generator:
             try:
                 self.preview_generator.__exit__(None, None, None)
-            except:
+            except Exception:
                 pass
+            self.preview_generator = None
 
-        # Destroy window
+    def on_closing(self):
+        """Clean up resources before closing."""
+        self._close_preview_generator()
         self.root.destroy()
 
     def load_settings(self) -> AppSettings:
@@ -526,11 +530,11 @@ class VCAAPDFGeneratorV2:
         self.root.wait_window(dialog)
 
         if dialog.choice == "analyze":
-            self.notebook.select(0)  # Go to Tab 1
+            self.notebook.select(1)  # Go to Tab 1
         elif dialog.choice == "load":
             self.load_template_from_file()
         elif dialog.choice == "skip":
-            self.notebook.select(2)  # Go to Tab 3
+            self.notebook.select(3)  # Go to Tab 3
 
     def setup_ui(self):
         """Create the main UI with tabbed interface."""
@@ -542,29 +546,38 @@ class VCAAPDFGeneratorV2:
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # ── Header Bar ──
-        header = tk.Frame(main_frame, bg=C['bg_surface'], height=70)
+        header = tk.Frame(main_frame, bg=C['bg_surface'], height=80)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
 
         title_area = tk.Frame(header, bg=C['bg_surface'])
-        title_area.pack(side=tk.LEFT, padx=20, pady=10)
+        title_area.pack(side=tk.LEFT, padx=24, pady=12)
 
-        tk.Label(title_area,
-            text="VCAA PDF Generator",
-            font=(ff, 20, 'bold'),
+        # Title row with accent icon
+        title_row = tk.Frame(title_area, bg=C['bg_surface'])
+        title_row.pack(anchor=tk.W)
+        tk.Label(title_row,
+            text="\u25c6",
+            font=(ff, 18),
+            fg=C['accent'],
+            bg=C['bg_surface'],
+        ).pack(side=tk.LEFT, padx=(0, 8))
+        tk.Label(title_row,
+            text="Bulk PDF Generator",
+            font=(ff, 22, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_surface'],
-        ).pack(anchor=tk.W)
+        ).pack(side=tk.LEFT)
 
         tk.Label(title_area,
-            text="v2.0",
+            text="Generate filled PDFs from spreadsheet data",
             font=(ff, 10),
-            fg=C['text_tertiary'],
+            fg=C['text_secondary'],
             bg=C['bg_surface'],
-        ).pack(anchor=tk.W)
+        ).pack(anchor=tk.W, padx=(30, 0))
 
         info_area = tk.Frame(header, bg=C['bg_surface'])
-        info_area.pack(side=tk.RIGHT, padx=20, pady=10)
+        info_area.pack(side=tk.RIGHT, padx=24, pady=12)
 
         # School name (clickable to edit)
         school_text = ""
@@ -588,8 +601,8 @@ class VCAAPDFGeneratorV2:
         )
         self.header_status.pack(anchor=tk.E)
 
-        # Divider
-        tk.Frame(main_frame, bg=C['border_subtle'], height=1).pack(fill=tk.X)
+        # Accent stripe divider
+        tk.Frame(main_frame, bg=C['accent'], height=3).pack(fill=tk.X)
 
         # ── Content area ──
         content_frame = ttk.Frame(main_frame, padding=str(SPACING['page_padding']))
@@ -599,7 +612,11 @@ class VCAAPDFGeneratorV2:
         self.notebook = ttk.Notebook(content_frame)
         self.notebook.pack(fill=tk.BOTH, expand=True)
 
-        # Create scrollable tabs
+        # Tab 0 uses a plain frame (Text widget has its own scrollbar)
+        self.tab0_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab0_frame, text="  Getting Started  ")
+
+        # Tabs 1-3 use ScrollableFrame
         self.tab1_container = ScrollableFrame(self.notebook)
         self.tab2_container = ScrollableFrame(self.notebook)
         self.tab3_container = ScrollableFrame(self.notebook)
@@ -615,7 +632,7 @@ class VCAAPDFGeneratorV2:
 
         # ── Status Bar ──
         tk.Frame(main_frame, bg=C['border_subtle'], height=1).pack(fill=tk.X, side=tk.BOTTOM)
-        status_frame = tk.Frame(main_frame, bg=C['bg_surface'], height=28)
+        status_frame = tk.Frame(main_frame, bg=C['bg_surface'], height=32)
         status_frame.pack(fill=tk.X, side=tk.BOTTOM)
         status_frame.pack_propagate(False)
 
@@ -638,9 +655,100 @@ class VCAAPDFGeneratorV2:
         self.status_template.pack(side=tk.RIGHT, padx=12)
 
         # Setup each tab
+        self.setup_tab0_getting_started()
         self.setup_tab1_analyze()
         self.setup_tab2_mapping()
         self.setup_tab3_generate()
+
+        # Disable Tab 2 (placeholder until Phase 3)
+        self.notebook.tab(2, state='disabled')
+
+    # ========== UI HELPERS ==========
+
+    def create_section(self, parent, title, subtitle=None, expand=False):
+        """Create a card-style section with title label and bordered content area.
+
+        Returns the inner content frame to pack widgets into.
+        """
+        C = COLORS
+        ff = SYSTEM_FONTS['family']
+
+        # Section wrapper
+        wrapper = ttk.Frame(parent)
+        fill_mode = tk.BOTH if expand else tk.X
+        wrapper.pack(fill=fill_mode, expand=expand, pady=(0, SPACING['section_gap']))
+
+        # Title label
+        tk.Label(wrapper,
+            text=title,
+            font=(ff, 13, 'bold'),
+            fg=C['text_primary'],
+            bg=C['bg_base'],
+            anchor=tk.W,
+        ).pack(anchor=tk.W, pady=(0, 6))
+
+        # Optional subtitle
+        if subtitle:
+            tk.Label(wrapper,
+                text=subtitle,
+                font=(ff, 10),
+                fg=C['text_secondary'],
+                bg=C['bg_base'],
+                anchor=tk.W,
+            ).pack(anchor=tk.W, pady=(0, 6))
+
+        # Border frame (simulates 1px border via bg color + padding)
+        border_frame = tk.Frame(wrapper, bg=C['border_subtle'], padx=1, pady=1)
+        border_frame.pack(fill=fill_mode, expand=expand)
+
+        # Inner content frame
+        inner = tk.Frame(border_frame, bg=C['bg_surface'],
+                         padx=SPACING['inner_padding'], pady=SPACING['inner_padding'])
+        inner.pack(fill=fill_mode, expand=expand)
+
+        return inner
+
+    # ========== TAB 0: GETTING STARTED ==========
+
+    def setup_tab0_getting_started(self):
+        """Build the Getting Started tab with rendered markdown content."""
+        C = COLORS
+
+        # Text widget + scrollbar
+        text_frame = ttk.Frame(self.tab0_frame)
+        text_frame.pack(fill=tk.BOTH, expand=True)
+
+        scrollbar = ttk.Scrollbar(text_frame, orient=tk.VERTICAL)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        text_widget = tk.Text(
+            text_frame,
+            wrap=tk.WORD,
+            bg=C['bg_base'],
+            fg=C['text_primary'],
+            insertbackground=C['text_primary'],
+            selectbackground=C['accent_subtle'],
+            selectforeground=C['text_primary'],
+            borderwidth=0,
+            highlightthickness=0,
+            padx=20,
+            pady=15,
+            yscrollcommand=scrollbar.set,
+            cursor='arrow',
+        )
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=text_widget.yview)
+
+        # Load and render the markdown file
+        import os
+        md_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'getting_started.md')
+        try:
+            load_and_render(text_widget, md_path)
+        except FileNotFoundError:
+            text_widget.insert(tk.END, "Getting Started content not found.\n\n"
+                               "Expected file: getting_started.md\n"
+                               "Place it in the same folder as the application.")
+            text_widget.config(state=tk.DISABLED)
 
     def update_status(self, message, level='info'):
         """Update the status bar message."""
@@ -666,54 +774,58 @@ class VCAAPDFGeneratorV2:
         container.pack(fill=tk.BOTH, expand=True)
 
         # Section: Load Template
-        load_frame = ttk.LabelFrame(container, text="Load Template", padding=str(SPACING['inner_padding']))
-        load_frame.pack(fill=tk.X, pady=(0, SPACING['section_gap']))
+        load_inner = self.create_section(container, "Load Template")
 
         # PDF selection row
-        pdf_row = ttk.Frame(load_frame, style='Card.TFrame')
-        pdf_row.pack(fill=tk.X, pady=SPACING['element_gap'])
-        ttk.Label(pdf_row, text="PDF Template:", width=15, style='Surface.TLabel').pack(side=tk.LEFT)
-        ttk.Entry(pdf_row, textvariable=self.pdf_template_path, width=50).pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
-        ttk.Button(pdf_row, text="Browse...", command=self.select_pdf_tab1).pack(side=tk.LEFT)
+        pdf_row = tk.Frame(load_inner, bg=COLORS['bg_surface'])
+        pdf_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
+        tk.Label(pdf_row, text="PDF Template:", width=18, anchor=tk.W,
+                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
+        ttk.Entry(pdf_row, textvariable=self.pdf_template_path, width=50).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
+        ttk.Button(pdf_row, text="Browse...", command=self.select_pdf_tab1, width=10).pack(side=tk.LEFT)
 
         # Template name row
-        name_row = ttk.Frame(load_frame, style='Card.TFrame')
-        name_row.pack(fill=tk.X, pady=SPACING['element_gap'])
-        ttk.Label(name_row, text="Template Name:", width=15, style='Surface.TLabel').pack(side=tk.LEFT)
+        name_row = tk.Frame(load_inner, bg=COLORS['bg_surface'])
+        name_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
+        tk.Label(name_row, text="Template Name:", width=18, anchor=tk.W,
+                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
         self.template_name_var = tk.StringVar()
-        ttk.Entry(name_row, textvariable=self.template_name_var, width=50).pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        ttk.Entry(name_row, textvariable=self.template_name_var, width=50).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
 
         # Naming options
-        naming_row = ttk.Frame(load_frame, style='Card.TFrame')
-        naming_row.pack(fill=tk.X, pady=SPACING['element_gap'], padx=(120, 0))
+        naming_row = tk.Frame(load_inner, bg=COLORS['bg_surface'])
+        naming_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']), padx=(144, 0))
         self.naming_option_var = tk.StringVar(value="auto")
-        ttk.Radiobutton(naming_row, text="Auto-name from PDF", variable=self.naming_option_var, value="auto", style='Surface.TRadiobutton').pack(side=tk.LEFT, padx=5)
-        ttk.Radiobutton(naming_row, text="Custom name", variable=self.naming_option_var, value="custom", style='Surface.TRadiobutton').pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(naming_row, text="Auto-name from PDF", variable=self.naming_option_var, value="auto", style='Surface.TRadiobutton').pack(side=tk.LEFT, padx=(0, 12))
+        ttk.Radiobutton(naming_row, text="Custom name", variable=self.naming_option_var, value="custom", style='Surface.TRadiobutton').pack(side=tk.LEFT)
 
         # Recent templates dropdown
-        recent_row = ttk.Frame(load_frame, style='Card.TFrame')
-        recent_row.pack(fill=tk.X, pady=SPACING['element_gap'])
-        ttk.Label(recent_row, text="Recent Templates:", width=15, style='Surface.TLabel').pack(side=tk.LEFT)
+        recent_row = tk.Frame(load_inner, bg=COLORS['bg_surface'])
+        recent_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
+        tk.Label(recent_row, text="Recent Templates:", width=18, anchor=tk.W,
+                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
         self.recent_templates_var = tk.StringVar()
         self.recent_templates_combo = ttk.Combobox(recent_row, textvariable=self.recent_templates_var, state="readonly", width=47)
-        self.recent_templates_combo.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
-        ttk.Button(recent_row, text="Load", command=self.load_recent_template).pack(side=tk.LEFT, padx=5)
+        self.recent_templates_combo.pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
+        ttk.Button(recent_row, text="Load", command=self.load_recent_template, width=10).pack(side=tk.LEFT)
 
         self.populate_recent_templates()
 
         # Analyze button
-        ttk.Button(load_frame, text="Analyze Fields", command=self.analyze_pdf_fields, style='Accent.TButton').pack(pady=SPACING['section_gap'])
+        btn_row = tk.Frame(load_inner, bg=COLORS['bg_surface'])
+        btn_row.pack(fill=tk.X, pady=(SPACING['element_gap'], 0))
+        ttk.Button(btn_row, text="Analyze Fields", command=self.analyze_pdf_fields, style='Accent.TButton').pack()
 
         # Analysis results section
-        results_frame = ttk.LabelFrame(container, text="Analysis Results", padding=str(SPACING['inner_padding']))
-        results_frame.pack(fill=tk.BOTH, expand=True, pady=(0, SPACING['section_gap']))
+        results_inner = self.create_section(container, "Analysis Results", expand=True)
 
         # Stats row
-        self.stats_label = ttk.Label(results_frame, text="No analysis performed yet", style='Surface.Secondary.TLabel')
-        self.stats_label.pack(pady=5)
+        self.stats_label = tk.Label(results_inner, text="No analysis performed yet",
+                                    font=font(10), fg=COLORS['text_secondary'], bg=COLORS['bg_surface'])
+        self.stats_label.pack(pady=(0, 8))
 
         # Fields table
-        table_frame = ttk.Frame(results_frame, style='Card.TFrame')
+        table_frame = tk.Frame(results_inner, bg=COLORS['bg_surface'])
         table_frame.pack(fill=tk.BOTH, expand=True)
 
         columns = ('field_name', 'type', 'page', 'length')
@@ -743,34 +855,62 @@ class VCAAPDFGeneratorV2:
         # Bind selection event for field preview
         self.fields_tree.bind('<<TreeviewSelect>>', self.on_field_selected)
 
-        # Visual Preview Frame
-        preview_frame = ttk.LabelFrame(results_frame, text="Field Preview (click a field above)", padding=str(SPACING['inner_padding']))
-        preview_frame.pack(fill=tk.X, pady=SPACING['section_gap'])
+        # Visual Preview section (nested inside results card)
+        preview_header = tk.Frame(results_inner, bg=COLORS['bg_surface'])
+        preview_header.pack(fill=tk.X, pady=(SPACING['element_gap'], 6))
 
-        # Preview canvas
+        tk.Label(preview_header, text="Field Preview",
+                 font=font(11, 'bold'), fg=COLORS['text_primary'],
+                 bg=COLORS['bg_surface'], anchor=tk.W).pack(side=tk.LEFT)
+
+        # Zoom controls
+        zoom_frame = tk.Frame(preview_header, bg=COLORS['bg_surface'])
+        zoom_frame.pack(side=tk.RIGHT)
+        self.zoom_level = 1.0
+        self._preview_raw_img = None  # Store unscaled PIL image for zoom
+
+        ttk.Button(zoom_frame, text="\u2212", width=3,
+                   command=lambda: self._zoom_preview(-0.25)).pack(side=tk.LEFT, padx=2)
+        self.zoom_label = tk.Label(zoom_frame, text="100%", width=5,
+                                   font=font(10), fg=COLORS['text_secondary'],
+                                   bg=COLORS['bg_surface'], anchor=tk.CENTER)
+        self.zoom_label.pack(side=tk.LEFT, padx=2)
+        ttk.Button(zoom_frame, text="+", width=3,
+                   command=lambda: self._zoom_preview(0.25)).pack(side=tk.LEFT, padx=2)
+        ttk.Button(zoom_frame, text="Fit", width=4,
+                   command=lambda: self._zoom_preview(0, fit=True)).pack(side=tk.LEFT, padx=(6, 0))
+
+        tk.Label(results_inner, text="Click a field above to preview \u2022 Use +/\u2212 to zoom \u2022 Scroll to pan",
+                 font=font(9), fg=COLORS['text_secondary'], bg=COLORS['bg_surface'], anchor=tk.W).pack(fill=tk.X, pady=(0, 6))
+
+        # Preview canvas (scrollable for zoom)
+        canvas_frame = tk.Frame(results_inner, bg=COLORS['canvas_border'])
+        canvas_frame.pack(fill=tk.BOTH, expand=True)
+
         self.preview_canvas = tk.Canvas(
-            preview_frame, width=600, height=300,
+            canvas_frame, width=600, height=300,
             bg=COLORS['canvas_bg'],
-            highlightthickness=1,
-            highlightbackground=COLORS['canvas_border'],
+            highlightthickness=0,
+            xscrollincrement=1, yscrollincrement=1,
         )
         self.preview_canvas.pack(fill=tk.BOTH, expand=True)
+
+        # Mouse wheel scrolling on canvas for panning when zoomed
+        def _on_canvas_scroll(event):
+            if self.zoom_level > 1.0:
+                self.preview_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        self.preview_canvas.bind('<MouseWheel>', _on_canvas_scroll)
 
         self.preview_image = None
         self.preview_generator = None
 
-        # Export buttons
-        export_frame = ttk.Frame(container)
-        export_frame.pack(fill=tk.X, pady=SPACING['element_gap'])
+        # Action buttons row
+        action_frame = tk.Frame(container, bg=COLORS['bg_base'])
+        action_frame.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
 
-        ttk.Button(export_frame, text="Export Mapping File (.xlsx)", command=self.export_mapping_file).pack(side=tk.LEFT, padx=5)
-        ttk.Button(export_frame, text="Save Template Config", command=self.save_template_config, style='Accent.TButton').pack(side=tk.LEFT, padx=5)
-
-        # Quick actions
-        quick_frame = ttk.Frame(container)
-        quick_frame.pack(fill=tk.X, pady=SPACING['element_gap'])
-        ttk.Label(quick_frame, text="Quick Actions:", style='Secondary.TLabel').pack(side=tk.LEFT)
-        ttk.Button(quick_frame, text="Skip to Generate PDFs", command=lambda: self.notebook.select(2)).pack(side=tk.LEFT, padx=10)
+        ttk.Button(action_frame, text="Export Mapping File (.xlsx)", command=self.export_mapping_file).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(action_frame, text="Save Template Config", command=self.save_template_config, style='Accent.TButton').pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(action_frame, text="Skip to Generate PDFs \u2192", command=lambda: self.notebook.select(3)).pack(side=tk.RIGHT)
 
     def select_pdf_tab1(self):
         """Select PDF file in Tab 1."""
@@ -829,7 +969,7 @@ class VCAAPDFGeneratorV2:
             messagebox.showinfo("Template Loaded", f"Loaded template: {self.current_template.template_name}")
 
             # Switch to Tab 2 or 3
-            self.notebook.select(2)  # Go to Generate tab
+            self.notebook.select(3)  # Go to Generate tab
 
         except Exception as e:
             self.update_status(f"Failed to load template", 'error')
@@ -863,6 +1003,9 @@ class VCAAPDFGeneratorV2:
             with PDFAnalyzer(pdf_path) as analyzer:
                 self.analyzed_fields = analyzer.analyze_fields()
                 field_stats = analyzer.get_field_statistics(self.analyzed_fields)
+
+            # Close any existing preview generator before opening a new one
+            self._close_preview_generator()
 
             # Initialize preview generator
             cache_dir = os.path.join(self.settings.templates_directory, '.preview_cache')
@@ -911,6 +1054,56 @@ class VCAAPDFGeneratorV2:
                 length_display
             ), tags=tags)
 
+    def _zoom_preview(self, delta, fit=False):
+        """Adjust preview zoom level and re-render."""
+        if fit:
+            self.zoom_level = 1.0
+        else:
+            self.zoom_level = max(0.5, min(4.0, self.zoom_level + delta))
+
+        self.zoom_label.config(text=f"{int(self.zoom_level * 100)}%")
+        self._render_preview_at_zoom()
+
+    def _render_preview_at_zoom(self):
+        """Re-render the stored raw preview image at the current zoom level."""
+        if self._preview_raw_img is None:
+            return
+
+        try:
+            canvas_width = self.preview_canvas.winfo_width()
+            canvas_height = self.preview_canvas.winfo_height()
+            if canvas_width <= 1:
+                canvas_width = 600
+            if canvas_height <= 1:
+                canvas_height = 300
+
+            img_width, img_height = self._preview_raw_img.size
+
+            # Base scale: fit to canvas
+            base_scale = min(canvas_width / img_width, canvas_height / img_height) * 0.95
+            scale = base_scale * self.zoom_level
+
+            new_width = max(1, int(img_width * scale))
+            new_height = max(1, int(img_height * scale))
+
+            resized = self._preview_raw_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            self.preview_image = ImageTk.PhotoImage(resized)
+
+            self.preview_canvas.delete("all")
+
+            if self.zoom_level > 1.0:
+                # Enable scrolling for zoomed images
+                self.preview_canvas.config(scrollregion=(0, 0, new_width, new_height))
+                self.preview_canvas.create_image(new_width // 2, new_height // 2,
+                                                 image=self.preview_image, anchor=tk.CENTER)
+            else:
+                # Reset scroll region to canvas size when fitting
+                self.preview_canvas.config(scrollregion=(0, 0, canvas_width, canvas_height))
+                self.preview_canvas.create_image(canvas_width // 2, canvas_height // 2,
+                                                 image=self.preview_image, anchor=tk.CENTER)
+        except Exception as e:
+            print(f"Zoom render error: {e}")
+
     def on_field_selected(self, event):
         """Handle field selection in Tab 1 - show visual preview."""
         if not self.analyzed_fields or not self.preview_generator:
@@ -931,38 +1124,16 @@ class VCAAPDFGeneratorV2:
         field = self.analyzed_fields[item_index]
 
         try:
-            # Generate preview
-            preview_img = self.preview_generator.generate_field_preview(field, dpi=150)
+            # Generate preview at higher DPI for zoom quality
+            preview_img = self.preview_generator.generate_field_preview(field, dpi=200)
 
-            # Resize to fit canvas (maintain aspect ratio)
-            canvas_width = self.preview_canvas.winfo_width()
-            canvas_height = self.preview_canvas.winfo_height()
+            # Store raw image for zoom
+            self._preview_raw_img = preview_img
+            self.zoom_level = 1.0
+            self.zoom_label.config(text="100%")
 
-            # Use default size if canvas not yet rendered
-            if canvas_width <= 1:
-                canvas_width = 600
-            if canvas_height <= 1:
-                canvas_height = 300
-
-            img_width, img_height = preview_img.size
-            scale = min(canvas_width / img_width, canvas_height / img_height)
-
-            new_width = int(img_width * scale * 0.95)  # 95% to add margin
-            new_height = int(img_height * scale * 0.95)
-
-            preview_img = preview_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-
-            # Convert to PhotoImage
-            self.preview_image = ImageTk.PhotoImage(preview_img)
-
-            # Clear canvas and display
-            self.preview_canvas.delete("all")
-            self.preview_canvas.create_image(
-                canvas_width // 2,
-                canvas_height // 2,
-                image=self.preview_image,
-                anchor=tk.CENTER
-            )
+            # Render at current zoom (handles canvas drawing)
+            self._render_preview_at_zoom()
 
         except Exception as e:
             print(f"Preview error: {e}")
@@ -975,7 +1146,14 @@ class VCAAPDFGeneratorV2:
             )
 
     def export_mapping_file(self):
-        """Export field mapping to Excel file."""
+        """Export field mapping to Excel file with formatted worksheets.
+
+        Creates three sheets:
+        - Field Mapping: detailed reference of all PDF fields
+        - Data Entry: ready-to-use data entry sheet with field names as column headers
+        - Instructions: how-to guide for using the file
+        All cells have wrap-text formatting applied.
+        """
         if not self.analyzed_fields:
             messagebox.showwarning("No Data", "Please analyze a PDF template first.")
             return
@@ -995,36 +1173,39 @@ class VCAAPDFGeneratorV2:
             return
 
         try:
-            # Create DataFrame
+            from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
+
+            # Build field data
             data = []
             for field in self.analyzed_fields:
-                # Smart guess for Excel column name
                 excel_col = self.smart_guess_excel_column(field.field_name)
-
                 data.append({
                     'PDF_Field_Name': field.field_name,
                     'Excel_Column_Name': excel_col,
                     'Field_Type': field.field_type,
                     'Page': field.page,
-                    'Required': 'Yes' if field.field_name.lower() in ['surname', 'first_name', 'first name', 'vcaa_number', 'vcaa student number'] else 'No',
+                    'Required': 'Yes' if field.field_name.lower() in [
+                        'surname', 'first_name', 'first name',
+                        'vcaa_number', 'vcaa student number'
+                    ] else 'No',
                     'Length': f"{field.length} chars" if field.is_combed else '-',
-                    'Notes': self.generate_field_notes(field)
+                    'Notes': self.generate_field_notes(field),
                 })
 
             df = pd.DataFrame(data)
 
-            # Create Data Entry template DataFrame (horizontal headers)
+            # Data Entry columns: use the Excel column names as headers
             data_entry_cols = [d['Excel_Column_Name'] for d in data if d['Excel_Column_Name']]
             df_data_entry = pd.DataFrame(columns=data_entry_cols)
 
-            # Write to Excel with instructions sheet
+            # Write sheets via pandas, then format with openpyxl
             with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
                 df.to_excel(writer, sheet_name='Field Mapping', index=False)
                 df_data_entry.to_excel(writer, sheet_name='Data Entry', index=False)
 
                 # Instructions sheet
                 instructions = pd.DataFrame({
-                    'VCAA PDF Generator - Field Mapping Guide': [
+                    'Bulk PDF Generator - Field Mapping Guide': [
                         '',
                         'HOW TO USE THIS FILE:',
                         '1. Review the "Field Mapping" sheet',
@@ -1039,10 +1220,62 @@ class VCAAPDFGeneratorV2:
                         '- Combed fields will auto-split text (e.g., "John" → J-o-h-n)',
                         '- The app uses the "Data Entry" sheet for PDF generation',
                         '',
-                        'For help: See README.md'
+                        'For help: See the Getting Started tab in the app',
                     ]
                 })
                 instructions.to_excel(writer, sheet_name='Instructions', index=False, header=False)
+
+                wb = writer.book
+
+                # -- Shared styles --
+                wrap_align = Alignment(wrap_text=True, vertical='top')
+                header_font = Font(bold=True, size=11)
+                header_fill = PatternFill(start_color='E8F0FE', end_color='E8F0FE', fill_type='solid')
+                thin_border = Border(
+                    bottom=Side(style='thin', color='E0E0E3'),
+                )
+
+                # ── Format: Field Mapping sheet ──
+                ws_map = wb['Field Mapping']
+                for row in ws_map.iter_rows():
+                    for cell in row:
+                        cell.alignment = wrap_align
+                # Bold + coloured header row
+                for cell in ws_map[1]:
+                    cell.font = header_font
+                    cell.fill = header_fill
+                    cell.border = thin_border
+                # Auto-width columns (min 14, max 40)
+                for col in ws_map.columns:
+                    max_len = max(len(str(cell.value or '')) for cell in col)
+                    adjusted = min(40, max(14, max_len + 4))
+                    ws_map.column_dimensions[col[0].column_letter].width = adjusted
+
+                # ── Format: Data Entry sheet ──
+                ws_entry = wb['Data Entry']
+                # Apply wrap text to ALL cells (headers + 50 empty rows for data entry)
+                for r in range(1, 52):
+                    for c in range(1, len(data_entry_cols) + 1):
+                        cell = ws_entry.cell(row=r, column=c)
+                        cell.alignment = wrap_align
+                # Bold + coloured header row
+                for cell in ws_entry[1]:
+                    cell.font = header_font
+                    cell.fill = header_fill
+                    cell.border = thin_border
+                # Set column widths (min 16 based on header text)
+                for idx, col_name in enumerate(data_entry_cols, 1):
+                    width = min(30, max(16, len(col_name) + 4))
+                    ws_entry.column_dimensions[ws_entry.cell(row=1, column=idx).column_letter].width = width
+                # Freeze header row so it stays visible during scrolling
+                ws_entry.freeze_panes = 'A2'
+
+                # ── Format: Instructions sheet ──
+                ws_instr = wb['Instructions']
+                for row in ws_instr.iter_rows():
+                    for cell in row:
+                        cell.alignment = wrap_align
+                ws_instr.column_dimensions['A'].width = 80
 
             messagebox.showinfo("Export Successful", f"Mapping file saved to:\n{filepath}")
 
@@ -1174,48 +1407,61 @@ class VCAAPDFGeneratorV2:
         container = ttk.Frame(tab, padding=str(SPACING['page_padding']))
         container.pack(fill=tk.BOTH, expand=True)
 
-        # Template selection
-        template_frame = ttk.Frame(container)
+        # Template selection bar
+        template_frame = tk.Frame(container, bg=COLORS['bg_base'])
         template_frame.pack(fill=tk.X, pady=(0, SPACING['section_gap']))
 
-        ttk.Label(template_frame, text="Template:", style='Secondary.TLabel').pack(side=tk.LEFT, padx=(0, 10))
+        tk.Label(template_frame, text="Template:", font=font(10),
+                 fg=COLORS['text_secondary'], bg=COLORS['bg_base']).pack(side=tk.LEFT, padx=(0, 10))
 
         self.selected_template_var = tk.StringVar()
         template_combo = ttk.Combobox(template_frame, textvariable=self.selected_template_var, state="readonly", width=40)
-        template_combo.pack(side=tk.LEFT, padx=5)
+        template_combo.pack(side=tk.LEFT, padx=(0, 8))
 
-        ttk.Button(template_frame, text="Change Template", command=self.change_template_tab3).pack(side=tk.LEFT, padx=5)
+        ttk.Button(template_frame, text="Change Template", command=self.change_template_tab3).pack(side=tk.LEFT, padx=(0, 8))
 
-        self.matching_status_label = ttk.Label(template_frame, text="Matching: Auto-matching enabled", style='Success.TLabel')
+        self.matching_status_label = ttk.Label(template_frame, text="Auto-matching enabled", style='Success.TLabel')
         self.matching_status_label.pack(side=tk.LEFT, padx=10)
 
-        # File Selection Frame
-        file_frame = ttk.LabelFrame(container, text="File Selection", padding=str(SPACING['inner_padding']))
-        file_frame.pack(fill=tk.X, pady=(0, SPACING['section_gap']))
+        # File Selection section
+        file_inner = self.create_section(container, "Select Files")
 
         # PDF Template selection
-        pdf_row = ttk.Frame(file_frame, style='Card.TFrame')
-        pdf_row.pack(fill=tk.X, pady=SPACING['element_gap'])
-        ttk.Label(pdf_row, text="PDF Template:", width=15, style='Surface.TLabel').pack(side=tk.LEFT)
-        ttk.Entry(pdf_row, textvariable=self.pdf_template_path, width=50).pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
-        ttk.Button(pdf_row, text="Browse...", command=self.select_pdf_tab3).pack(side=tk.LEFT)
+        pdf_row = tk.Frame(file_inner, bg=COLORS['bg_surface'])
+        pdf_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
+        tk.Label(pdf_row, text="PDF Template:", width=18, anchor=tk.W,
+                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
+        ttk.Entry(pdf_row, textvariable=self.pdf_template_path, width=50).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
+        ttk.Button(pdf_row, text="Browse...", command=self.select_pdf_tab3, width=10).pack(side=tk.LEFT)
 
         # Excel file selection
-        excel_row = ttk.Frame(file_frame, style='Card.TFrame')
-        excel_row.pack(fill=tk.X, pady=SPACING['element_gap'])
-        ttk.Label(excel_row, text="Excel Data File:", width=15, style='Surface.TLabel').pack(side=tk.LEFT)
-        ttk.Entry(excel_row, textvariable=self.excel_file_path, width=50).pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
-        ttk.Button(excel_row, text="Browse...", command=self.select_excel_tab3).pack(side=tk.LEFT)
+        excel_row = tk.Frame(file_inner, bg=COLORS['bg_surface'])
+        excel_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
+        tk.Label(excel_row, text="Excel Data File:", width=18, anchor=tk.W,
+                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
+        ttk.Entry(excel_row, textvariable=self.excel_file_path, width=50).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
+        ttk.Button(excel_row, text="Browse...", command=self.select_excel_tab3, width=10).pack(side=tk.LEFT)
+
+        # Output folder selection
+        output_row = tk.Frame(file_inner, bg=COLORS['bg_surface'])
+        output_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
+        tk.Label(output_row, text="Output Folder:", width=18, anchor=tk.W,
+                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
+        ttk.Entry(output_row, textvariable=self.output_dir_path, width=50).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
+        ttk.Button(output_row, text="Browse...", command=self.select_output_dir_tab3, width=10).pack(side=tk.LEFT)
+        tk.Label(output_row, text="(optional)", font=font(9),
+                 fg=COLORS['text_tertiary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT, padx=(6, 0))
 
         # Load button
-        ttk.Button(file_frame, text="Load & Preview Data", command=self.load_data_tab3, style='Accent.TButton').pack(pady=SPACING['section_gap'])
+        btn_row = tk.Frame(file_inner, bg=COLORS['bg_surface'])
+        btn_row.pack(fill=tk.X, pady=(SPACING['element_gap'], 0))
+        ttk.Button(btn_row, text="Load & Preview Data", command=self.load_data_tab3, style='Accent.TButton').pack()
 
-        # Validation Frame
-        self.validation_frame_tab3 = ttk.LabelFrame(container, text="Validation", padding=str(SPACING['inner_padding']))
-        self.validation_frame_tab3.pack(fill=tk.X, pady=(0, SPACING['section_gap']))
+        # Validation section
+        validation_inner = self.create_section(container, "Validation")
 
         self.validation_text_tab3 = tk.Text(
-            self.validation_frame_tab3, height=3, wrap=tk.WORD, state=tk.DISABLED,
+            validation_inner, height=3, wrap=tk.WORD, state=tk.DISABLED,
             bg=COLORS['bg_input'],
             fg=COLORS['text_primary'],
             insertbackground=COLORS['text_primary'],
@@ -1228,32 +1474,35 @@ class VCAAPDFGeneratorV2:
             font=font(10),
         )
         self.validation_text_tab3.pack(fill=tk.X)
+        # Keep a reference for pack_forget compatibility
+        self.validation_frame_tab3 = validation_inner.master.master
 
-        # Selection Controls Frame
-        selection_frame = ttk.Frame(container)
+        # Selection Controls
+        selection_frame = tk.Frame(container, bg=COLORS['bg_base'])
         selection_frame.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
 
-        ttk.Label(selection_frame, text="Select students to process:").pack(side=tk.LEFT)
+        tk.Label(selection_frame, text="Select students to process:", font=font(11),
+                 fg=COLORS['text_primary'], bg=COLORS['bg_base']).pack(side=tk.LEFT)
 
         ttk.Button(selection_frame, text="Select All", command=self.select_all_tab3).pack(side=tk.LEFT, padx=(15, 5))
-        ttk.Button(selection_frame, text="Deselect All", command=self.deselect_all_tab3).pack(side=tk.LEFT, padx=5)
+        ttk.Button(selection_frame, text="Deselect All", command=self.deselect_all_tab3).pack(side=tk.LEFT, padx=(0, 5))
 
         self.selection_count_label_tab3 = ttk.Label(selection_frame, text="", style='Secondary.TLabel')
         self.selection_count_label_tab3.pack(side=tk.RIGHT)
 
-        # Preview Frame
-        preview_frame = ttk.LabelFrame(container, text="Student Preview (click to select/deselect)", padding=str(SPACING['inner_padding']))
-        preview_frame.pack(fill=tk.BOTH, expand=True, pady=(0, SPACING['section_gap']))
+        # Student Preview section
+        preview_inner = self.create_section(container, "Student Preview",
+                                            subtitle="Click rows to select or deselect", expand=True)
 
         # Treeview for student list
         columns = ('selected', 'row', 'surname', 'first_name', 'student_number', 'status')
-        self.tree_tab3 = ttk.Treeview(preview_frame, columns=columns, show='headings', height=12)
+        self.tree_tab3 = ttk.Treeview(preview_inner, columns=columns, show='headings', height=12)
 
         self.tree_tab3.heading('selected', text='Sel')
         self.tree_tab3.heading('row', text='#')
         self.tree_tab3.heading('surname', text='Surname')
         self.tree_tab3.heading('first_name', text='First Name')
-        self.tree_tab3.heading('student_number', text='VCAA Number')
+        self.tree_tab3.heading('student_number', text='Student Number')
         self.tree_tab3.heading('status', text='Status')
 
         self.tree_tab3.column('selected', width=40, anchor='center')
@@ -1267,7 +1516,7 @@ class VCAAPDFGeneratorV2:
         self.tree_tab3.bind('<ButtonRelease-1>', self.toggle_selection_tab3)
 
         # Scrollbar for treeview
-        scrollbar = ttk.Scrollbar(preview_frame, orient=tk.VERTICAL, command=self.tree_tab3.yview)
+        scrollbar = ttk.Scrollbar(preview_inner, orient=tk.VERTICAL, command=self.tree_tab3.yview)
         self.tree_tab3.configure(yscrollcommand=scrollbar.set)
 
         self.tree_tab3.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -1279,33 +1528,33 @@ class VCAAPDFGeneratorV2:
 
         # Summary label
         self.summary_label_tab3 = ttk.Label(container, text="No data loaded", style='Secondary.TLabel')
-        self.summary_label_tab3.pack(pady=5)
+        self.summary_label_tab3.pack(pady=(8, 4))
 
         # Progress Frame
-        progress_frame = ttk.Frame(container)
+        progress_frame = tk.Frame(container, bg=COLORS['bg_base'])
         progress_frame.pack(fill=tk.X, pady=(0, SPACING['section_gap']))
 
         self.progress_var_tab3 = tk.DoubleVar()
         self.progress_bar_tab3 = ttk.Progressbar(progress_frame, variable=self.progress_var_tab3, maximum=100)
-        self.progress_bar_tab3.pack(fill=tk.X, pady=5)
+        self.progress_bar_tab3.pack(fill=tk.X, pady=(4, 6))
 
         self.progress_label_tab3 = ttk.Label(progress_frame, text="", style='Secondary.TLabel')
         self.progress_label_tab3.pack()
 
-        # Generate Button
+        # Generate Button (large CTA)
         self.generate_btn_tab3 = ttk.Button(
             container,
             text="Generate PDFs for Selected Students",
             command=self.start_generation_tab3,
             state=tk.DISABLED,
-            style='Accent.TButton',
+            style='BigAccent.TButton',
         )
         self.generate_btn_tab3.pack(pady=SPACING['section_gap'])
 
     def select_pdf_tab3(self):
         """Select PDF in Tab 3."""
         filepath = filedialog.askopenfilename(
-            title="Select VCAA PDF Template",
+            title="Select PDF Template",
             filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
         )
         if filepath:
@@ -1319,6 +1568,16 @@ class VCAAPDFGeneratorV2:
         )
         if filepath:
             self.excel_file_path.set(filepath)
+
+    def select_output_dir_tab3(self):
+        """Select output directory for generated PDFs."""
+        initial_dir = self.output_dir_path.get() or os.path.dirname(self.excel_file_path.get() or '')
+        dirpath = filedialog.askdirectory(
+            title="Select Output Folder for Generated PDFs",
+            initialdir=initial_dir or None,
+        )
+        if dirpath:
+            self.output_dir_path.set(dirpath)
 
     def change_template_tab3(self):
         """Change template in Tab 3."""
@@ -1556,6 +1815,7 @@ class VCAAPDFGeneratorV2:
             'school_year': self.settings.school_year or str(datetime.now().year),
             'combed_padding': self.settings.combed_field_padding,
             'combed_align': self.settings.combed_field_align,
+            'output_dir': self.output_dir_path.get().strip() or '',
         }
 
         # Reset progress bar and disable button
@@ -1575,9 +1835,12 @@ class VCAAPDFGeneratorV2:
         StringVars or mutable instance state directly.
         """
         try:
-            # Create output folder
-            excel_dir = os.path.dirname(ctx['excel_path'])
-            output_folder = os.path.join(excel_dir, "Completed Applications")
+            # Determine output folder: use custom dir if set, else default
+            if ctx['output_dir'] and os.path.isdir(ctx['output_dir']):
+                output_folder = ctx['output_dir']
+            else:
+                excel_dir = os.path.dirname(ctx['excel_path'])
+                output_folder = os.path.join(excel_dir, "Completed Applications")
             os.makedirs(output_folder, exist_ok=True)
 
             total = len(ctx['selected_indices'])

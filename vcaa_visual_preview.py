@@ -89,9 +89,11 @@ class VisualPreviewGenerator:
             import platform
             if platform.system() == 'Windows':
                 font = ImageFont.truetype("segoeui.ttf", 14)
-            else:
+            elif platform.system() == 'Darwin':
                 font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 14)
-        except:
+            else:
+                font = ImageFont.load_default()
+        except (IOError, OSError):
             font = ImageFont.load_default()
 
         # Get text size for background

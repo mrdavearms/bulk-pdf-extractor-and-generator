@@ -1,5 +1,5 @@
 @echo off
-:: VCAA PDF Generator Launcher for Windows
+:: Bulk PDF Generator Launcher for Windows
 cd /d "%~dp0"
 
 :: Check if virtual environment exists

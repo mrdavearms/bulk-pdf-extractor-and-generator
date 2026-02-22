@@ -236,11 +236,11 @@ def split_date_combed(date_str: str, day_field: PDFField, month_field: PDFField,
         try:
             # Try DD/MM/YYYY format
             date_obj = datetime.strptime(str(date_str), '%d/%m/%Y')
-        except:
+        except ValueError:
             try:
                 # Try YYYY-MM-DD format
                 date_obj = datetime.strptime(str(date_str), '%Y-%m-%d')
-            except:
+            except ValueError:
                 # Can't parse - return empty
                 return {}
 

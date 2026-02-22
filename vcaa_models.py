@@ -83,9 +83,16 @@ class TemplateConfig:
 
     @classmethod
     def from_json(cls, json_str: str) -> 'TemplateConfig':
-        """Deserialize from JSON string."""
+        """Deserialize from JSON string.
+
+        Handles extra keys gracefully so that config files saved by a
+        newer version of the app still load without error.
+        """
         data = json.loads(json_str)
-        return cls(**data)
+        import dataclasses
+        valid_keys = {f.name for f in dataclasses.fields(cls)}
+        filtered = {k: v for k, v in data.items() if k in valid_keys}
+        return cls(**filtered)
 
     @classmethod
     def from_file(cls, filepath: str) -> 'TemplateConfig':
