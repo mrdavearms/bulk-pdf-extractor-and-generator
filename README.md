@@ -110,26 +110,39 @@ You only need to do this **once**. Windows remembers your choice and the app ope
 
 ## 🎓 Try It With Sample Data
 
-Not sure where to start? A set of ready-to-use sample files is included alongside the app so you can see exactly how it works before touching any real data.
+Not sure where to start? Download the sample files to see exactly how the app works before touching any real data — no setup required.
 
-### What's included
+<div align="center">
 
-| File | Description |
-|------|-------------|
-| `Sample_Template.pdf` | A blank PDF form with named fields, ready to fill |
-| `Sample_Data.xlsx` | A spreadsheet with four rows of fictional student data |
-| `Sample_Output_1.pdf` – `Sample_Output_4.pdf` | Pre-generated output PDFs showing the expected result |
+### ⬇️ [Download All Sample Files — ZIP, 2 MB](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/download/v2.1/Sample.Files.zip)
+
+</div>
+
+### 📂 What's included
+
+| File | Download | Description |
+|------|:--------:|-------------|
+| `Evidence Application sample PDF from VCAA.pdf` | [⬇️](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/download/v2.1/Evidence.Application.sample.PDF.from.VCAA.pdf) | **The blank PDF template** — this is the form the app fills in |
+| `Evidence Application spreadsheet with data.xlsx` | [⬇️](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/download/v2.1/Evidence.Application.spreadsheet.with.data.xlsx) | **Full data spreadsheet** — 3 fictional students; multi-sheet workbook that demonstrates the sheet-picker dialog |
+| `sample data.xlsx` | [⬇️](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/download/v2.1/sample.data.xlsx) | **Simple single-sheet version** — loads instantly, no sheet-picker dialog |
+| `Duis_Ex_Evidence Application … 2026.pdf` | [⬇️](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/download/v2.1/Duis_Ex_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 1 |
+| `Minim_Elit_Evidence Application … 2026.pdf` | [⬇️](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/download/v2.1/Minim_Elit_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 2 |
+| `Sunt_Culpa_Evidence Application … 2026.pdf` | [⬇️](https://github.com/mrdavearms/VCAA-PDF-Generator/releases/download/v2.1/Sunt_Culpa_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 3 |
 
 ### How to run the sample
 
-1. Open the app and go to **Generate PDFs** (Tab 3)
-2. Under **PDF Template**, browse to `Sample_Template.pdf`
-3. Under **Excel / CSV Data File**, browse to `Sample_Data.xlsx`
-4. Click **Load & Preview Data** — four rows appear instantly
-5. Click **Generate PDFs**
-6. Compare your output with the four pre-generated sample files to confirm everything is working
+1. Download the ZIP above and unzip it, or grab the files individually from the table
+2. Open the app and go to **Generate PDFs** (Tab 3)
+3. Under **PDF Template**, browse to **`Evidence Application sample PDF from VCAA.pdf`**
+4. Under **Excel / CSV Data File**, browse to **`Evidence Application spreadsheet with data.xlsx`**
+5. Click **Load & Preview Data** — a sheet-picker dialog appears (this is a multi-sheet workbook). Select **Data** and click **Load this sheet**
+6. Three student rows appear — click **Generate PDFs**
+7. Your three completed PDFs land in a **`Completed Applications`** folder. Compare them with the three sample output PDFs to confirm everything is working correctly
 
-Once you're comfortable, you're ready to use it with your own template and real data.
+> [!TIP]
+> Want to skip the sheet-picker? Load **`sample data.xlsx`** instead — it's a single-sheet file that loads immediately without the dialog.
+
+Once you're comfortable, you're ready to use it with your own PDF template and real data.
 
 ---
 
