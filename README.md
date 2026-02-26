@@ -4,13 +4,11 @@
 
 **Batch-fill PDF forms from spreadsheet data — turning hours of manual data entry into a single click.**
 
-[![Download](https://img.shields.io/github/v/release/mrdavearms/Bulk-PDF-generator-for-Vic-schools?label=⬇%EF%B8%8F%20download&color=0078d4&style=for-the-badge)](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/latest/download/Bulk.PDF.Generator.exe)
+[![Download](https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20download-v2.2-0078d4?style=for-the-badge)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.2)
 
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078d4?logo=windows&logoColor=white)](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/latest)
-[![Mac](https://img.shields.io/badge/macOS-coming%20soon-888888?logo=apple&logoColor=white)](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078d4?logo=windows&logoColor=white)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases)
 [![License](https://img.shields.io/badge/license-MIT-22c55e)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3b82f6?logo=python&logoColor=white)](https://python.org)
-[![Downloads](https://img.shields.io/github/downloads/mrdavearms/Bulk-PDF-generator-for-Vic-schools/total?color=7c3aed&label=total%20downloads)](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases)
 
 </div>
 
@@ -29,51 +27,87 @@ Originally built to streamline VCAA Special Examination Arrangements Evidence Ap
 
 ---
 
-## ✨ Features
+## Features
 
 | | |
 |:---:|---|
-| 📊 | **Batch processing** — generate hundreds of filled PDFs from a single spreadsheet |
-| 🔍 | **Auto field detection** — scans any PDF and maps every form field automatically |
-| ✏️ | **Combed field support** — handles character-by-character boxes without any manual setup |
-| 👁️ | **Visual field preview** — click any field to see it highlighted on the PDF page |
-| 📋 | **Multi-sheet Excel** — prompts you to pick the right sheet when a workbook has multiple tabs |
-| 💾 | **One-click output** — all PDFs saved to a named folder; output opens automatically |
-| 🖥️ | **No tech skills needed** — single `.exe` file, no Python or IT support required |
+| **Batch processing** | Generate hundreds of filled PDFs from a single spreadsheet |
+| **Auto field detection** | Scans any PDF and maps every form field automatically |
+| **Combed field support** | Handles character-by-character boxes without any manual setup |
+| **Visual field preview** | Click any field to see it highlighted on the PDF page with zoomable preview (50%–400%) |
+| **Field type audit** | Mark fields as Text, Number, or Date — Excel serial numbers convert to DD/MM/YYYY automatically |
+| **Multi-sheet Excel** | Prompts you to pick the right sheet when a workbook has multiple tabs |
+| **Export mapping file** | One-click Excel export with Field Mapping, Data Entry, Instructions, and About sheets |
+| **Template library** | Save, reload, and manage template configurations across sessions |
+| **School settings** | Configures school name and year for output filenames once, remembered forever |
+| **One-click output** | All PDFs saved to a named folder; output opens automatically |
+| **Cross-platform** | Runs on Windows 10/11, macOS, and Linux from source; pre-built `.exe` for Windows |
+| **No tech skills needed** | Single `.exe` file, no Python or IT support required |
 
 ---
 
 ## How It Works
 
 ```mermaid
-flowchart LR
-    PDF[("📄 PDF Form\nTemplate")] --> Analyse
-    PDF --> Generate
-    Data[("📊 Excel · CSV\nSpreadsheet")] --> Generate
-
-    subgraph app["  Bulk PDF Generator  "]
-        Analyse["🔍 Tab 1 — Analyse Template\nDiscover & map all form fields"]
-        Generate["⚡ Tab 3 — Generate PDFs\nOne filled PDF per row"]
-        Analyse -. "exports column headers" .-> Generate
+flowchart TB
+    subgraph inputs ["Inputs"]
+        direction TB
+        PDF["PDF Form Template"]
+        XLS["Excel / CSV Spreadsheet"]
     end
 
-    Generate --> Output[("📁 Completed\nApplications")]
+    subgraph app ["Bulk PDF Generator"]
+        direction TB
+
+        subgraph tab1 ["Tab 1 — Analyse Template"]
+            Analyse["Discover & map all form fields"]
+            Audit["Review field data types\n(Text / Number / Date)"]
+            Export["Export mapping file (.xlsx)\nwith 4 formatted sheets"]
+            Analyse --> Audit --> Export
+        end
+
+        subgraph tab3 ["Tab 3 — Generate PDFs"]
+            Load["Load & preview data\n(multi-sheet picker)"]
+            Select["Select / deselect rows"]
+            Gen["Generate one PDF per row\n(threaded, with progress bar)"]
+            Load --> Select --> Gen
+        end
+
+        tab1 -. "column headers &\nfield type config" .-> tab3
+    end
+
+    subgraph outputs ["Outputs"]
+        Folder["Completed Applications\nFirstName_Surname_Template School Year.pdf"]
+    end
+
+    PDF --> Analyse
+    PDF --> Gen
+    XLS --> Load
+    Gen --> Folder
+
+    style inputs fill:#e8f0fe,stroke:#4c8bf5,color:#1d1d1f
+    style app fill:#ffffff,stroke:#d1d5db,color:#1d1d1f
+    style outputs fill:#e6f4ea,stroke:#34a853,color:#1d1d1f
+    style tab1 fill:#f8f9fa,stroke:#d1d5db,color:#1d1d1f
+    style tab3 fill:#f8f9fa,stroke:#d1d5db,color:#1d1d1f
 ```
 
-1. **Analyse** your blank PDF to discover every form field name
+### The three-step workflow
+
+1. **Analyse** your blank PDF to discover every form field and set data types
 2. **Fill in** a spreadsheet — one row per person, column headers matching field names
 3. **Generate** — the app fills and saves a complete, separate PDF for every row
 
 ---
 
-## ⬇️ Quick Start
+## Quick Start
 
 ### Step 1 — Download
 
 > [!IMPORTANT]
-> **Windows only (10 or 11).** A macOS version is coming soon — watch this repo or check back shortly.
+> **Pre-built `.exe` available for Windows 10/11.** macOS and Linux users can [run from source](#-for-developers--running-from-source).
 
-### ➡️ [Download Bulk PDF Generator.exe](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/latest/download/Bulk.PDF.Generator.exe)
+### [Download Bulk PDF Generator.exe](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.2)
 
 **No Python, no installation, no IT support required** — just download and double-click.
 
@@ -86,7 +120,7 @@ Save the file somewhere convenient — your Desktop, a shared school drive, or a
 Double-click **`Bulk PDF Generator.exe`**.
 
 <details>
-<summary>⚠️ <strong>Windows Security Warning — what to do if you see it</strong></summary>
+<summary><strong>Windows Security Warning — what to do if you see it</strong></summary>
 
 <br>
 
@@ -106,32 +140,32 @@ Because this app is not commercially code-signed (certificates cost hundreds of 
 You only need to do this **once**. Windows remembers your choice and the app opens normally from then on.
 
 > [!TIP]
-> **School IT environments:** If your managed security policy shows no "Run anyway" option, ask your IT administrator to whitelist the app or add an exclusion. The complete source code is at [github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools) for their review.
+> **School IT environments:** If your managed security policy shows no "Run anyway" option, ask your IT administrator to whitelist the app or add an exclusion. The complete source code is at [gitlab.com/davearmswork/bulk-pdf-extractor-and-generator](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator) for their review.
 
 </details>
 
 ---
 
-## 🎓 Try It With Sample Data
+## Try It With Sample Data
 
 Not sure where to start? Download the sample files to see exactly how the app works before touching any real data — no setup required.
 
 <div align="center">
 
-### ⬇️ [Download All Sample Files — ZIP, 2 MB](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Sample.Files.zip)
+### [Download All Sample Files — ZIP, 2 MB](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Sample.Files.zip)
 
 </div>
 
-### 📂 What's included
+### What's included
 
 | File | Download | Description |
 |------|:--------:|-------------|
-| `Evidence Application sample PDF from VCAA.pdf` | [⬇️](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Evidence.Application.sample.PDF.from.VCAA.pdf) | **The blank PDF template** — this is the form the app fills in |
-| `Evidence Application spreadsheet with data.xlsx` | [⬇️](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Evidence.Application.spreadsheet.with.data.xlsx) | **Full data spreadsheet** — 3 fictional students; multi-sheet workbook that demonstrates the sheet-picker dialog |
-| `sample data.xlsx` | [⬇️](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/sample.data.xlsx) | **Simple single-sheet version** — loads instantly, no sheet-picker dialog |
-| `Duis_Ex_Evidence Application … 2026.pdf` | [⬇️](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Duis_Ex_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 1 |
-| `Minim_Elit_Evidence Application … 2026.pdf` | [⬇️](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Minim_Elit_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 2 |
-| `Sunt_Culpa_Evidence Application … 2026.pdf` | [⬇️](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Sunt_Culpa_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 3 |
+| `Evidence Application sample PDF from VCAA.pdf` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Evidence.Application.sample.PDF.from.VCAA.pdf) | **The blank PDF template** — this is the form the app fills in |
+| `Evidence Application spreadsheet with data.xlsx` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Evidence.Application.spreadsheet.with.data.xlsx) | **Full data spreadsheet** — 3 fictional students; multi-sheet workbook that demonstrates the sheet-picker dialog |
+| `sample data.xlsx` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/sample.data.xlsx) | **Simple single-sheet version** — loads instantly, no sheet-picker dialog |
+| `Duis_Ex_Evidence Application ... 2026.pdf` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Duis_Ex_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 1 |
+| `Minim_Elit_Evidence Application ... 2026.pdf` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Minim_Elit_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 2 |
+| `Sunt_Culpa_Evidence Application ... 2026.pdf` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Sunt_Culpa_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 3 |
 
 ### How to run the sample
 
@@ -150,27 +184,41 @@ Once you're comfortable, you're ready to use it with your own PDF template and r
 
 ---
 
-## 📖 How to Use
+## How to Use
 
-The app has five tabs:
+The app has five tabs arranged as a guided workflow:
 
 ### Getting Started (Tab 0)
 
-An in-app guide covering how to prepare PDF templates — naming form fields, understanding combed fields, and setting up your spreadsheet. **Read this first** when working with a new template.
+An in-app guide covering how to prepare PDF templates — naming form fields in Adobe Acrobat Pro, understanding combed fields, and setting up your spreadsheet. **Read this first** when working with a new template.
 
 ---
 
-### 🔍 Analyse Template (Tab 1)
+### Analyse Template (Tab 1)
 
 1. Click **Browse** and select your blank PDF form
-2. Click **Analyse Fields** — every form field is listed with its name and type
-3. Click any field in the list to see it **highlighted in red** on the PDF preview
-4. Click **Export Mapping File** to download a ready-made Excel template with the correct column headers
-5. Click **Save Template Config** to remember this template's setup for next time
+2. Click **Analyse Fields** — every form field is listed with its name, type, page, and length
+3. **Review Field Data Types** — an audit dialog appears with smart defaults:
+   - Fields with "date", "dob", or "birth" in their name default to **Date (DD/MM/YYYY)**
+   - Everything else defaults to **Text**
+   - Change any field to **Number** (strips trailing `.0`) or **Date** (converts Excel serial numbers)
+   - Your choices are saved with the template and restored next time
+4. Click any field in the list to see it **highlighted in red** on the zoomable PDF preview
+5. Double-click the **Data Type** column to change a field's type inline at any time
+6. Click **Export Mapping File** to download a formatted Excel template with four sheets:
+
+   | Sheet | Contents |
+   |-------|----------|
+   | **Field Mapping** | Every PDF field with suggested column name, type, page, required status, and notes |
+   | **Data Entry** | Ready-to-use template with column headers, 50 empty rows, frozen header, auto-width columns |
+   | **Instructions** | Step-by-step guide for filling in the data |
+   | **About** | App version, developer info, disclaimer |
+
+7. Click **Save Template Config** to remember this template's setup for next time
 
 ---
 
-### ⚡ Generate PDFs (Tab 3)
+### Generate PDFs (Tab 3)
 
 1. Select your PDF template and your filled-in Excel or CSV data file
 2. Click **Load & Preview Data**
@@ -184,27 +232,37 @@ An in-app guide covering how to prepare PDF templates — naming form fields, un
 
 ---
 
-### ℹ️ About (Tab 4)
+### About (Tab 4)
 
-Developer information and contact details.
+Version information, developer contact, and build details.
 
 ---
 
-## ✏️ What Are Combed Fields?
+## What Are Combed Fields?
 
 Government PDF forms often use individual character boxes for identifiers like student numbers:
 
 ```
-┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐
-│ V │ C │ A │ A │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │
-└───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
++-+-+-+-+-+-+-+-+-+-+
+|V|C|A|A|1|2|3|4|5|6|
++-+-+-+-+-+-+-+-+-+-+
 ```
 
 The app **automatically detects** these and splits your data character-by-character — just put the full value in your spreadsheet and it handles the rest.
 
+The detection engine recognises three common naming patterns:
+
+| Pattern | Example fields |
+|---------|---------------|
+| Bracketed | `StudentNumber[0]`, `StudentNumber[1]`, `StudentNumber[2]` ... |
+| Underscore | `StudentNumber_0`, `StudentNumber_1`, `StudentNumber_2` ... |
+| Sequential | `StudentNumber0`, `StudentNumber1`, `StudentNumber2` ... |
+
+All three are grouped automatically under a single logical field (e.g. `StudentNumber`) in the analysis view.
+
 ---
 
-## 📊 Spreadsheet Setup
+## Spreadsheet Setup
 
 Column headers must **match your PDF field names** (case-insensitive — `Surname`, `SURNAME`, and `surname` all work).
 
@@ -215,7 +273,7 @@ Two columns are required to name the output files:
 
 All other columns are matched to PDF fields automatically. Unmatched columns are silently ignored.
 
-**Supported formats:** `.xlsx` · `.xls` · `.csv`
+**Supported formats:** `.xlsx` | `.xls` | `.csv`
 
 ### Multi-sheet Excel files
 
@@ -224,40 +282,128 @@ If your workbook contains more than one sheet, the app prompts you to choose whi
 > [!TIP]
 > To skip the prompt entirely, save your data as a single-sheet `.xlsx` or `.csv`. Single-sheet files always load immediately with no confirmation step.
 
+### Field data types
+
+When you analyse a PDF template, the app lets you set each field's data type:
+
+| Data type | What it does | Example |
+|-----------|-------------|---------|
+| **Text** | Passes the value through as-is | `John Smith` |
+| **Number** | Strips trailing `.0` from whole numbers | `12345.0` becomes `12345` |
+| **Date (DD/MM/YYYY)** | Converts Excel serial numbers to Australian date format | `45313` becomes `22/01/2024` |
+
+Date fields also handle values that are already `datetime` objects — they're formatted to DD/MM/YYYY regardless of how Excel stored them.
+
 ---
 
-## 📁 Output Files
+## Output Files
 
 Generated PDFs are saved to a **`Completed Applications`** folder next to your data file (or a custom folder you specify). Files are named:
 
 ```
-FirstName_Surname_Evidence Application SchoolName Year.pdf
+FirstName_Surname_TemplateName SchoolName Year.pdf
 ```
 
 If a file with the same name already exists, the app adds `(1)`, `(2)`, etc. rather than overwriting.
 
 ---
 
-## 🛠️ Troubleshooting
+## Architecture
+
+```mermaid
+graph LR
+    subgraph ui ["GUI Layer"]
+        Main["vcaa_pdf_generator_v2.py\n(Main Application)"]
+        Theme["vcaa_theme.py\n(Theme & Styling)"]
+        MD["vcaa_markdown_renderer.py\n(Markdown Renderer)"]
+    end
+
+    subgraph core ["Core Engines"]
+        Analyzer["vcaa_pdf_analyzer.py\n(Field Extraction)"]
+        Preview["vcaa_visual_preview.py\n(Page Rendering)"]
+        Filler["vcaa_combed_filler.py\n(Combed Field Logic)"]
+    end
+
+    subgraph data ["Data Layer"]
+        Models["vcaa_models.py\n(PDFField, TemplateConfig,\nAppSettings)"]
+    end
+
+    subgraph ext ["External Libraries"]
+        PyMuPDF["PyMuPDF (fitz)"]
+        pypdf["pypdf"]
+        pandas["pandas"]
+        openpyxl["openpyxl"]
+        Pillow["Pillow"]
+        ttkbootstrap["ttkbootstrap"]
+    end
+
+    Main --> Theme
+    Main --> MD
+    Main --> Analyzer
+    Main --> Preview
+    Main --> Filler
+    Main --> Models
+    Analyzer --> PyMuPDF
+    Preview --> PyMuPDF
+    Preview --> Pillow
+    Main --> pypdf
+    Main --> pandas
+    Main --> openpyxl
+    Theme --> ttkbootstrap
+
+    style ui fill:#e8f0fe,stroke:#4c8bf5,color:#1d1d1f
+    style core fill:#fef7e0,stroke:#ea8600,color:#1d1d1f
+    style data fill:#e6f4ea,stroke:#34a853,color:#1d1d1f
+    style ext fill:#f3e8ff,stroke:#7c3aed,color:#1d1d1f
+```
+
+### Module overview
+
+| Module | Lines | Responsibility |
+|--------|------:|----------------|
+| `vcaa_pdf_generator_v2.py` | ~2,700 | Main application — tabbed GUI, dialogs, Excel I/O, PDF generation pipeline, template management |
+| `vcaa_models.py` | ~190 | Data models (`PDFField`, `TemplateConfig`, `AppSettings`) with JSON serialization and atomic file writes |
+| `vcaa_pdf_analyzer.py` | ~200 | PDF field extraction using PyMuPDF — detects combed fields via regex pattern matching on field names |
+| `vcaa_visual_preview.py` | ~200 | PDF page rendering with red-rectangle field highlighting; dual-tier cache (memory LRU + disk PNG) |
+| `vcaa_combed_filler.py` | ~200 | Pure-logic module for splitting text into character-by-character fields with configurable alignment and padding |
+| `vcaa_theme.py` | ~250 | Centralised theme system built on ttkbootstrap; platform-aware typography, semantic colour palette, spacing constants |
+| `vcaa_markdown_renderer.py` | ~170 | Subset markdown parser rendering headings, bold, bullets, and clickable links into tkinter Text widgets |
+| `_generate_version.py` | ~30 | Build-time script — extracts git commit hash and date, writes `_version.py` for the About tab |
+
+### Key design decisions
+
+- **Thread safety** — PDF generation runs on a background thread with a deep-copied snapshot of all shared state; UI updates via `root.after()` callbacks
+- **Atomic file writes** — Template configs and settings use `tempfile` + `os.replace()` to prevent corruption on crash
+- **Dual-tier caching** — Preview renders are cached in memory (LRU) and on disk (PNG) for instant page switching
+- **Platform-aware scrolling** — Mousewheel events branch by platform (Windows `delta/120`, macOS `delta`, Linux `Button-4`/`Button-5`)
+- **Backward-compatible persistence** — `from_json()` methods filter unknown keys so newer config files load in older versions and vice versa
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for a full technical breakdown of data flow, threading model, caching strategy, and error handling.
+
+---
+
+## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| Windows shows "Windows protected your PC" | Click **More info** → **Run anyway** — see the [warning guide](#step-2--run-the-app) above |
-| IT security blocks the app with no "Run anyway" option | Ask your IT admin to whitelist it; share the [open source repo](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools) for their review |
+| Windows shows "Windows protected your PC" | Click **More info** then **Run anyway** — see the [warning guide](#step-2--run-the-app) above |
+| IT security blocks the app with no "Run anyway" option | Ask your IT admin to whitelist it; share the [open-source repo](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator) for their review |
 | A "Select Sheet" dialog appeared | Expected — your file has multiple sheets. Select the one with your data and click **Load this sheet** |
 | Accidentally closed the sheet-picker dialog | Click **Load & Preview Data** again to re-open it |
 | Fields not filling in output PDFs | Check that Excel column headers exactly match PDF field names (case-insensitive) |
+| Date shows as a number like `45313` | Set the field to **Date (DD/MM/YYYY)** in the field type audit dialog during analysis |
 | Visual preview not showing | Click **Analyse Fields** first in Tab 1 |
 | Combed fields not splitting into separate boxes | Run **Analyse Fields** in Tab 1 before generating in Tab 3 |
 | "Permission denied" error when loading Excel | Close the file in Excel before running the app |
 | Text cut off in combed boxes | Expected — combed fields have a fixed character limit set by the PDF |
+| Numbers showing as `12345.0` | Set the field to **Number** in the field type audit to strip trailing `.0` |
 
 ---
 
-## 👨‍💻 For Developers — Running from Source
+## For Developers — Running from Source
 
 <details>
-<summary>Expand setup and build instructions</summary>
+<summary><strong>Expand setup and build instructions</strong></summary>
 
 ### Requirements
 
@@ -268,8 +414,8 @@ If a file with the same name already exists, the app adds `(1)`, `(2)`, etc. rat
 ### Setup
 
 ```bash
-git clone https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools.git
-cd Bulk-PDF-generator-for-Vic-schools
+git clone https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator.git
+cd bulk-pdf-extractor-and-generator
 python -m venv venv
 
 # Windows
@@ -282,50 +428,60 @@ pip install -r requirements.txt
 python vcaa_pdf_generator_v2.py
 ```
 
+### Dependencies
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| [pypdf](https://pypi.org/project/pypdf/) | >= 4.0.0 | PDF form filling and writing |
+| [pandas](https://pypi.org/project/pandas/) | >= 2.0.0 | Excel / CSV data loading and processing |
+| [openpyxl](https://pypi.org/project/openpyxl/) | >= 3.0.0 | Excel file creation with formatting |
+| [PyMuPDF](https://pypi.org/project/PyMuPDF/) | >= 1.23.0 | PDF analysis, field extraction, page rendering |
+| [Pillow](https://pypi.org/project/Pillow/) | >= 10.0.0 | Image processing for visual preview |
+| [ttkbootstrap](https://pypi.org/project/ttkbootstrap/) | >= 1.10.1 | Modern themed GUI framework on top of tkinter |
+
 ### Building the Windows Executable
 
 ```bash
 pip install pyinstaller
+python _generate_version.py          # Bake git commit + date into _version.py
 python -m PyInstaller BulkPDFGenerator.spec --clean
 # Output: dist/Bulk PDF Generator.exe
 ```
 
 Or double-click **`build_windows.bat`** for a guided, one-step build.
 
-### Dependencies
-
-| Package | Purpose |
-|---------|---------|
-| pypdf | PDF form filling |
-| pandas | Excel / CSV data processing |
-| openpyxl | Excel file creation |
-| PyMuPDF (fitz) | PDF analysis, field extraction, page rendering |
-| Pillow | Image processing for visual preview |
-| tkinter | GUI framework (stdlib) |
+The spec file bundles PyMuPDF binaries, ttkbootstrap theme assets, openpyxl templates, pandas data files, and all app resources into a single ~80–120 MB `.exe`. UPX compression is disabled to reduce antivirus false positives.
 
 ### Project Structure
 
 ```
-Bulk-PDF-generator-for-Vic-schools/
-├── vcaa_pdf_generator_v2.py         # Main application
-├── vcaa_models.py                   # Data models and persistence
-├── vcaa_pdf_analyzer.py             # PDF field extraction engine
-├── vcaa_visual_preview.py           # PDF page rendering + field highlighting
-├── vcaa_combed_filler.py            # Character-by-character field filling
-├── vcaa_theme.py                    # Theme system (colours, fonts, styles)
-├── vcaa_markdown_renderer.py        # Markdown renderer for Getting Started tab
-├── getting_started.md               # In-app guide content
-├── icon.png / icon.ico              # Application icon
-├── requirements.txt                 # Python dependencies
-├── BulkPDFGenerator.spec            # PyInstaller build config
-├── build_windows.bat                # Windows build script
-├── Launch_BulkPDFGenerator.bat      # Windows launcher (from source)
-├── Launch_BulkPDFGenerator.command  # macOS launcher (from source)
-├── README.md                        # This file
-└── ARCHITECTURE.md                  # Technical architecture documentation
+bulk-pdf-extractor-and-generator/
+|
+|-- vcaa_pdf_generator_v2.py          # Main application (GUI, dialogs, generation pipeline)
+|-- vcaa_models.py                    # Data models (PDFField, TemplateConfig, AppSettings)
+|-- vcaa_pdf_analyzer.py              # PDF field extraction engine (PyMuPDF)
+|-- vcaa_visual_preview.py            # PDF page rendering + field highlighting
+|-- vcaa_combed_filler.py             # Character-by-character field filling logic
+|-- vcaa_theme.py                     # Theme system (colours, fonts, spacing)
+|-- vcaa_markdown_renderer.py         # Markdown renderer for Getting Started tab
+|
+|-- getting_started.md                # In-app guide content (rendered in Tab 0)
+|-- icon.png / icon.ico               # Application icons
+|-- app_visualisation.png             # Visual diagram for documentation
+|
+|-- _generate_version.py              # Build-time version baking script
+|-- _version.py                       # Auto-generated (commit hash + build date)
+|-- requirements.txt                  # Python dependencies
+|-- BulkPDFGenerator.spec             # PyInstaller build configuration
+|-- build_windows.bat                 # Windows build script (one-step)
+|-- Launch_BulkPDFGenerator.bat       # Windows launcher (from source)
+|-- Launch_BulkPDFGenerator.command   # macOS launcher (from source)
+|
+|-- ARCHITECTURE.md                   # Technical architecture documentation
+|-- SECURITY.md                       # Security policy
+|-- LICENSE                           # MIT licence
+|-- README.md                         # This file
 ```
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for a full technical breakdown of every module, data flow, threading model, and design decisions.
 
 </details>
 
@@ -333,11 +489,15 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for a full technical breakdown of every m
 
 ## Developer
 
-**Dave Armstrong**
+**Dave Armstrong** — Principal, Wangaratta High School
+
 A Principal-developed app for educators and school leaders.
 
-📧 [Dave.Armstrong@education.vic.gov.au](mailto:Dave.Armstrong@education.vic.gov.au)
-🐙 [github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools)
+| | |
+|---|---|
+| Email | [Dave.Armstrong@education.vic.gov.au](mailto:Dave.Armstrong@education.vic.gov.au) |
+| GitLab | [gitlab.com/davearmswork/bulk-pdf-extractor-and-generator](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator) |
+| GitHub (mirror) | [github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools) |
 
 ---
 

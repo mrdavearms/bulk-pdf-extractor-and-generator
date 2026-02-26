@@ -20,6 +20,7 @@ from tkinter import filedialog, messagebox, simpledialog
 from datetime import datetime
 import pandas as pd
 from pypdf import PdfReader, PdfWriter
+import copy
 import threading
 import json
 from pathlib import Path
@@ -476,6 +477,172 @@ class TemplateNameDialog(tk.Toplevel):
         self.destroy()
 
     def on_cancel(self):
+        self.result = None
+        self.destroy()
+
+
+# Date-hint keywords used to auto-detect date fields
+_DATE_KEYWORDS = {'date', 'dob', 'birth', 'born', 'expiry', 'issued', 'due'}
+
+
+def _guess_data_type(field_name: str) -> str:
+    """Guess a field's data type from its name. Returns 'text', 'number', or 'date'."""
+    lower = field_name.lower().replace('_', ' ')
+    for kw in _DATE_KEYWORDS:
+        if kw in lower:
+            return 'date'
+    return 'text'
+
+
+class FieldTypeAuditDialog(tk.Toplevel):
+    """Dialog for reviewing and setting the data type of each PDF field."""
+
+    DATA_TYPE_OPTIONS = ['Text', 'Number', 'Date (DD/MM/YYYY)']
+    _LABEL_TO_VALUE = {'Text': 'text', 'Number': 'number', 'Date (DD/MM/YYYY)': 'date'}
+    _VALUE_TO_LABEL = {v: k for k, v in _LABEL_TO_VALUE.items()}
+
+    def __init__(self, parent, fields: list, preconfigured: set = None):
+        super().__init__(parent)
+        self.title("Review Field Data Types")
+        self.configure(bg=COLORS['bg_elevated'])
+        self.transient(parent)
+        self.grab_set()
+
+        self.fields = fields
+        self.preconfigured = preconfigured or set()
+        self.result = None  # Will be list of data_type strings on OK
+        C = COLORS
+        ff = SYSTEM_FONTS['family']
+
+        # Title
+        tk.Label(
+            self,
+            text="Review Field Data Types",
+            font=(ff, 16, 'bold'),
+            fg=C['text_primary'],
+            bg=C['bg_elevated'],
+            autostyle=False,
+        ).pack(pady=(20, 5))
+
+        tk.Label(
+            self,
+            text="Set each field's data type so values are formatted correctly.\n"
+                 "Date fields will convert Excel serial numbers to DD/MM/YYYY.",
+            font=(ff, 10),
+            fg=C['text_secondary'],
+            bg=C['bg_elevated'],
+            autostyle=False,
+            justify=tk.CENTER,
+        ).pack(pady=(0, 15))
+
+        # Scrollable frame for field list
+        list_outer = tk.Frame(self, bg=C['bg_elevated'], autostyle=False)
+        list_outer.pack(fill=tk.BOTH, expand=True, padx=30, pady=(0, 10))
+
+        canvas = tk.Canvas(list_outer, bg=C['bg_surface'], highlightthickness=0)
+        scrollbar = ttk.Scrollbar(list_outer, orient=tk.VERTICAL, command=canvas.yview)
+        self.inner_frame = tk.Frame(canvas, bg=C['bg_surface'], autostyle=False)
+
+        self.inner_frame.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox('all')))
+        canvas.create_window((0, 0), window=self.inner_frame, anchor=tk.NW)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Mousewheel scrolling (platform-aware)
+        def _on_mousewheel(event):
+            if sys.platform == 'darwin':
+                canvas.yview_scroll(int(-1 * event.delta), 'units')
+            elif sys.platform == 'linux':
+                direction = -1 if event.num == 4 else 1
+                canvas.yview_scroll(direction * 3, 'units')
+            else:
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), 'units')
+
+        def _bind_scroll(widget):
+            """Bind mousewheel events to a widget (cross-platform)."""
+            widget.bind('<MouseWheel>', _on_mousewheel)
+            if sys.platform == 'linux':
+                widget.bind('<Button-4>', _on_mousewheel)
+                widget.bind('<Button-5>', _on_mousewheel)
+
+        _bind_scroll(canvas)
+        _bind_scroll(self.inner_frame)
+
+        # Header row
+        hdr = tk.Frame(self.inner_frame, bg=C['bg_surface'], autostyle=False)
+        hdr.pack(fill=tk.X, padx=5, pady=(5, 2))
+        _bind_scroll(hdr)
+        for hdr_text, hdr_w in [("Field Name", 30), ("PDF Type", 14), ("Data Type", 18)]:
+            lbl = tk.Label(hdr, text=hdr_text, font=(ff, 10, 'bold'),
+                           fg=C['text_primary'], bg=C['bg_surface'], width=hdr_w,
+                           anchor=tk.W, autostyle=False)
+            lbl.pack(side=tk.LEFT)
+            _bind_scroll(lbl)
+
+        # Field rows
+        self.combo_vars = []
+        for i, field in enumerate(fields):
+            bg = C['bg_surface'] if i % 2 == 0 else C['bg_elevated']
+            row = tk.Frame(self.inner_frame, bg=bg, autostyle=False)
+            row.pack(fill=tk.X, padx=5, pady=1)
+            _bind_scroll(row)
+
+            lbl_name = tk.Label(row, text=field.field_name, font=(ff, 10),
+                               fg=C['text_primary'], bg=bg, width=30,
+                               anchor=tk.W, autostyle=False)
+            lbl_name.pack(side=tk.LEFT)
+            _bind_scroll(lbl_name)
+            lbl_type = tk.Label(row, text=field.field_type, font=(ff, 10),
+                               fg=C['text_secondary'], bg=bg, width=14,
+                               anchor=tk.W, autostyle=False)
+            lbl_type.pack(side=tk.LEFT)
+            _bind_scroll(lbl_type)
+
+            # Smart default: use saved type as-is for preconfigured fields,
+            # otherwise apply smart guess only for fresh (unconfigured) fields
+            if field.field_name in self.preconfigured:
+                default_type = field.data_type
+            elif field.data_type != 'text':
+                default_type = field.data_type
+            else:
+                default_type = _guess_data_type(field.field_name)
+            var = tk.StringVar(value=self._VALUE_TO_LABEL.get(default_type, 'Text'))
+            combo = ttk.Combobox(row, textvariable=var,
+                                 values=self.DATA_TYPE_OPTIONS,
+                                 state='readonly', width=18)
+            combo.pack(side=tk.LEFT, padx=(5, 0))
+            _bind_scroll(combo)
+            self.combo_vars.append(var)
+
+        # Buttons
+        btn_frame = tk.Frame(self, bg=C['bg_elevated'], autostyle=False)
+        btn_frame.pack(pady=15, fill=tk.X, padx=30)
+
+        ttk.Button(btn_frame, text="Skip (all Text)",
+                   command=self.on_skip).pack(side=tk.LEFT)
+        ttk.Button(btn_frame, text="Apply",
+                   command=self.on_apply,
+                   bootstyle='primary').pack(side=tk.RIGHT)
+
+        # Size and center
+        self.update_idletasks()
+        dialog_w = max(620, self.winfo_reqwidth())
+        dialog_h = min(600, max(400, 180 + len(fields) * 28))
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - (dialog_w // 2)
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - (dialog_h // 2)
+        self.geometry(f"{dialog_w}x{dialog_h}+{x}+{y}")
+
+        self.lift()
+        self.attributes('-topmost', True)
+        self.after(100, lambda: self.attributes('-topmost', False))
+
+    def on_apply(self):
+        self.result = [self._LABEL_TO_VALUE[v.get()] for v in self.combo_vars]
+        self.destroy()
+
+    def on_skip(self):
         self.result = None
         self.destroy()
 
@@ -1031,18 +1198,20 @@ class VCAAPDFGeneratorV2:
         table_frame = tk.Frame(results_inner, bg=COLORS['bg_surface'])
         table_frame.pack(fill=tk.BOTH, expand=True)
 
-        columns = ('field_name', 'type', 'page', 'length')
+        columns = ('field_name', 'type', 'page', 'length', 'data_type')
         self.fields_tree = ttk.Treeview(table_frame, columns=columns, show='headings', height=15)
 
         self.fields_tree.heading('field_name', text='Field Name')
         self.fields_tree.heading('type', text='Type')
         self.fields_tree.heading('page', text='Page')
         self.fields_tree.heading('length', text='Length/Size')
+        self.fields_tree.heading('data_type', text='Data Type')
 
-        self.fields_tree.column('field_name', width=250)
-        self.fields_tree.column('type', width=120)
-        self.fields_tree.column('page', width=60)
-        self.fields_tree.column('length', width=100)
+        self.fields_tree.column('field_name', width=220)
+        self.fields_tree.column('type', width=110)
+        self.fields_tree.column('page', width=55)
+        self.fields_tree.column('length', width=90)
+        self.fields_tree.column('data_type', width=110)
 
         # Scrollbar
         scrollbar = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.fields_tree.yview)
@@ -1054,9 +1223,12 @@ class VCAAPDFGeneratorV2:
         # Setup treeview tags and hover
         setup_treeview_tags(self.fields_tree)
         bind_treeview_hover(self.fields_tree)
+        self.fields_tree.tag_configure('date_field', foreground='#d97706')  # Amber for date fields
 
         # Bind selection event for field preview
         self.fields_tree.bind('<<TreeviewSelect>>', self.on_field_selected)
+        # Double-click to edit data type inline
+        self.fields_tree.bind('<Double-1>', self._on_field_double_click)
 
         # Visual Preview section (nested inside results card)
         preview_header = tk.Frame(results_inner, bg=COLORS['bg_surface'])
@@ -1102,8 +1274,17 @@ class VCAAPDFGeneratorV2:
         # Mouse wheel scrolling on canvas for panning when zoomed
         def _on_canvas_scroll(event):
             if self.zoom_level > 1.0:
-                self.preview_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+                if sys.platform == 'darwin':
+                    self.preview_canvas.yview_scroll(int(-1 * event.delta), "units")
+                elif sys.platform == 'linux':
+                    direction = -1 if event.num == 4 else 1
+                    self.preview_canvas.yview_scroll(direction * 3, "units")
+                else:
+                    self.preview_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
         self.preview_canvas.bind('<MouseWheel>', _on_canvas_scroll)
+        if sys.platform == 'linux':
+            self.preview_canvas.bind('<Button-4>', _on_canvas_scroll)
+            self.preview_canvas.bind('<Button-5>', _on_canvas_scroll)
 
         self.preview_image = None
         self.preview_generator = None
@@ -1166,6 +1347,14 @@ class VCAAPDFGeneratorV2:
             self.current_template = TemplateConfig.from_file(filepath)
             self.pdf_template_path.set(self.current_template.pdf_path)
             self.template_name_var.set(self.current_template.template_name)
+
+            # Restore saved data types to analyzed fields if they exist
+            saved_types = self.current_template.field_data_types or {}
+            if saved_types and self.analyzed_fields:
+                for field in self.analyzed_fields:
+                    if field.field_name in saved_types:
+                        field.data_type = saved_types[field.field_name]
+                self.display_analyzed_fields()
 
             self.update_status(f"Template loaded: {self.current_template.template_name}", 'success')
             self.header_status.config(text=f"Template: {self.current_template.template_name}")
@@ -1235,6 +1424,23 @@ class VCAAPDFGeneratorV2:
 
             messagebox.showinfo("Analysis Complete", f"Found {total} fields ({combed} combed fields)")
 
+            # Restore saved data types from current template if available
+            preconfigured_fields = set()
+            if self.current_template and self.current_template.field_data_types:
+                for field in self.analyzed_fields:
+                    saved = self.current_template.field_data_types.get(field.field_name)
+                    if saved:
+                        field.data_type = saved
+                        preconfigured_fields.add(field.field_name)
+
+            # Show field type audit dialog
+            audit = FieldTypeAuditDialog(self.root, self.analyzed_fields, preconfigured_fields)
+            self.root.wait_window(audit)
+            if audit.result is not None:
+                for field, dtype in zip(self.analyzed_fields, audit.result):
+                    field.data_type = dtype
+                self.display_analyzed_fields()  # Refresh to show updated types
+
         except Exception as e:
             self._close_preview_generator()  # Guarantee cleanup on error
             self.update_status(f"Analysis failed: {str(e)}", 'error')
@@ -1249,15 +1455,78 @@ class VCAAPDFGeneratorV2:
         # Add fields with alternating row colors
         for i, field in enumerate(self.analyzed_fields):
             length_display = f"{field.length} chars" if field.is_combed else "Single"
+            data_type_label = FieldTypeAuditDialog._VALUE_TO_LABEL.get(field.data_type, 'Text')
             row_tag = 'odd' if i % 2 else 'even'
-            tags = (row_tag, 'combed') if field.is_combed else (row_tag,)
+            tags_list = [row_tag]
+            if field.is_combed:
+                tags_list.append('combed')
+            if field.data_type == 'date':
+                tags_list.append('date_field')
 
             self.fields_tree.insert('', tk.END, values=(
                 field.field_name,
                 field.field_type,
                 field.page,
-                length_display
-            ), tags=tags)
+                length_display,
+                data_type_label
+            ), tags=tuple(tags_list))
+
+    def _on_field_double_click(self, event):
+        """Handle double-click on a field row to edit its data type inline."""
+        region = self.fields_tree.identify_region(event.x, event.y)
+        if region != 'cell':
+            return
+        col = self.fields_tree.identify_column(event.x)
+        # col is '#5' for the 5th column (data_type)
+        if col != '#5':
+            return
+        item = self.fields_tree.identify_row(event.y)
+        if not item:
+            return
+        idx = self.fields_tree.index(item)
+        if idx >= len(self.analyzed_fields):
+            return
+
+        field = self.analyzed_fields[idx]
+        current_label = FieldTypeAuditDialog._VALUE_TO_LABEL.get(field.data_type, 'Text')
+
+        # Get cell bounding box
+        bbox = self.fields_tree.bbox(item, col)
+        if not bbox:
+            return
+
+        # Create overlay combobox
+        combo = ttk.Combobox(self.fields_tree,
+                             values=FieldTypeAuditDialog.DATA_TYPE_OPTIONS,
+                             state='readonly', width=16)
+        combo.set(current_label)
+        combo.place(x=bbox[0], y=bbox[1], width=bbox[2], height=bbox[3])
+        combo.focus_set()
+        combo.event_generate('<Button-1>')  # Open the dropdown
+
+        _destroyed = [False]  # Mutable flag to guard against double-destroy
+
+        def _safe_destroy():
+            if not _destroyed[0]:
+                _destroyed[0] = True
+                try:
+                    combo.destroy()
+                except tk.TclError:
+                    pass
+
+        def _on_select(e=None):
+            new_label = combo.get()
+            new_value = FieldTypeAuditDialog._LABEL_TO_VALUE.get(new_label, 'text')
+            field.data_type = new_value
+            _safe_destroy()
+            self.display_analyzed_fields()
+
+        def _on_escape(e=None):
+            _safe_destroy()
+
+        combo.bind('<<ComboboxSelected>>', _on_select)
+        combo.bind('<Escape>', _on_escape)
+        combo.bind('<FocusOut>', lambda e: combo.after(100, _safe_destroy))
 
     def _zoom_preview(self, delta, fit=False):
         """Adjust preview zoom level and re-render."""
@@ -1465,11 +1734,15 @@ class VCAAPDFGeneratorV2:
                     for c in range(1, len(data_entry_cols) + 1):
                         cell = ws_entry.cell(row=r, column=c)
                         cell.alignment = wrap_align
-                # Bold + coloured header row
+                # Bold + coloured header row with vertical centering
+                header_align = Alignment(wrap_text=True, vertical='center')
                 for cell in ws_entry[1]:
                     cell.font = header_font
                     cell.fill = header_fill
                     cell.border = thin_border
+                    cell.alignment = header_align
+                # Expand header row height so wrapped text shows on ~2 lines
+                ws_entry.row_dimensions[1].height = 36
                 # Set column widths (min 16 based on header text)
                 for idx, col_name in enumerate(data_entry_cols, 1):
                     width = min(30, max(16, len(col_name) + 4))
@@ -1608,6 +1881,10 @@ class VCAAPDFGeneratorV2:
                 key = field.field_type.lower().replace('-', '_').replace(' ', '_')
                 field_stats[key] = field_stats.get(key, 0) + 1
 
+            # Collect per-field data types for persistence (save all types
+            # so that explicit 'text' choices override smart-guess defaults)
+            field_data_types = {f.field_name: f.data_type for f in self.analyzed_fields}
+
             config = TemplateConfig(
                 template_name=template_name,
                 pdf_filename=os.path.basename(self.pdf_template_path.get()),
@@ -1619,6 +1896,7 @@ class VCAAPDFGeneratorV2:
                 mapping_file=f"{template_name}_mapping.xlsx",
                 use_auto_matching=True,
                 critical_fields=['surname', 'First name', 'VCAA student number'],
+                field_data_types=field_data_types,
                 notes="",
                 version="2.0"
             )
@@ -2154,7 +2432,7 @@ class VCAAPDFGeneratorV2:
                 item['index'] for item in self.selected_rows.values()
                 if item['selected']
             ],
-            'analyzed_fields': list(self.analyzed_fields),
+            'analyzed_fields': copy.deepcopy(self.analyzed_fields),
             'pdf_fields': list(self.pdf_fields) if hasattr(self, 'pdf_fields') else [],
             'school_name': self.settings.school_name or "School",
             'school_year': self.settings.school_year or str(datetime.now().year),
@@ -2273,22 +2551,25 @@ class VCAAPDFGeneratorV2:
                 'align': ctx['combed_align']
             })
 
-            # Map Excel columns to values (case-insensitive)
-            row_dict_lower = {str(col).lower(): self.format_value_tab3(val)
-                             for col, val in row_data.items()}
+            # Build lookup of raw values keyed by lowercase column name
+            row_raw_lower = {str(col).lower(): val for col, val in row_data.items()}
+
+            # Build lookup of field data types
+            field_types_lookup = {f.field_name.lower(): f.data_type
+                                  for f in ctx['analyzed_fields']}
 
             # Process each analyzed field
             for field in ctx['analyzed_fields']:
                 # Find matching Excel column
                 field_name_lower = field.field_name.lower()
-                value = None
+                raw_val = row_raw_lower.get(field_name_lower)
 
-                for col_name, col_value in row_dict_lower.items():
-                    if col_name == field_name_lower:
-                        value = col_value
-                        break
+                if raw_val is None:
+                    continue
 
-                if value is None:
+                # Format with type awareness
+                value = self.format_value_tab3(raw_val, data_type=field.data_type)
+                if not value:
                     continue
 
                 # Fill field (handles both combed and regular)
@@ -2321,14 +2602,39 @@ class VCAAPDFGeneratorV2:
             writer.write(f)
 
     @staticmethod
-    def format_value_tab3(val):
-        """Format a value for PDF insertion."""
+    def format_value_tab3(val, data_type: str = "text"):
+        """Format a value for PDF insertion.
+
+        Args:
+            val: The raw cell value from pandas.
+            data_type: One of 'text', 'number', or 'date'.
+                       When 'date', Excel serial numbers are converted
+                       to Australian DD/MM/YYYY format.
+        """
         if pd.isna(val):
             return ""
 
-        # Handle datetime objects (Australian format)
+        # Handle datetime objects (Australian format) regardless of data_type
         if isinstance(val, (datetime, pd.Timestamp)):
             return val.strftime('%d/%m/%Y')
+
+        # Date type: convert Excel serial numbers to DD/MM/YYYY
+        if data_type == "date" and isinstance(val, (int, float)):
+            serial = int(val)
+            # Valid Excel date serials: 1 (1900-01-01) to 2958465 (9999-12-31)
+            if 1 <= serial <= 2958465:
+                try:
+                    from datetime import timedelta
+                    # Excel epoch is 1899-12-30 (accounts for the 1900 leap-year bug)
+                    excel_epoch = datetime(1899, 12, 30)
+                    date_obj = excel_epoch + timedelta(days=serial)
+                    return date_obj.strftime('%d/%m/%Y')
+                except (ValueError, OverflowError):
+                    pass  # Fall through to string conversion
+
+        # Number type: strip trailing .0 from whole numbers
+        if data_type == "number" and isinstance(val, float) and val == int(val):
+            return str(int(val))
 
         # Convert to string and clean
         str_val = str(val).strip()

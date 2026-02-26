@@ -25,6 +25,7 @@ class PDFField:
     current_value: str = ""  # Current value in PDF (usually blank)
     is_critical: bool = False  # Marked as critical field
     excel_column: Optional[str] = None  # Mapped Excel column name
+    data_type: str = "text"  # "text", "number", or "date" (DD/MM/YYYY)
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -38,7 +39,8 @@ class PDFField:
             'rect': list(self.rect),
             'current_value': self.current_value,
             'is_critical': self.is_critical,
-            'excel_column': self.excel_column
+            'excel_column': self.excel_column,
+            'data_type': self.data_type
         }
 
     @classmethod
@@ -54,7 +56,8 @@ class PDFField:
             rect=tuple(data['rect']),
             current_value=data.get('current_value', ''),
             is_critical=data.get('is_critical', False),
-            excel_column=data.get('excel_column')
+            excel_column=data.get('excel_column'),
+            data_type=data.get('data_type', 'text')
         )
 
 
@@ -71,12 +74,15 @@ class TemplateConfig:
     mapping_file: str  # Filename of .xlsx mapping file
     use_auto_matching: bool = True
     critical_fields: List[str] = None
+    field_data_types: Dict[str, str] = None  # {field_name: "text"|"number"|"date"}
     notes: str = ""
     version: str = "2.0"
 
     def __post_init__(self):
         if self.critical_fields is None:
             self.critical_fields = []
+        if self.field_data_types is None:
+            self.field_data_types = {}
 
     def to_json(self) -> str:
         """Serialize to JSON string."""
