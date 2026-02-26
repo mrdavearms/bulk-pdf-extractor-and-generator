@@ -162,7 +162,8 @@ class AppSettings:
         try:
             with open(filepath, 'r') as f:
                 return cls.from_json(f.read())
-        except (FileNotFoundError, json.JSONDecodeError, TypeError, KeyError):
+        except (FileNotFoundError, PermissionError, OSError,
+                json.JSONDecodeError, TypeError, KeyError):
             return cls.get_defaults()
 
     def save_to_file(self, filepath: str):

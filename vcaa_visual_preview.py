@@ -5,6 +5,7 @@ Handles PDF page rendering and field highlighting for visual preview.
 """
 
 import os
+import tempfile
 from collections import OrderedDict
 from typing import Optional, Tuple
 from PIL import Image, ImageDraw, ImageFont
@@ -19,9 +20,10 @@ class VisualPreviewGenerator:
 
     def __init__(self, pdf_path: str, cache_dir: Optional[str] = None):
         self.pdf_path = pdf_path
+        # Default to the system temp directory so we never crash on read-only
+        # network shares or system paths where the PDF might reside.
         self.cache_dir = cache_dir or os.path.join(
-            os.path.dirname(pdf_path),
-            '.preview_cache'
+            tempfile.gettempdir(), 'vcaa_preview_cache'
         )
         self.doc = None
         self._cached_pages = OrderedDict()  # LRU cache {cache_key: Image}

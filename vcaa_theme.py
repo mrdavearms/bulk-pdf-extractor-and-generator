@@ -1,53 +1,61 @@
 #!/usr/bin/env python3
 """
-Bulk PDF Generator v2.0 -- Modern Light Theme System
-Centralized theme module for colors, fonts, spacing, and ttk style configuration.
+Bulk PDF Generator v2.0 -- Theme System (ttkbootstrap edition)
+
+Provides colour constants, font helpers, and custom style definitions
+on top of the ttkbootstrap 'litera' base theme.  Base widget styles
+(TButton, TEntry, TCombobox, TNotebook, TScrollbar, TProgressbar) are
+owned by ttkbootstrap — only app-specific overrides are defined here.
 """
 
 import platform
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk  # ttk.Treeview type hints in helper functions
+import ttkbootstrap as tbs
+from ttkbootstrap.utility import enable_high_dpi_awareness
 
 
 # ============================================================
-# COLOR PALETTE -- Modern Light Theme (inspired by Logitech Options+)
+# COLOR PALETTE
+# These remain as explicit constants so the rest of the codebase
+# can reference them for tk.* legacy widgets (Canvas bg, dialog bg, etc.)
 # ============================================================
 
 COLORS = {
-    # --- Backgrounds (layered surface hierarchy) ---
-    'bg_base':        '#f2f2f4',   # Window background (warm light grey)
-    'bg_surface':     '#ffffff',   # Cards, panels (pure white)
-    'bg_elevated':    '#ffffff',   # Dialogs, dropdowns
-    'bg_input':       '#f7f7f9',   # Entry fields, text areas
-    'bg_hover':       '#e9e9ec',   # Hover state for interactive surfaces
+    # --- Backgrounds ---
+    'bg_base':        '#f2f2f4',
+    'bg_surface':     '#ffffff',
+    'bg_elevated':    '#ffffff',
+    'bg_input':       '#f7f7f9',
+    'bg_hover':       '#e9e9ec',
 
     # --- Text ---
-    'text_primary':   '#1d1d1f',   # Main body text (near-black)
-    'text_secondary': '#6e6e73',   # Muted/secondary text
-    'text_tertiary':  '#aeaeb2',   # Disabled text, placeholders
-    'text_inverse':   '#ffffff',   # Text on accent-colored backgrounds
+    'text_primary':   '#1d1d1f',
+    'text_secondary': '#6e6e73',
+    'text_tertiary':  '#aeaeb2',
+    'text_inverse':   '#ffffff',
 
     # --- Accent / Brand ---
-    'accent':         '#4c8bf5',   # Primary accent (buttons, active states)
-    'accent_hover':   '#3a7ae0',   # Accent hover
-    'accent_pressed': '#2d6ad4',   # Accent pressed
-    'accent_subtle':  '#e8f0fe',   # Accent tint for backgrounds
+    'accent':         '#4c8bf5',
+    'accent_hover':   '#3a7ae0',
+    'accent_pressed': '#2d6ad4',
+    'accent_subtle':  '#e8f0fe',
 
     # --- Borders ---
-    'border_subtle':  '#e0e0e3',   # Subtle borders (cards, dividers)
-    'border_default': '#c7c7cc',   # Default borders (inputs)
-    'border_focus':   '#4c8bf5',   # Focus ring (matches accent)
+    'border_subtle':  '#e0e0e3',
+    'border_default': '#c7c7cc',
+    'border_focus':   '#4c8bf5',
 
-    # --- Semantic (status) ---
-    'success':        '#34a853',   # Green for success/ready states
-    'success_bg':     '#e6f4ea',   # Success background tint
-    'warning':        '#ea8600',   # Amber for warnings
-    'warning_bg':     '#fef7e0',   # Warning background tint
-    'error':          '#d93025',   # Red for errors
-    'error_bg':       '#fce8e6',   # Error background tint
-    'info':           '#4c8bf5',   # Blue for informational
+    # --- Semantic ---
+    'success':        '#34a853',
+    'success_bg':     '#e6f4ea',
+    'warning':        '#ea8600',
+    'warning_bg':     '#fef7e0',
+    'error':          '#d93025',
+    'error_bg':       '#fce8e6',
+    'info':           '#4c8bf5',
 
-    # --- Tab bar ---
+    # --- Tab bar (used for custom tab rendering if needed) ---
     'tab_inactive_bg':   '#e8e8eb',
     'tab_inactive_text': '#6e6e73',
     'tab_active_bg':     '#ffffff',
@@ -77,11 +85,10 @@ COLORS = {
 
 
 # ============================================================
-# TYPOGRAPHY -- Cross-Platform Font Detection
+# TYPOGRAPHY
 # ============================================================
 
 def get_system_fonts() -> dict:
-    """Return platform-appropriate font families."""
     system = platform.system()
     if system == 'Windows':
         return {'family': 'Segoe UI', 'mono': 'Consolas'}
@@ -95,57 +102,56 @@ SYSTEM_FONTS = get_system_fonts()
 
 
 def font(size: int, weight: str = '') -> tuple:
-    """Build a font tuple for the system font family."""
     if weight:
         return (SYSTEM_FONTS['family'], size, weight)
     return (SYSTEM_FONTS['family'], size)
 
 
 def mono_font(size: int) -> tuple:
-    """Build a monospaced font tuple."""
     return (SYSTEM_FONTS['mono'], size)
 
 
 # ============================================================
-# SPACING -- Consistent Layout Constants
+# SPACING
 # ============================================================
 
 SPACING = {
-    'page_padding':  20,   # Main content area padding
-    'section_gap':   16,   # Gap between card sections
-    'element_gap':   10,   # Gap between elements in a section
-    'inner_padding': 16,   # Padding inside cards/frames
-    'button_gap':    10,   # Gap between adjacent buttons
-    'input_gap':      8,   # Gap between label and input
+    'page_padding':  20,
+    'section_gap':   16,
+    'element_gap':   10,
+    'inner_padding': 16,
+    'button_gap':    10,
+    'input_gap':      8,
 }
 
 
 # ============================================================
-# THEME APPLICATION -- Configure All ttk Widget Styles
+# THEME APPLICATION
 # ============================================================
 
 def apply_dark_theme(root: tk.Tk):
-    """Apply the modern light theme to all ttk widgets.
+    """Apply the ttkbootstrap 'litera' theme plus app-specific custom styles.
 
     Name kept as apply_dark_theme for backward compatibility.
     """
-    style = ttk.Style(root)
-    style.theme_use('clam')  # Best base for customization
+    # Fix DPI scaling — resolves tab label overlap on high-DPI Windows displays
+    enable_high_dpi_awareness()
+
+    # Initialise ttkbootstrap style on the existing root window.
+    # 'litera' is a clean, professional light theme whose primary blue
+    # (#4582ec) closely matches our brand accent (#4c8bf5).
+    style = tbs.Style(theme='litera')
 
     C = COLORS
     ff = SYSTEM_FONTS['family']
 
-    # --- TFrame ---
-    style.configure('TFrame', background=C['bg_base'])
+    # ── Custom surface/card frames ──────────────────────────────
+    # ttkbootstrap owns TFrame; we add named variants for layered surfaces.
     style.configure('Card.TFrame', background=C['bg_surface'])
     style.configure('Elevated.TFrame', background=C['bg_elevated'])
 
-    # --- TLabel ---
-    style.configure('TLabel',
-        background=C['bg_base'],
-        foreground=C['text_primary'],
-        font=(ff, 11),
-    )
+    # ── Custom label typography variants ───────────────────────
+    # ttkbootstrap owns TLabel base; we add semantic variants.
     style.configure('Title.TLabel',
         background=C['bg_base'],
         foreground=C['text_primary'],
@@ -181,7 +187,6 @@ def apply_dark_theme(root: tk.Tk):
         foreground=C['text_tertiary'],
         font=(ff, 10),
     )
-    # Variants for labels on card/surface backgrounds
     style.configure('Surface.TLabel',
         background=C['bg_surface'],
         foreground=C['text_primary'],
@@ -197,7 +202,6 @@ def apply_dark_theme(root: tk.Tk):
         foreground=C['success'],
         font=(ff, 10),
     )
-    # Section title for card-style sections
     style.configure('SectionTitle.TLabel',
         background=C['bg_base'],
         foreground=C['text_primary'],
@@ -209,151 +213,26 @@ def apply_dark_theme(root: tk.Tk):
         font=(ff, 10),
     )
 
-    # --- TButton ---
-    style.configure('TButton',
-        background=C['bg_surface'],
-        foreground=C['text_primary'],
-        borderwidth=1,
-        focuscolor=C['accent'],
+    # ── Treeview ────────────────────────────────────────────────
+    # ttkbootstrap styles the base Treeview; we tune row height and header.
+    style.configure('Treeview',
         font=(ff, 11),
-        padding=(18, 8),
+        rowheight=30,
     )
-    style.map('TButton',
-        background=[
-            ('active', C['bg_hover']),
-            ('pressed', C['border_default']),
-            ('disabled', C['bg_base']),
-        ],
-        foreground=[
-            ('disabled', C['text_tertiary']),
-        ],
+    style.configure('Treeview.Heading',
+        background=C['tree_header_bg'],
+        foreground=C['tree_header_fg'],
+        font=(ff, 10, 'bold'),
+        padding=(8, 8),
     )
-    # Primary (accent) button
-    style.configure('Accent.TButton',
-        background=C['accent'],
-        foreground='#ffffff',
-        font=(ff, 11, 'bold'),
-        padding=(24, 12),
-        borderwidth=0,
-    )
-    # Large CTA button (e.g. Generate)
-    style.configure('BigAccent.TButton',
-        background=C['accent'],
-        foreground='#ffffff',
-        font=(ff, 12, 'bold'),
-        padding=(32, 14),
-        borderwidth=0,
-    )
-    style.map('BigAccent.TButton',
-        background=[
-            ('active', C['accent_hover']),
-            ('pressed', C['accent_pressed']),
-            ('disabled', '#c7c7cc'),
-        ],
-        foreground=[
-            ('disabled', '#ffffff'),
-        ],
-    )
-    style.map('Accent.TButton',
-        background=[
-            ('active', C['accent_hover']),
-            ('pressed', C['accent_pressed']),
-            ('disabled', '#c7c7cc'),
-        ],
-        foreground=[
-            ('disabled', '#ffffff'),
-        ],
+    style.map('Treeview.Heading',
+        background=[('active', C['bg_hover'])],
     )
 
-    # --- TEntry ---
-    style.configure('TEntry',
-        fieldbackground=C['bg_input'],
-        foreground=C['text_primary'],
-        insertcolor=C['text_primary'],
-        borderwidth=1,
-        padding=(8, 6),
-    )
-    style.map('TEntry',
-        fieldbackground=[
-            ('focus', '#ffffff'),
-            ('disabled', C['bg_base']),
-        ],
-        bordercolor=[
-            ('focus', C['border_focus']),
-            ('!focus', C['border_default']),
-        ],
-    )
-    # Variant for entries on elevated surfaces (dialogs)
-    style.configure('Elevated.TEntry',
-        fieldbackground=C['bg_input'],
-    )
-    style.map('Elevated.TEntry',
-        fieldbackground=[
-            ('focus', '#ffffff'),
-            ('disabled', C['bg_base']),
-        ],
-        bordercolor=[
-            ('focus', C['border_focus']),
-            ('!focus', C['border_default']),
-        ],
-    )
-
-    # --- TCombobox ---
-    style.configure('TCombobox',
-        fieldbackground=C['bg_input'],
-        background=C['bg_surface'],
-        foreground=C['text_primary'],
-        arrowcolor=C['text_secondary'],
-        borderwidth=1,
-        padding=(8, 6),
-    )
-    style.map('TCombobox',
-        fieldbackground=[
-            ('readonly', C['bg_input']),
-            ('disabled', C['bg_base']),
-        ],
-        bordercolor=[
-            ('focus', C['border_focus']),
-        ],
-    )
-    # Combobox dropdown list
-    root.option_add('*TCombobox*Listbox.background', C['bg_surface'])
-    root.option_add('*TCombobox*Listbox.foreground', C['text_primary'])
-    root.option_add('*TCombobox*Listbox.selectBackground', C['accent_subtle'])
-    root.option_add('*TCombobox*Listbox.selectForeground', C['text_primary'])
-
-    # --- TNotebook ---
-    style.configure('TNotebook',
-        background=C['bg_base'],
-        borderwidth=0,
-        tabmargins=(8, 8, 0, 0),
-    )
-    style.configure('TNotebook.Tab',
-        background=C['tab_inactive_bg'],
-        foreground=C['tab_inactive_text'],
-        padding=(28, 12),
-        font=(ff, 11),
-        borderwidth=0,
-    )
-    style.map('TNotebook.Tab',
-        background=[
-            ('selected', C['tab_active_bg']),
-            ('active', C['tab_hover_bg']),
-        ],
-        foreground=[
-            ('selected', C['tab_active_text']),
-        ],
-        expand=[
-            ('selected', (0, 0, 0, 2)),
-        ],
-    )
-
-    # --- TLabelframe (kept for compatibility, prefer create_section) ---
+    # ── TLabelframe (kept for compatibility) ────────────────────
     style.configure('TLabelframe',
         background=C['bg_surface'],
-        foreground=C['text_primary'],
         borderwidth=1,
-        bordercolor=C['border_subtle'],
         relief='flat',
     )
     style.configure('TLabelframe.Label',
@@ -362,61 +241,13 @@ def apply_dark_theme(root: tk.Tk):
         font=(ff, 12, 'bold'),
     )
 
-    # --- Treeview ---
-    style.configure('Treeview',
-        background=C['bg_surface'],
-        foreground=C['text_primary'],
-        fieldbackground=C['bg_surface'],
-        borderwidth=0,
-        font=(ff, 11),
-        rowheight=30,
-    )
-    style.configure('Treeview.Heading',
-        background=C['tree_header_bg'],
-        foreground=C['tree_header_fg'],
-        borderwidth=0,
-        font=(ff, 10, 'bold'),
-        padding=(8, 8),
-    )
-    style.map('Treeview',
-        background=[('selected', C['tree_selected'])],
-        foreground=[('selected', C['text_primary'])],
-    )
-    style.map('Treeview.Heading',
-        background=[('active', C['bg_hover'])],
-    )
-
-    # --- Vertical.TScrollbar ---
-    style.configure('Vertical.TScrollbar',
-        background=C['scroll_thumb'],
-        troughcolor=C['scroll_track'],
-        borderwidth=0,
-        arrowcolor=C['text_secondary'],
-        width=10,
-    )
-    style.map('Vertical.TScrollbar',
-        background=[('active', C['scroll_hover'])],
-    )
-
-    # --- TRadiobutton ---
-    style.configure('TRadiobutton',
-        background=C['bg_base'],
-        foreground=C['text_primary'],
-        indicatorcolor=C['border_default'],
-        font=(ff, 11),
-    )
-    style.map('TRadiobutton',
-        indicatorcolor=[('selected', C['accent'])],
-        background=[('active', C['bg_hover'])],
-    )
-    # Variant for use on card/surface backgrounds
+    # ── TRadiobutton / TCheckbutton surface variants ────────────
     style.configure('Surface.TRadiobutton',
         background=C['bg_surface'],
     )
     style.map('Surface.TRadiobutton',
         background=[('active', C['bg_hover'])],
     )
-    # Variant for elevated surfaces (dialogs)
     style.configure('Elevated.TRadiobutton',
         background=C['bg_elevated'],
     )
@@ -424,32 +255,7 @@ def apply_dark_theme(root: tk.Tk):
         background=[('active', C['bg_hover'])],
     )
 
-    # --- TCheckbutton ---
-    style.configure('TCheckbutton',
-        background=C['bg_base'],
-        foreground=C['text_primary'],
-        indicatorcolor=C['border_default'],
-        font=(ff, 11),
-    )
-    style.map('TCheckbutton',
-        indicatorcolor=[('selected', C['accent'])],
-        background=[('active', C['bg_hover'])],
-    )
-
-    # --- Horizontal.TProgressbar ---
-    style.configure('Horizontal.TProgressbar',
-        troughcolor=C['progress_track'],
-        background=C['progress_fill'],
-        borderwidth=0,
-        thickness=6,
-    )
-
-    # --- TSeparator ---
-    style.configure('TSeparator',
-        background=C['border_subtle'],
-    )
-
-    # Root window configuration
+    # Root window background
     root.configure(bg=C['bg_base'])
 
 
@@ -458,7 +264,7 @@ def apply_dark_theme(root: tk.Tk):
 # ============================================================
 
 def setup_treeview_tags(tree: ttk.Treeview):
-    """Configure alternating row colors and status tags on a Treeview."""
+    """Configure alternating row colours and status tags on a Treeview."""
     tree.tag_configure('odd', background=COLORS['tree_row_odd'])
     tree.tag_configure('even', background=COLORS['tree_row_even'])
     tree.tag_configure('hover', background=COLORS['bg_hover'])

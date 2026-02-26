@@ -15,7 +15,8 @@ Features:
 import os
 import sys
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, simpledialog
+import ttkbootstrap as ttk
+from tkinter import filedialog, messagebox, simpledialog
 from datetime import datetime
 import pandas as pd
 from pypdf import PdfReader, PdfWriter
@@ -96,6 +97,7 @@ class ScrollableFrame(ttk.Frame):
             borderwidth=0,
             highlightthickness=0,
             bg=COLORS['bg_base'],
+            autostyle=False,
         )
         self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.scrollable_frame = ttk.Frame(self.canvas)
@@ -171,6 +173,7 @@ class WelcomeDialog(tk.Toplevel):
             font=(ff, 18, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_elevated'],
+            autostyle=False,
         ).pack(pady=(30, 8))
 
         tk.Label(
@@ -179,6 +182,7 @@ class WelcomeDialog(tk.Toplevel):
             font=(ff, 11),
             fg=C['text_secondary'],
             bg=C['bg_elevated'],
+            autostyle=False,
         ).pack(pady=(0, 20))
 
         # Instructions
@@ -188,12 +192,13 @@ class WelcomeDialog(tk.Toplevel):
             font=(ff, 11),
             fg=C['text_primary'],
             bg=C['bg_elevated'],
+            autostyle=False,
         ).pack(pady=(0, 10))
 
         # Radio buttons
         self.choice_var = tk.StringVar(value="analyze")
 
-        options_frame = tk.Frame(self, bg=C['bg_elevated'])
+        options_frame = tk.Frame(self, bg=C['bg_elevated'], autostyle=False)
         options_frame.pack(pady=10, padx=40, fill=tk.X)
 
         for text, value in [
@@ -214,7 +219,7 @@ class WelcomeDialog(tk.Toplevel):
             self,
             text="Continue",
             command=self.on_continue,
-            style='Accent.TButton',
+            bootstyle='primary',
         ).pack(pady=25)
 
         # Auto-size to content and center on parent
@@ -258,6 +263,7 @@ class SchoolSetupDialog(tk.Toplevel):
             font=(ff, 18, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_elevated'],
+            autostyle=False,
         ).pack(pady=(30, 4))
 
         tk.Label(
@@ -268,10 +274,11 @@ class SchoolSetupDialog(tk.Toplevel):
             fg=C['text_secondary'],
             bg=C['bg_elevated'],
             justify=tk.CENTER,
+            autostyle=False,
         ).pack(pady=(0, 20))
 
         # Form area
-        form = tk.Frame(self, bg=C['bg_elevated'])
+        form = tk.Frame(self, bg=C['bg_elevated'], autostyle=False)
         form.pack(padx=40, fill=tk.X)
 
         # School name
@@ -282,11 +289,11 @@ class SchoolSetupDialog(tk.Toplevel):
             fg=C['text_primary'],
             bg=C['bg_elevated'],
             anchor=tk.W,
+            autostyle=False,
         ).pack(fill=tk.X, pady=(0, 4))
 
         self.name_var = tk.StringVar(value=current_name)
-        name_entry = ttk.Entry(form, textvariable=self.name_var, width=45,
-                               style='Elevated.TEntry')
+        name_entry = ttk.Entry(form, textvariable=self.name_var, width=45)
         name_entry.pack(fill=tk.X, pady=(0, 4))
         name_entry.focus_set()
 
@@ -297,6 +304,7 @@ class SchoolSetupDialog(tk.Toplevel):
             fg=C['text_tertiary'],
             bg=C['bg_elevated'],
             anchor=tk.W,
+            autostyle=False,
         ).pack(fill=tk.X, pady=(0, 16))
 
         # Academic year
@@ -307,14 +315,14 @@ class SchoolSetupDialog(tk.Toplevel):
             fg=C['text_primary'],
             bg=C['bg_elevated'],
             anchor=tk.W,
+            autostyle=False,
         ).pack(fill=tk.X, pady=(0, 4))
 
         # Default to current year if not provided
         if not current_year:
             current_year = str(datetime.now().year)
         self.year_var = tk.StringVar(value=current_year)
-        year_entry = ttk.Entry(form, textvariable=self.year_var, width=10,
-                               style='Elevated.TEntry')
+        year_entry = ttk.Entry(form, textvariable=self.year_var, width=10)
         year_entry.pack(anchor=tk.W, pady=(0, 16))
 
         # Save button
@@ -322,7 +330,7 @@ class SchoolSetupDialog(tk.Toplevel):
             self,
             text="Save",
             command=self.on_save,
-            style='Accent.TButton',
+            bootstyle='primary',
         ).pack(pady=(8, 25))
 
         # Bind Enter key
@@ -378,6 +386,7 @@ class TemplateNameDialog(tk.Toplevel):
             font=(ff, 16, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_elevated'],
+            autostyle=False,
         ).pack(pady=(20, 5))
 
         tk.Label(
@@ -386,15 +395,16 @@ class TemplateNameDialog(tk.Toplevel):
             font=(ff, 10),
             fg=C['text_secondary'],
             bg=C['bg_elevated'],
+            autostyle=False,
         ).pack(pady=(0, 15))
 
         # Name entry
-        name_frame = tk.Frame(self, bg=C['bg_elevated'])
+        name_frame = tk.Frame(self, bg=C['bg_elevated'], autostyle=False)
         name_frame.pack(pady=10, padx=40, fill=tk.X)
 
         tk.Label(name_frame, text="Template Name:",
                  font=(ff, 11), fg=C['text_primary'],
-                 bg=C['bg_elevated']).pack(anchor=tk.W, pady=(0, 5))
+                 bg=C['bg_elevated'], autostyle=False).pack(anchor=tk.W, pady=(0, 5))
 
         self.name_var = tk.StringVar(value=suggested_name)
         ttk.Entry(name_frame, textvariable=self.name_var, width=50).pack(fill=tk.X)
@@ -402,10 +412,11 @@ class TemplateNameDialog(tk.Toplevel):
         # Auto-generated info
         tk.Label(
             name_frame,
-            text=f"Auto-generated from: {os.path.basename(suggested_name)}",
+            text="Auto-generated from the PDF filename. Edit above to customise.",
             font=(ff, 9),
             fg=C['text_tertiary'],
             bg=C['bg_elevated'],
+            autostyle=False,
         ).pack(anchor=tk.W, pady=(5, 10))
 
         # Naming option
@@ -428,7 +439,7 @@ class TemplateNameDialog(tk.Toplevel):
         ).pack(anchor=tk.W, pady=2)
 
         # Buttons
-        button_frame = tk.Frame(self, bg=C['bg_elevated'])
+        button_frame = tk.Frame(self, bg=C['bg_elevated'], autostyle=False)
         button_frame.pack(pady=20, fill=tk.X, padx=40)
 
         ttk.Button(
@@ -441,7 +452,7 @@ class TemplateNameDialog(tk.Toplevel):
             button_frame,
             text="Analyze & Save",
             command=self.on_save,
-            style='Accent.TButton',
+            bootstyle='primary',
         ).pack(side=tk.RIGHT)
 
         # Auto-size to content and center on parent
@@ -627,15 +638,15 @@ class VCAAPDFGeneratorV2:
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # ── Header Bar ──
-        header = tk.Frame(main_frame, bg=C['bg_surface'], height=80)
+        header = tk.Frame(main_frame, bg=C['bg_surface'], height=80, autostyle=False)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
 
-        title_area = tk.Frame(header, bg=C['bg_surface'])
+        title_area = tk.Frame(header, bg=C['bg_surface'], autostyle=False)
         title_area.pack(side=tk.LEFT, padx=24, pady=12)
 
         # Title row with app icon
-        title_row = tk.Frame(title_area, bg=C['bg_surface'])
+        title_row = tk.Frame(title_area, bg=C['bg_surface'], autostyle=False)
         title_row.pack(anchor=tk.W)
         if 'header' in self._icon_refs:
             tk.Label(title_row,
@@ -654,6 +665,7 @@ class VCAAPDFGeneratorV2:
             font=(ff, 22, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_surface'],
+            autostyle=False,
         ).pack(side=tk.LEFT)
 
         tk.Label(title_area,
@@ -661,9 +673,10 @@ class VCAAPDFGeneratorV2:
             font=(ff, 10),
             fg=C['text_secondary'],
             bg=C['bg_surface'],
+            autostyle=False,
         ).pack(anchor=tk.W, padx=(30, 0))
 
-        info_area = tk.Frame(header, bg=C['bg_surface'])
+        info_area = tk.Frame(header, bg=C['bg_surface'], autostyle=False)
         info_area.pack(side=tk.RIGHT, padx=24, pady=12)
 
         # School name (clickable to edit)
@@ -676,6 +689,7 @@ class VCAAPDFGeneratorV2:
             fg=C['accent'],
             bg=C['bg_surface'],
             cursor="hand2",
+            autostyle=False,
         )
         self.header_school.pack(anchor=tk.E)
         self.header_school.bind("<Button-1>", lambda e: self.prompt_school_setup())
@@ -685,11 +699,12 @@ class VCAAPDFGeneratorV2:
             font=(ff, 10),
             fg=C['text_secondary'],
             bg=C['bg_surface'],
+            autostyle=False,
         )
         self.header_status.pack(anchor=tk.E)
 
         # Accent stripe divider
-        tk.Frame(main_frame, bg=C['accent'], height=3).pack(fill=tk.X)
+        tk.Frame(main_frame, bg=C['accent'], height=3, autostyle=False).pack(fill=tk.X)
 
         # ── Content area ──
         content_frame = ttk.Frame(main_frame, padding=str(SPACING['page_padding']))
@@ -722,8 +737,8 @@ class VCAAPDFGeneratorV2:
         self.tab3 = self.tab3_container.scrollable_frame
 
         # ── Status Bar ──
-        tk.Frame(main_frame, bg=C['border_subtle'], height=1).pack(fill=tk.X, side=tk.BOTTOM)
-        status_frame = tk.Frame(main_frame, bg=C['bg_surface'], height=32)
+        tk.Frame(main_frame, bg=C['border_subtle'], height=1, autostyle=False).pack(fill=tk.X, side=tk.BOTTOM)
+        status_frame = tk.Frame(main_frame, bg=C['bg_surface'], height=32, autostyle=False)
         status_frame.pack(fill=tk.X, side=tk.BOTTOM)
         status_frame.pack_propagate(False)
 
@@ -733,6 +748,7 @@ class VCAAPDFGeneratorV2:
             fg=C['text_secondary'],
             bg=C['bg_surface'],
             anchor=tk.W,
+            autostyle=False,
         )
         self.status_label.pack(side=tk.LEFT, padx=12)
 
@@ -742,6 +758,7 @@ class VCAAPDFGeneratorV2:
             fg=C['text_tertiary'],
             bg=C['bg_surface'],
             anchor=tk.E,
+            autostyle=False,
         )
         self.status_template.pack(side=tk.RIGHT, padx=12)
 
@@ -790,12 +807,14 @@ class VCAAPDFGeneratorV2:
             ).pack(anchor=tk.W, pady=(0, 6))
 
         # Border frame (simulates 1px border via bg color + padding)
-        border_frame = tk.Frame(wrapper, bg=C['border_subtle'], padx=1, pady=1)
+        border_frame = tk.Frame(wrapper, bg=C['border_subtle'], padx=1, pady=1,
+                                autostyle=False)
         border_frame.pack(fill=fill_mode, expand=expand)
 
         # Inner content frame
         inner = tk.Frame(border_frame, bg=C['bg_surface'],
-                         padx=SPACING['inner_padding'], pady=SPACING['inner_padding'])
+                         padx=SPACING['inner_padding'], pady=SPACING['inner_padding'],
+                         autostyle=False)
         inner.pack(fill=fill_mode, expand=expand)
 
         return inner
@@ -827,6 +846,7 @@ class VCAAPDFGeneratorV2:
             pady=15,
             yscrollcommand=scrollbar.set,
             cursor='arrow',
+            autostyle=False,
         )
         text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.config(command=text_widget.yview)
@@ -857,9 +877,11 @@ class VCAAPDFGeneratorV2:
         outer.rowconfigure(0, weight=1)
 
         # Centred card
-        card_border = tk.Frame(outer, bg=C['border_subtle'], padx=1, pady=1)
+        card_border = tk.Frame(outer, bg=C['border_subtle'], padx=1, pady=1,
+                               autostyle=False)
         card_border.grid(row=0, column=0)  # centres in the expanded cell
-        card = tk.Frame(card_border, bg=C['bg_surface'], padx=48, pady=40)
+        card = tk.Frame(card_border, bg=C['bg_surface'], padx=48, pady=40,
+                        autostyle=False)
         card.pack()
 
         # App icon + title
@@ -995,7 +1017,7 @@ class VCAAPDFGeneratorV2:
         # Analyze button
         btn_row = tk.Frame(load_inner, bg=COLORS['bg_surface'])
         btn_row.pack(fill=tk.X, pady=(SPACING['element_gap'], 0))
-        ttk.Button(btn_row, text="Analyze Fields", command=self.analyze_pdf_fields, style='Accent.TButton').pack()
+        ttk.Button(btn_row, text="Analyze Fields", command=self.analyze_pdf_fields, bootstyle='primary').pack()
 
         # Analysis results section
         results_inner = self.create_section(container, "Analysis Results", expand=True)
@@ -1073,6 +1095,7 @@ class VCAAPDFGeneratorV2:
             bg=COLORS['canvas_bg'],
             highlightthickness=0,
             xscrollincrement=1, yscrollincrement=1,
+            autostyle=False,
         )
         self.preview_canvas.pack(fill=tk.BOTH, expand=True)
 
@@ -1090,7 +1113,7 @@ class VCAAPDFGeneratorV2:
         action_frame.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
 
         ttk.Button(action_frame, text="Export Mapping File (.xlsx)", command=self.export_mapping_file).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Button(action_frame, text="Save Template Config", command=self.save_template_config, style='Accent.TButton').pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(action_frame, text="Save Template Config", command=self.save_template_config, bootstyle='primary').pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(action_frame, text="Skip to Generate PDFs \u2192", command=lambda: self.notebook.select(3)).pack(side=tk.RIGHT)
 
     def select_pdf_tab1(self):
@@ -1461,6 +1484,71 @@ class VCAAPDFGeneratorV2:
                         cell.alignment = wrap_align
                 ws_instr.column_dimensions['A'].width = 80
 
+                # ── About sheet ──
+                _commit, _date = _get_build_info()
+                ws_about = wb.create_sheet(title='About')
+
+                about_rows = [
+                    ('Bulk PDF Generator', 'title'),
+                    ('Generate filled PDFs from spreadsheet data', 'subtitle'),
+                    ('', None),
+                    ('PURPOSE', 'heading'),
+                    (
+                        'Designed to take the pain out of complicated, repetitive PDF form-filling '
+                        'tasks in schools — turning hours of manual data entry into a single click, '
+                        'so staff can focus on the work that actually matters.',
+                        'body'
+                    ),
+                    ('', None),
+                    ('DEVELOPER', 'heading'),
+                    ('Dave Armstrong', 'name'),
+                    ('A Principal-developed app for educators and school leaders', 'body'),
+                    ('', None),
+                    ('CONTACT', 'heading'),
+                    ('Email:   Dave.Armstrong@education.vic.gov.au', 'body'),
+                    ('GitHub:  github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools', 'body'),
+                    ('', None),
+                    ('DISCLAIMER', 'heading'),
+                    (
+                        'This is a Principal-developed tool shared in good faith. '
+                        'Always review all generated outputs before use.',
+                        'body'
+                    ),
+                    ('', None),
+                    (f'Version: v2.1  ·  {_commit}  ·  {_date}', 'muted'),
+                ]
+
+                title_font   = Font(bold=True, size=18, color='1D1D1F')
+                subtitle_fnt = Font(size=11, color='6E6E73')
+                heading_font = Font(bold=True, size=11, color='4C8BF5')
+                body_font    = Font(size=11, color='1D1D1F')
+                name_font    = Font(bold=True, size=14, color='1D1D1F')
+                muted_font   = Font(size=9, color='AEAEB2')
+                cell_align   = Alignment(wrap_text=True, vertical='top')
+
+                font_map = {
+                    'title':    title_font,
+                    'subtitle': subtitle_fnt,
+                    'heading':  heading_font,
+                    'body':     body_font,
+                    'name':     name_font,
+                    'muted':    muted_font,
+                    None:       body_font,
+                }
+
+                for r_idx, (text, style_key) in enumerate(about_rows, start=1):
+                    cell = ws_about.cell(row=r_idx, column=1, value=text)
+                    cell.font = font_map.get(style_key, body_font)
+                    cell.alignment = cell_align
+
+                ws_about.column_dimensions['A'].width = 72
+                # Row heights: title tall, headings medium, body auto via wrap
+                ws_about.row_dimensions[1].height = 30   # title
+                ws_about.row_dimensions[2].height = 18   # subtitle
+                for r_idx, (_, style_key) in enumerate(about_rows, start=1):
+                    if style_key == 'body':
+                        ws_about.row_dimensions[r_idx].height = 42
+
             messagebox.showinfo("Export Successful", f"Mapping file saved to:\n{filepath}")
 
         except Exception as e:
@@ -1639,7 +1727,7 @@ class VCAAPDFGeneratorV2:
         # Load button
         btn_row = tk.Frame(file_inner, bg=COLORS['bg_surface'])
         btn_row.pack(fill=tk.X, pady=(SPACING['element_gap'], 0))
-        ttk.Button(btn_row, text="Load & Preview Data", command=self.load_data_tab3, style='Accent.TButton').pack()
+        ttk.Button(btn_row, text="Load & Preview Data", command=self.load_data_tab3, bootstyle='primary').pack()
 
         # Validation section
         validation_inner = self.create_section(container, "Validation")
@@ -1656,6 +1744,7 @@ class VCAAPDFGeneratorV2:
             padx=10,
             pady=8,
             font=font(10),
+            autostyle=False,
         )
         self.validation_text_tab3.pack(fill=tk.X)
         # Keep a reference for pack_forget compatibility
@@ -1731,7 +1820,8 @@ class VCAAPDFGeneratorV2:
             text="Generate PDFs for Selected Students",
             command=self.start_generation_tab3,
             state=tk.DISABLED,
-            style='BigAccent.TButton',
+            bootstyle='primary',
+            padding=(32, 14),
         )
         self.generate_btn_tab3.pack(pady=SPACING['section_gap'])
 
@@ -1818,7 +1908,7 @@ class VCAAPDFGeneratorV2:
             dialog.destroy()
 
         ttk.Button(btn_row, text="Cancel", command=on_cancel).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Button(btn_row, text="Load this sheet", style='Accent.TButton',
+        ttk.Button(btn_row, text="Load this sheet", bootstyle='primary',
                    command=on_ok).pack(side=tk.LEFT)
 
         dialog.bind('<Return>', lambda e: on_ok())
@@ -2161,8 +2251,10 @@ class VCAAPDFGeneratorV2:
     def _generate_single_pdf(self, ctx, row_data, output_path):
         """Generate a single PDF with combed field support.
 
-        Uses only the snapshot *ctx* dict for configuration and field
-        metadata — safe to call from any thread.
+        THREAD SAFETY: This method runs on the generation worker thread.
+        It must only access local variables and the immutable *ctx* snapshot
+        dict — never read or write any ``self.*`` attribute directly.
+        All UI updates must be dispatched via ``self.root.after()``.
         """
         reader = PdfReader(ctx['pdf_path'])
         writer = PdfWriter()
@@ -2215,9 +2307,14 @@ class VCAAPDFGeneratorV2:
                     val = self.format_value_tab3(row_dict_lower[pdf_field_lower])
                     field_values[pdf_field] = val
 
-        # Fill all pages
+        # Fill all pages.
+        # auto_regenerate=False prevents pypdf from emitting a spurious
+        # /NeedAppearances flag that causes some viewers to re-render fields
+        # on open and can leave a stale appearance stream in the output.
         for page in writer.pages:
-            writer.update_page_form_field_values(page, field_values)
+            writer.update_page_form_field_values(
+                page, field_values, auto_regenerate=False
+            )
 
         # Save the filled PDF
         with open(output_path, 'wb') as f:
@@ -2273,6 +2370,10 @@ class VCAAPDFGeneratorV2:
 
 
 def main():
+    # Must be called before Tk window creation for best DPI results
+    from ttkbootstrap.utility import enable_high_dpi_awareness
+    enable_high_dpi_awareness()
+
     root = tk.Tk()
 
     # Force window to front on launch
@@ -2280,7 +2381,7 @@ def main():
     root.attributes('-topmost', True)
     root.after(100, lambda: root.attributes('-topmost', False))
 
-    # Apply dark theme
+    # Apply ttkbootstrap theme + custom styles
     apply_dark_theme(root)
 
     app = VCAAPDFGeneratorV2(root)

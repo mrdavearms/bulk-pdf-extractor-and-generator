@@ -141,7 +141,7 @@ class CombedFieldFiller:
             'is_valid': True,
             'will_truncate': False,
             'original_length': len(text),
-            'field_length': field.length,
+            'field_length': field.length if field.is_combed else None,
             'truncated_text': None
         }
 

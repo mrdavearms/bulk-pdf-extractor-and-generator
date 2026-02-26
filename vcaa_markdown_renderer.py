@@ -18,7 +18,7 @@ Supported syntax
 """
 
 import re
-import tkinter as tk
+import tkinter as tk  # tk.Text, tk.END, tk.NORMAL, tk.DISABLED — no ttkbootstrap needed here
 import webbrowser
 
 from vcaa_theme import COLORS, SYSTEM_FONTS, font
@@ -127,7 +127,6 @@ class MarkdownRenderer:
                 self._insert_inline(line[2:], 'h1')
                 self.text.insert(tk.END, '\n')
             elif line.lstrip().startswith(('* ', '- ')):
-                indent = line[:len(line) - len(line.lstrip())]
                 stripped = line.lstrip()[2:]
                 bullet_char = '  \u2022  '
                 self.text.insert(tk.END, bullet_char, 'bullet')

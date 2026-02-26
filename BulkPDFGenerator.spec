@@ -19,6 +19,10 @@ try:
 except Exception:
     fitz_datas, fitz_binaries, fitz_hidden = [], [], []
 
+# ── ttkbootstrap ────────────────────────────────────────────────────────────
+# ttkbootstrap ships theme assets (JSON, images) that must be bundled.
+ttkbs_datas, ttkbs_binaries, ttkbs_hidden = collect_all('ttkbootstrap')
+
 # ── openpyxl ────────────────────────────────────────────────────────────────
 # openpyxl needs its templates/ directory (contains styles.xml, etc.)
 openpyxl_datas = collect_data_files('openpyxl')
@@ -31,16 +35,17 @@ pandas_datas = collect_data_files('pandas')
 a = Analysis(
     ['vcaa_pdf_generator_v2.py'],
     pathex=[],
-    binaries=pymupdf_binaries + fitz_binaries,
+    binaries=pymupdf_binaries + fitz_binaries + ttkbs_binaries,
     datas=[
         # App resources bundled into the executable root
         ('getting_started.md', '.'),
         ('icon.png',           '.'),
         ('icon.ico',           '.'),
-    ] + pymupdf_datas + fitz_datas + openpyxl_datas + pandas_datas,
+    ] + pymupdf_datas + fitz_datas + openpyxl_datas + pandas_datas + ttkbs_datas,
     hiddenimports=(
         pymupdf_hidden
         + fitz_hidden
+        + ttkbs_hidden
         + [
             # openpyxl internals not always auto-detected
             'openpyxl.cell._writer',
