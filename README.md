@@ -44,8 +44,8 @@ Originally built to streamline VCAA Special Examination Arrangements Evidence Ap
 | **Template library** | Save, reload, and manage template configurations across sessions |
 | **School settings** | Configures school name and year for output filenames once, remembered forever |
 | **One-click output** | All PDFs saved to a named folder; output opens automatically |
-| **Cross-platform** | Runs on Windows 10/11, macOS, and Linux from source; pre-built `.exe` for Windows |
-| **No tech skills needed** | Single `.exe` file, no Python or IT support required |
+| **Cross-platform** | Runs on Windows 10/11, macOS, and Linux; pre-built `.exe` for Windows and `.dmg` for macOS |
+| **No tech skills needed** | Single-file download — `.exe` for Windows, `.dmg` for Mac — no Python or IT support required |
 
 ---
 
@@ -107,12 +107,17 @@ flowchart TB
 
 ### Step 1 — Download
 
-> [!IMPORTANT]
-> **Pre-built `.exe` available for Windows 10/11.** macOS and Linux users can [run from source](#-for-developers--running-from-source).
-
-### [Download Bulk PDF Generator.exe](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.4)
-
 **No Python, no installation, no IT support required** — just download and double-click.
+
+<div align="center">
+
+| Windows | macOS |
+|:---:|:---:|
+| [![Windows](https://img.shields.io/badge/⬇️%20Download%20for-Windows-0078d4?style=for-the-badge&logo=windows&logoColor=white)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.4) | [![macOS](https://img.shields.io/badge/⬇️%20Download%20for-macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.4/downloads/binaries/Bulk.PDF.Generator.Mac.dmg) |
+| `Bulk PDF Generator.exe` | `Bulk.PDF.Generator.Mac.dmg` |
+| Windows 10 / 11 | macOS 12 Monterey or later |
+
+</div>
 
 Save the file somewhere convenient — your Desktop, a shared school drive, or a dedicated apps folder.
 
@@ -120,7 +125,9 @@ Save the file somewhere convenient — your Desktop, a shared school drive, or a
 
 ### Step 2 — Run the app
 
-Double-click **`Bulk PDF Generator.exe`**.
+**Windows:** Double-click **`Bulk PDF Generator.exe`**.
+
+**Mac:** Open **`Bulk.PDF.Generator.Mac.dmg`**, then drag **Bulk PDF Generator** into your Applications folder. Double-click to open from there.
 
 <details>
 <summary><strong>Windows Security Warning — what to do if you see it</strong></summary>
@@ -144,6 +151,29 @@ You only need to do this **once**. Windows remembers your choice and the app ope
 
 > [!TIP]
 > **School IT environments:** If your managed security policy shows no "Run anyway" option, ask your IT administrator to whitelist the app or add an exclusion. The complete source code is at [gitlab.com/davearmswork/bulk-pdf-extractor-and-generator](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator) for their review.
+
+</details>
+
+<details>
+<summary><strong>Mac Security Warning — what to do if you see it</strong></summary>
+
+<br>
+
+Because this app is not signed with an Apple Developer certificate (certificates cost hundreds of dollars per year), macOS Gatekeeper will block it on first run. **The app is safe.** This is a known restriction for self-distributed software — the full source code is open for inspection.
+
+**What you'll see:**
+
+> *"Bulk PDF Generator cannot be opened because it is from an unidentified developer."*
+
+**What to do:**
+
+1. Open **System Settings** → **Privacy & Security**
+2. Scroll down — you'll see a message about Bulk PDF Generator being blocked
+3. Click **"Open Anyway"**
+
+Alternatively, right-click the app in your Applications folder and choose **"Open"** — then click **"Open"** in the dialog that appears.
+
+You only need to do this **once**. macOS remembers your choice and the app opens normally from then on.
 
 </details>
 
