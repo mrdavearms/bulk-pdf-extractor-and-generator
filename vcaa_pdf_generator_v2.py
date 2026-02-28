@@ -2574,18 +2574,21 @@ def main():
 
     root = tk.Tk()
 
-    # Set taskbar icon immediately so it's correct from the start
-    ico_path = get_resource_path('icon.ico')
-    if sys.platform == 'win32' and os.path.exists(ico_path):
-        root.iconbitmap(ico_path)
-
     # Force window to front on launch
     root.lift()
     root.attributes('-topmost', True)
     root.after(100, lambda: root.attributes('-topmost', False))
 
     # Apply ttkbootstrap theme + custom styles
+    # (must happen before iconbitmap — tbs.Style() resets the icon to its feather)
     apply_dark_theme(root)
+
+    # Set taskbar icon AFTER ttkbootstrap theme to override its default feather.
+    # 'default=path' also applies to all Toplevel dialogs (SchoolSetup, etc.)
+    ico_path = get_resource_path('icon.ico')
+    if sys.platform == 'win32' and os.path.exists(ico_path):
+        root.iconbitmap(default=ico_path)
+        root.iconbitmap(ico_path)
 
     app = VCAAPDFGeneratorV2(root)
     root.mainloop()
