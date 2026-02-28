@@ -19,6 +19,9 @@ Originally built to streamline VCAA Special Examination Arrangements Evidence Ap
 > [!NOTE]
 > A Principal-developed app for educators and school leaders. Always review all generated outputs before use.
 
+> [!IMPORTANT]
+> **This app runs entirely offline.** It does not connect to the internet, use cloud services, or include any AI tools. Your data never leaves your computer — all processing happens locally on your machine. No accounts, no logins, no telemetry.
+
 ---
 
 <div align="center">
@@ -503,3 +506,5 @@ A Principal-developed app for educators and school leaders.
 ## Licence
 
 MIT — see [LICENSE](LICENSE) for details.
+
+This project uses [PyMuPDF](https://pymupdf.readthedocs.io/) which is licensed under AGPL-3.0. PyMuPDF's AGPL licence applies to that component. If you plan to redistribute a modified, closed-source version of this application, you should review PyMuPDF's [licensing terms](https://pymupdf.readthedocs.io/en/latest/about.html#license-and-copyright).

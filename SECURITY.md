@@ -1,21 +1,26 @@
 # Security Policy
 
+## Overview
+
+Bulk PDF Generator is a **fully offline desktop application**. It does not connect to the internet, transmit data to external servers, or use cloud services of any kind.
+
+## Data Handling
+
+- All processing happens locally on your machine
+- No data is uploaded, logged, or shared
+- Generated PDFs are saved only to the folder you choose
+- No analytics, telemetry, or usage tracking
+- No AI or machine learning components
+
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
-
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+| Version | Supported |
+|---------|-----------|
+| 2.x     | Yes       |
+| < 2.0   | No        |
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+If you discover a security issue, please report it by emailing [Dave.Armstrong@education.vic.gov.au](mailto:Dave.Armstrong@education.vic.gov.au).
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+You can expect an initial response within 5 business days. Please include steps to reproduce the issue if possible.
