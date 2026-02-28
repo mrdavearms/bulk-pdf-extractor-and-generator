@@ -129,7 +129,6 @@ class TemplateConfig:
 class AppSettings:
     """Application settings."""
     templates_directory: str
-    show_welcome: bool = True
     auto_load_last_template: bool = True
     last_template: Optional[str] = None
     combed_field_padding: bool = False

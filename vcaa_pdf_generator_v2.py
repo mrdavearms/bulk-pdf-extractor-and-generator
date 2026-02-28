@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Bulk PDF Generator v2.0
+Bulk PDF Generator v2.4
 A GUI application to analyze PDF templates, map fields, and batch-fill forms.
 
 Features:
@@ -151,94 +151,6 @@ class ScrollableFrame(ttk.Frame):
             # Windows: delta is ±120 per notch
             self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
-
-class WelcomeDialog(tk.Toplevel):
-    """First-run welcome dialog."""
-
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.title("Welcome to Bulk PDF Generator")
-        self.geometry("560x380")
-        self.configure(bg=COLORS['bg_elevated'])
-        self.transient(parent)
-        self.grab_set()
-
-        self.choice = None
-        C = COLORS
-        ff = SYSTEM_FONTS['family']
-
-        # Title
-        tk.Label(
-            self,
-            text="Welcome to Bulk PDF Generator",
-            font=(ff, 18, 'bold'),
-            fg=C['text_primary'],
-            bg=C['bg_elevated'],
-            autostyle=False,
-        ).pack(pady=(30, 8))
-
-        tk.Label(
-            self,
-            text="It looks like this is your first time.",
-            font=(ff, 11),
-            fg=C['text_secondary'],
-            bg=C['bg_elevated'],
-            autostyle=False,
-        ).pack(pady=(0, 20))
-
-        # Instructions
-        tk.Label(
-            self,
-            text="Would you like to:",
-            font=(ff, 11),
-            fg=C['text_primary'],
-            bg=C['bg_elevated'],
-            autostyle=False,
-        ).pack(pady=(0, 10))
-
-        # Radio buttons
-        self.choice_var = tk.StringVar(value="analyze")
-
-        options_frame = tk.Frame(self, bg=C['bg_elevated'], autostyle=False)
-        options_frame.pack(pady=10, padx=40, fill=tk.X)
-
-        for text, value in [
-            ("Analyze a PDF template (recommended for new users)", "analyze"),
-            ("Load an existing template configuration", "load"),
-            ("Skip to PDF generation (I know what I'm doing)", "skip"),
-        ]:
-            ttk.Radiobutton(
-                options_frame,
-                text=text,
-                variable=self.choice_var,
-                value=value,
-                style='Elevated.TRadiobutton',
-            ).pack(anchor=tk.W, pady=5)
-
-        # Continue button
-        ttk.Button(
-            self,
-            text="Continue",
-            command=self.on_continue,
-            bootstyle='primary',
-        ).pack(pady=25)
-
-        # Auto-size to content and center on parent
-        self.update_idletasks()
-        width = self.winfo_reqwidth()
-        height = self.winfo_reqheight()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (width // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (height // 2)
-        self.geometry(f"{width}x{height}+{x}+{y}")
-
-        # Force to front
-        self.lift()
-        self.attributes('-topmost', True)
-        self.after(100, lambda: self.attributes('-topmost', False))
-
-    def on_continue(self):
-        self.choice = self.choice_var.get()
-        self.destroy()
 
 
 class SchoolSetupDialog(tk.Toplevel):
@@ -652,7 +564,7 @@ class VCAAPDFGeneratorV2:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("Bulk PDF Generator v2.2")
+        self.root.title("Bulk PDF Generator v2.4")
         self.root.geometry("1000x800")
         self.root.minsize(900, 700)
 
@@ -685,12 +597,6 @@ class VCAAPDFGeneratorV2:
 
         self.setup_ui()
 
-        # First-launch: ask for school details (runs once, then never again)
-        if not self.settings.school_configured:
-            self.root.after(300, self.prompt_school_setup)
-        # Show welcome dialog if first time
-        elif self.settings.show_welcome and not self.has_templates():
-            self.root.after(500, self.show_welcome_dialog)
 
     def _load_app_icon(self):
         """Load icon.png / icon.ico and apply to window and pre-scale for UI use.
@@ -703,11 +609,10 @@ class VCAAPDFGeneratorV2:
         ico_path = get_resource_path('icon.ico')
         png_path = get_resource_path('icon.png')
 
-        # Set taskbar / title-bar icon
+        # Set taskbar / title-bar icon (Windows .ico already set in main();
+        # this handles macOS/Linux via .png)
         try:
-            if sys.platform == 'win32' and os.path.exists(ico_path):
-                self.root.iconbitmap(ico_path)
-            elif os.path.exists(png_path):
+            if sys.platform != 'win32' and os.path.exists(png_path):
                 _img = Image.open(png_path).convert('RGBA')
                 _photo = ImageTk.PhotoImage(_img.resize((64, 64), Image.LANCZOS))
                 self.root.iconphoto(True, _photo)
@@ -779,21 +684,7 @@ class VCAAPDFGeneratorV2:
                     text=f"{self.settings.school_name}  |  {self.settings.school_year}"
                 )
 
-        # Now show the regular welcome dialog if applicable
-        if self.settings.show_welcome and not self.has_templates():
-            self.root.after(200, self.show_welcome_dialog)
 
-    def show_welcome_dialog(self):
-        """Show welcome dialog for first-time users."""
-        dialog = WelcomeDialog(self.root)
-        self.root.wait_window(dialog)
-
-        if dialog.choice == "analyze":
-            self.notebook.select(1)  # Go to Tab 1
-        elif dialog.choice == "load":
-            self.load_template_from_file()
-        elif dialog.choice == "skip":
-            self.notebook.select(3)  # Go to Tab 3
 
     def setup_ui(self):
         """Create the main UI with tabbed interface."""
@@ -847,9 +738,10 @@ class VCAAPDFGeneratorV2:
         info_area.pack(side=tk.RIGHT, padx=24, pady=12)
 
         # School name (clickable to edit)
-        school_text = ""
         if self.settings.school_configured:
             school_text = f"{self.settings.school_name}  |  {self.settings.school_year}"
+        else:
+            school_text = "Click to set school details"
         self.header_school = tk.Label(info_area,
             text=school_text,
             font=(ff, 10, 'bold'),
@@ -1116,7 +1008,7 @@ class VCAAPDFGeneratorV2:
 
         # Version — commit hash and build date baked in at build time
         _commit, _date = _get_build_info()
-        version_str = f"v2.1  ·  {_commit}  ·  {_date}"
+        version_str = f"v2.4  ·  {_commit}  ·  {_date}"
         tk.Label(card, text=version_str, font=(ff, 10),
                  fg=C['text_tertiary'], bg=C['bg_surface']).pack()
 
@@ -1788,7 +1680,7 @@ class VCAAPDFGeneratorV2:
                         'body'
                     ),
                     ('', None),
-                    (f'Version: v2.1  ·  {_commit}  ·  {_date}', 'muted'),
+                    (f'Version: v2.4  ·  {_commit}  ·  {_date}', 'muted'),
                 ]
 
                 title_font   = Font(bold=True, size=18, color='1D1D1F')
@@ -2681,6 +2573,11 @@ def main():
     enable_high_dpi_awareness()
 
     root = tk.Tk()
+
+    # Set taskbar icon immediately so it's correct from the start
+    ico_path = get_resource_path('icon.ico')
+    if sys.platform == 'win32' and os.path.exists(ico_path):
+        root.iconbitmap(ico_path)
 
     # Force window to front on launch
     root.lift()
