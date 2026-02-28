@@ -2568,6 +2568,15 @@ class VCAAPDFGeneratorV2:
 
 
 def main():
+    # On Windows, set the AppUserModelID BEFORE creating any windows.
+    # This tells the Windows taskbar to use the .exe's embedded icon
+    # instead of the default tkinter/ttkbootstrap feather icon.
+    if sys.platform == 'win32':
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            'Antigravity.BulkPDFGenerator.v2'
+        )
+
     # Must be called before Tk window creation for best DPI results
     from ttkbootstrap.utility import enable_high_dpi_awareness
     enable_high_dpi_awareness()
@@ -2580,15 +2589,27 @@ def main():
     root.after(100, lambda: root.attributes('-topmost', False))
 
     # Apply ttkbootstrap theme + custom styles
-    # (must happen before iconbitmap — tbs.Style() resets the icon to its feather)
     apply_dark_theme(root)
 
-    # Set taskbar icon AFTER ttkbootstrap theme to override its default feather.
-    # 'default=path' also applies to all Toplevel dialogs (SchoolSetup, etc.)
+    # Set window icon AFTER ttkbootstrap theme (Style() can reset icons).
+    # iconphoto with a PNG is more reliable than iconbitmap on Windows
+    # for controlling the taskbar icon when ttkbootstrap is in use.
     ico_path = get_resource_path('icon.ico')
-    if sys.platform == 'win32' and os.path.exists(ico_path):
-        root.iconbitmap(default=ico_path)
-        root.iconbitmap(ico_path)
+    png_path = get_resource_path('icon.png')
+    if sys.platform == 'win32':
+        if os.path.exists(ico_path):
+            root.iconbitmap(default=ico_path)
+            root.iconbitmap(ico_path)
+        if os.path.exists(png_path):
+            _img = Image.open(png_path).convert('RGBA')
+            _icon = ImageTk.PhotoImage(_img.resize((256, 256), Image.LANCZOS))
+            root.iconphoto(True, _icon)
+            root._icon_ref = _icon  # prevent garbage collection
+    elif os.path.exists(png_path):
+        _img = Image.open(png_path).convert('RGBA')
+        _icon = ImageTk.PhotoImage(_img.resize((64, 64), Image.LANCZOS))
+        root.iconphoto(True, _icon)
+        root._icon_ref = _icon
 
     app = VCAAPDFGeneratorV2(root)
     root.mainloop()
