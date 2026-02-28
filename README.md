@@ -152,7 +152,7 @@ Not sure where to start? Download the sample files to see exactly how the app wo
 
 <div align="center">
 
-### [Download All Sample Files — ZIP, 2 MB](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Sample.Files.zip)
+### [Download All Sample Files — ZIP, 2 MB](samples/Sample%20Files.zip)
 
 </div>
 
@@ -160,12 +160,12 @@ Not sure where to start? Download the sample files to see exactly how the app wo
 
 | File | Download | Description |
 |------|:--------:|-------------|
-| `Evidence Application sample PDF from VCAA.pdf` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Evidence.Application.sample.PDF.from.VCAA.pdf) | **The blank PDF template** — this is the form the app fills in |
-| `Evidence Application spreadsheet with data.xlsx` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Evidence.Application.spreadsheet.with.data.xlsx) | **Full data spreadsheet** — 3 fictional students; multi-sheet workbook that demonstrates the sheet-picker dialog |
-| `sample data.xlsx` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/sample.data.xlsx) | **Simple single-sheet version** — loads instantly, no sheet-picker dialog |
-| `Duis_Ex_Evidence Application ... 2026.pdf` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Duis_Ex_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 1 |
-| `Minim_Elit_Evidence Application ... 2026.pdf` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Minim_Elit_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 2 |
-| `Sunt_Culpa_Evidence Application ... 2026.pdf` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Sunt_Culpa_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 3 |
+| `Evidence Application sample PDF from VCAA.pdf` | [Link](samples/Evidence%20Application%20sample%20PDF%20from%20VCAA.pdf) | **The blank PDF template** — this is the form the app fills in |
+| `Evidence Application spreadsheet with data.xlsx` | [Link](samples/Evidence%20Application%20spreadsheet%20with%20data.xlsx) | **Full data spreadsheet** — 3 fictional students; multi-sheet workbook that demonstrates the sheet-picker dialog |
+| `sample data.xlsx` | [Link](samples/sample%20data.xlsx) | **Simple single-sheet version** — loads instantly, no sheet-picker dialog |
+| `Duis_Ex_Evidence Application ... 2026.pdf` | [Link](samples/Duis_Ex_Evidence%20Application%20Wangaratta%20High%20School%202026.pdf) | **Sample output** — completed form for student 1 |
+| `Minim_Elit_Evidence Application ... 2026.pdf` | [Link](samples/Minim_Elit_Evidence%20Application%20Wangaratta%20High%20School%202026.pdf) | **Sample output** — completed form for student 2 |
+| `Sunt_Culpa_Evidence Application ... 2026.pdf` | [Link](samples/Sunt_Culpa_Evidence%20Application%20Wangaratta%20High%20School%202026.pdf) | **Sample output** — completed form for student 3 |
 
 ### How to run the sample
 
@@ -497,7 +497,6 @@ A Principal-developed app for educators and school leaders.
 |---|---|
 | Email | [Dave.Armstrong@education.vic.gov.au](mailto:Dave.Armstrong@education.vic.gov.au) |
 | GitLab | [gitlab.com/davearmswork/bulk-pdf-extractor-and-generator](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator) |
-| GitHub (mirror) | [github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools) |
 
 ---
 

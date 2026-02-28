@@ -24,7 +24,7 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 | | |
 |---|---|
 | **Primary (origin)** | `https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator.git` |
-| **Mirror (github)** | `https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools.git` |
+| **Mirror (github)** | `https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools.git` (suspended) |
 | **GitLab user** | `dave401` |
 | **glab CLI** | Authenticated, v1.86.0+ |
 
