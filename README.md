@@ -4,7 +4,7 @@
 
 **Batch-fill PDF forms from spreadsheet data — turning hours of manual data entry into a single click.**
 
-[![Download](https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20download-v2.2-0078d4?style=for-the-badge)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.2)
+[![Download](https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20download-v2.3-0078d4?style=for-the-badge)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.3)
 
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078d4?logo=windows&logoColor=white)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases)
 [![License](https://img.shields.io/badge/license-MIT-22c55e)](LICENSE)
@@ -107,7 +107,7 @@ flowchart TB
 > [!IMPORTANT]
 > **Pre-built `.exe` available for Windows 10/11.** macOS and Linux users can [run from source](#-for-developers--running-from-source).
 
-### [Download Bulk PDF Generator.exe](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.2)
+### [Download Bulk PDF Generator.exe](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.3)
 
 **No Python, no installation, no IT support required** — just download and double-click.
 
