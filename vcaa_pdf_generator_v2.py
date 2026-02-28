@@ -652,7 +652,7 @@ class VCAAPDFGeneratorV2:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("Bulk PDF Generator v2.0")
+        self.root.title("Bulk PDF Generator v2.2")
         self.root.geometry("1000x800")
         self.root.minsize(900, 700)
 
