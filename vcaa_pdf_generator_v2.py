@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Bulk PDF Generator v2.4
+Bulk PDF Generator v2.5
 A GUI application to analyze PDF templates, map fields, and batch-fill forms.
 
 Features:
@@ -636,7 +636,7 @@ class VCAAPDFGeneratorV2:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("Bulk PDF Generator v2.4")
+        self.root.title("Bulk PDF Generator v2.5")
         self.root.geometry("1000x800")
         self.root.minsize(900, 700)
 
@@ -1080,7 +1080,7 @@ class VCAAPDFGeneratorV2:
 
         # Version — commit hash and build date baked in at build time
         _commit, _date = _get_build_info()
-        version_str = f"v2.4  ·  {_commit}  ·  {_date}"
+        version_str = f"v2.5  ·  {_commit}  ·  {_date}"
         tk.Label(card, text=version_str, font=(ff, 10),
                  fg=C['text_tertiary'], bg=C['bg_surface']).pack()
 
@@ -1781,7 +1781,7 @@ class VCAAPDFGeneratorV2:
                         'body'
                     ),
                     ('', None),
-                    (f'Version: v2.4  ·  {_commit}  ·  {_date}', 'muted'),
+                    (f'Version: v2.5  ·  {_commit}  ·  {_date}', 'muted'),
                 ]
 
                 title_font   = Font(bold=True, size=18, color='1D1D1F')
