@@ -407,29 +407,32 @@ def _guess_data_type(field_name: str) -> str:
 
 
 class FieldTypeAuditDialog(tk.Toplevel):
-    """Dialog for reviewing and setting the data type of each PDF field."""
+    """Dialog for reviewing and setting field types and data types."""
 
     DATA_TYPE_OPTIONS = ['Text', 'Number', 'Date (DD/MM/YYYY)']
     _LABEL_TO_VALUE = {'Text': 'text', 'Number': 'number', 'Date (DD/MM/YYYY)': 'date'}
     _VALUE_TO_LABEL = {v: k for k, v in _LABEL_TO_VALUE.items()}
 
+    FIELD_TYPE_OPTIONS = ['Text', 'Text-Combed']
+    _EDITABLE_FIELD_TYPES = {'Text', 'Text-Combed'}  # Types the user can toggle between
+
     def __init__(self, parent, fields: list, preconfigured: set = None):
         super().__init__(parent)
-        self.title("Review Field Data Types")
+        self.title("Review Field Types")
         self.configure(bg=COLORS['bg_elevated'])
         self.transient(parent)
         self.grab_set()
 
         self.fields = fields
         self.preconfigured = preconfigured or set()
-        self.result = None  # Will be list of data_type strings on OK
+        self.result = None  # Will be list of dicts on OK
         C = COLORS
         ff = SYSTEM_FONTS['family']
 
         # Title
         tk.Label(
             self,
-            text="Review Field Data Types",
+            text="Review Field Types",
             font=(ff, 16, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_elevated'],
@@ -438,8 +441,8 @@ class FieldTypeAuditDialog(tk.Toplevel):
 
         tk.Label(
             self,
-            text="Set each field's data type so values are formatted correctly.\n"
-                 "Date fields will convert Excel serial numbers to DD/MM/YYYY.",
+            text="Set each field's type and data format.\n"
+                 "Text-Combed fields require a character length.",
             font=(ff, 10),
             fg=C['text_secondary'],
             bg=C['bg_elevated'],
@@ -486,7 +489,7 @@ class FieldTypeAuditDialog(tk.Toplevel):
         hdr = tk.Frame(self.inner_frame, bg=C['bg_surface'], autostyle=False)
         hdr.pack(fill=tk.X, padx=5, pady=(5, 2))
         _bind_scroll(hdr)
-        for hdr_text, hdr_w in [("Field Name", 30), ("PDF Type", 14), ("Data Type", 18)]:
+        for hdr_text, hdr_w in [("Field Name", 26), ("Field Type", 14), ("Data Type", 16), ("Length", 8)]:
             lbl = tk.Label(hdr, text=hdr_text, font=(ff, 10, 'bold'),
                            fg=C['text_primary'], bg=C['bg_surface'], width=hdr_w,
                            anchor=tk.W, autostyle=False)
@@ -494,39 +497,65 @@ class FieldTypeAuditDialog(tk.Toplevel):
             _bind_scroll(lbl)
 
         # Field rows
-        self.combo_vars = []
+        self.combo_vars = []       # Data type combobox StringVars
+        self.ftype_vars = []       # Field type combobox StringVars
+        self.length_entries = []   # Length (Entry widget, StringVar) tuples
+
         for i, field in enumerate(fields):
             bg = C['bg_surface'] if i % 2 == 0 else C['bg_elevated']
             row = tk.Frame(self.inner_frame, bg=bg, autostyle=False)
             row.pack(fill=tk.X, padx=5, pady=1)
             _bind_scroll(row)
 
+            # Column 1: Field Name
             lbl_name = tk.Label(row, text=field.field_name, font=(ff, 10),
-                               fg=C['text_primary'], bg=bg, width=30,
-                               anchor=tk.W, autostyle=False)
+                                fg=C['text_primary'], bg=bg, width=26,
+                                anchor=tk.W, autostyle=False)
             lbl_name.pack(side=tk.LEFT)
             _bind_scroll(lbl_name)
-            lbl_type = tk.Label(row, text=field.field_type, font=(ff, 10),
-                               fg=C['text_secondary'], bg=bg, width=14,
-                               anchor=tk.W, autostyle=False)
-            lbl_type.pack(side=tk.LEFT)
-            _bind_scroll(lbl_type)
 
-            # Smart default: use saved type as-is for preconfigured fields,
-            # otherwise apply smart guess only for fresh (unconfigured) fields
+            # Column 2: Field Type (editable for Text types, read-only for others)
+            if field.field_type in self._EDITABLE_FIELD_TYPES:
+                ftype_var = tk.StringVar(value=field.field_type)
+                ftype_combo = ttk.Combobox(row, textvariable=ftype_var,
+                                            values=self.FIELD_TYPE_OPTIONS,
+                                            state='readonly', width=14)
+                ftype_combo.pack(side=tk.LEFT, padx=(2, 0))
+                _bind_scroll(ftype_combo)
+                # Bind change handler (closure over index)
+                ftype_combo.bind('<<ComboboxSelected>>',
+                                 lambda e, idx=i: self._on_field_type_changed(idx))
+            else:
+                ftype_var = tk.StringVar(value=field.field_type)
+                lbl_ftype = tk.Label(row, text=field.field_type, font=(ff, 10),
+                                     fg=C['text_secondary'], bg=bg, width=14,
+                                     anchor=tk.W, autostyle=False)
+                lbl_ftype.pack(side=tk.LEFT, padx=(2, 0))
+                _bind_scroll(lbl_ftype)
+            self.ftype_vars.append(ftype_var)
+
+            # Column 3: Data Type
             if field.field_name in self.preconfigured:
                 default_type = field.data_type
             elif field.data_type != 'text':
                 default_type = field.data_type
             else:
                 default_type = _guess_data_type(field.field_name)
-            var = tk.StringVar(value=self._VALUE_TO_LABEL.get(default_type, 'Text'))
-            combo = ttk.Combobox(row, textvariable=var,
+            dtype_var = tk.StringVar(value=self._VALUE_TO_LABEL.get(default_type, 'Text'))
+            combo = ttk.Combobox(row, textvariable=dtype_var,
                                  values=self.DATA_TYPE_OPTIONS,
-                                 state='readonly', width=18)
+                                 state='readonly', width=16)
             combo.pack(side=tk.LEFT, padx=(5, 0))
             _bind_scroll(combo)
-            self.combo_vars.append(var)
+            self.combo_vars.append(dtype_var)
+
+            # Column 4: Length (enabled only for Text-Combed)
+            length_var = tk.StringVar(value=str(field.length) if field.length else "")
+            length_entry = ttk.Entry(row, textvariable=length_var, width=8)
+            length_entry.pack(side=tk.LEFT, padx=(5, 0))
+            if field.field_type != 'Text-Combed':
+                length_entry.config(state='disabled')
+            self.length_entries.append((length_entry, length_var))
 
         # Buttons
         btn_frame = tk.Frame(self, bg=C['bg_elevated'], autostyle=False)
@@ -540,7 +569,7 @@ class FieldTypeAuditDialog(tk.Toplevel):
 
         # Size and center
         self.update_idletasks()
-        dialog_w = max(620, self.winfo_reqwidth())
+        dialog_w = max(740, self.winfo_reqwidth())
         dialog_h = min(600, max(400, 180 + len(fields) * 28))
         x = parent.winfo_x() + (parent.winfo_width() // 2) - (dialog_w // 2)
         y = parent.winfo_y() + (parent.winfo_height() // 2) - (dialog_h // 2)
@@ -550,8 +579,49 @@ class FieldTypeAuditDialog(tk.Toplevel):
         self.attributes('-topmost', True)
         self.after(100, lambda: self.attributes('-topmost', False))
 
+    def _on_field_type_changed(self, idx):
+        """Enable/disable Length entry when field type changes."""
+        new_type = self.ftype_vars[idx].get()
+        entry, var = self.length_entries[idx]
+        if new_type == 'Text-Combed':
+            entry.config(state='normal')
+            entry.focus_set()
+        else:
+            var.set("")
+            entry.config(state='disabled')
+
     def on_apply(self):
-        self.result = [self._LABEL_TO_VALUE[v.get()] for v in self.combo_vars]
+        # Validate: any Text-Combed field must have a valid length
+        for i, field in enumerate(self.fields):
+            ftype = self.ftype_vars[i].get()
+            if ftype == 'Text-Combed':
+                entry, var = self.length_entries[i]
+                length_str = var.get().strip()
+                if not length_str or not length_str.isdigit() or int(length_str) < 1:
+                    messagebox.showwarning(
+                        "Invalid Length",
+                        f"Field '{field.field_name}' is set to Text-Combed "
+                        f"but has no valid character length.\n\n"
+                        f"Please enter a positive number.",
+                        parent=self,
+                    )
+                    entry.focus_set()
+                    return
+
+        # Collect results
+        self.result = []
+        for i in range(len(self.fields)):
+            dtype = self._LABEL_TO_VALUE[self.combo_vars[i].get()]
+            ftype = self.ftype_vars[i].get()
+            _, length_var = self.length_entries[i]
+            length_str = length_var.get().strip()
+            length = int(length_str) if length_str and length_str.isdigit() else None
+
+            self.result.append({
+                'data_type': dtype,
+                'field_type': ftype,
+                'length': length,
+            })
         self.destroy()
 
     def on_skip(self):
