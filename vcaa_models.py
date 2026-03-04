@@ -75,6 +75,7 @@ class TemplateConfig:
     use_auto_matching: bool = True
     critical_fields: List[str] = None
     field_data_types: Dict[str, str] = None  # {field_name: "text"|"number"|"date"}
+    field_type_overrides: Dict[str, dict] = None  # {field_name: {"field_type": "Text-Combed", "length": 10}}
     notes: str = ""
     version: str = "2.0"
 
@@ -83,6 +84,8 @@ class TemplateConfig:
             self.critical_fields = []
         if self.field_data_types is None:
             self.field_data_types = {}
+        if self.field_type_overrides is None:
+            self.field_type_overrides = {}
 
     def to_json(self) -> str:
         """Serialize to JSON string."""
