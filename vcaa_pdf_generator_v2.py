@@ -567,12 +567,14 @@ class FieldTypeAuditDialog(tk.Toplevel):
                    command=self.on_apply,
                    bootstyle='primary').pack(side=tk.RIGHT)
 
-        # Size and center
+        # Size and center — use most of the parent height so buttons
+        # remain visible even with many fields (the list scrolls).
         self.update_idletasks()
         dialog_w = max(740, self.winfo_reqwidth())
-        dialog_h = min(600, max(400, 180 + len(fields) * 28))
+        parent_h = parent.winfo_height()
+        dialog_h = min(int(parent_h * 0.85), max(500, 200 + len(fields) * 28))
         x = parent.winfo_x() + (parent.winfo_width() // 2) - (dialog_w // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (dialog_h // 2)
+        y = parent.winfo_y() + (parent_h // 2) - (dialog_h // 2)
         self.geometry(f"{dialog_w}x{dialog_h}+{x}+{y}")
 
         self.lift()
