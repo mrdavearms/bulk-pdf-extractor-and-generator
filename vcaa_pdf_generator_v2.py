@@ -2150,7 +2150,7 @@ class VCAAPDFGeneratorV2:
         dialog.update_idletasks()
         px = self.root.winfo_x() + (self.root.winfo_width() // 2) - 220
         py = self.root.winfo_y() + (self.root.winfo_height() // 2) - 80
-        dialog.geometry(f"440x160+{px}+{py}")
+        dialog.geometry(f"440x210+{px}+{py}")
 
         # Content
         inner = tk.Frame(dialog, bg=C['bg_base'], padx=24, pady=20)
