@@ -1716,6 +1716,12 @@ class VCAAPDFGeneratorV2:
 
                 # ── Format: Data Entry sheet ──
                 ws_entry = wb['Data Entry']
+                # Format all columns as Text so numbers stay as strings
+                from openpyxl.utils import get_column_letter
+                for c in range(1, len(data_entry_cols) + 1):
+                    col_letter = get_column_letter(c)
+                    for row_num in range(2, 502):  # rows 2-501 for data
+                        ws_entry.cell(row=row_num, column=c).number_format = '@'
                 # Apply wrap text to ALL cells (headers + 50 empty rows for data entry)
                 for r in range(1, 52):
                     for c in range(1, len(data_entry_cols) + 1):
@@ -2232,7 +2238,7 @@ class VCAAPDFGeneratorV2:
                     chosen_sheet = self._pick_excel_sheet(sheet_names)
                     if chosen_sheet is None:
                         return  # User cancelled the dialog
-                self.df = xl.parse(chosen_sheet)
+                self.df = xl.parse(chosen_sheet, dtype=str)
 
             # Clean column names (strip whitespace, lowercase for matching)
             self.df.columns = [str(col).strip() for col in self.df.columns]
