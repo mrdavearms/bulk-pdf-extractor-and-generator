@@ -2584,14 +2584,30 @@ class VCAAPDFGeneratorV2:
                     val = self.format_value_tab3(row_dict_lower[pdf_field_lower])
                     field_values[pdf_field] = val
 
-        # Fill all pages.
-        # auto_regenerate=False prevents pypdf from emitting a spurious
-        # /NeedAppearances flag that causes some viewers to re-render fields
-        # on open and can leave a stale appearance stream in the output.
+        # Split values into regular fields and single-field comb fields.
+        # Comb fields need auto_regenerate=True so pypdf builds the
+        # per-character appearance stream; regular fields use False to
+        # avoid a spurious /NeedAppearances flag in some viewers.
+        comb_field_names = set()
+        if ctx['analyzed_fields']:
+            for f in ctx['analyzed_fields']:
+                if f.is_combed and not f.combed_fields:
+                    comb_field_names.add(f.field_name)
+
+        regular_values = {k: v for k, v in field_values.items()
+                          if k not in comb_field_names}
+        comb_values = {k: v for k, v in field_values.items()
+                       if k in comb_field_names}
+
         for page in writer.pages:
-            writer.update_page_form_field_values(
-                page, field_values, auto_regenerate=False
-            )
+            if regular_values:
+                writer.update_page_form_field_values(
+                    page, regular_values, auto_regenerate=False
+                )
+            if comb_values:
+                writer.update_page_form_field_values(
+                    page, comb_values, auto_regenerate=True
+                )
 
         # Save the filled PDF
         with open(output_path, 'wb') as f:
