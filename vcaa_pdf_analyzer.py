@@ -96,10 +96,15 @@ class PDFAnalyzer:
                 groups[(potential_base, '_')].append((index, name, widget, page_num))
                 continue
 
-            # Try pattern 3: FieldN (no separator)
+            # Try pattern 3: FieldN (no separator, e.g. StudentNumber0)
+            # But NOT "Provision 1" — space before number means separate named fields
             match = re.match(r'^(.+?)(\d+)$', name)
             if match:
                 potential_base = match.group(1)
+                if potential_base.endswith(' '):
+                    # "Provision 1", "Date implemented 3" — separate fields, not combed
+                    groups[name].append((0, name, widget, page_num))
+                    continue
                 index = int(match.group(2))
                 groups[(potential_base, '')].append((index, name, widget, page_num))
                 continue
