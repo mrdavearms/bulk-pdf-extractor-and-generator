@@ -1386,21 +1386,44 @@ class VCAAPDFGeneratorV2:
 
             messagebox.showinfo("Analysis Complete", f"Found {total} fields ({combed} combed fields)")
 
-            # Restore saved data types from current template if available
+            # Restore saved overrides from current template if available
             preconfigured_fields = set()
-            if self.current_template and self.current_template.field_data_types:
-                for field in self.analyzed_fields:
-                    saved = self.current_template.field_data_types.get(field.field_name)
-                    if saved:
-                        field.data_type = saved
-                        preconfigured_fields.add(field.field_name)
+            if self.current_template:
+                # Restore data types
+                if self.current_template.field_data_types:
+                    for field in self.analyzed_fields:
+                        saved = self.current_template.field_data_types.get(field.field_name)
+                        if saved:
+                            field.data_type = saved
+                            preconfigured_fields.add(field.field_name)
+
+                # Restore field type overrides
+                if self.current_template.field_type_overrides:
+                    for field in self.analyzed_fields:
+                        override = self.current_template.field_type_overrides.get(field.field_name)
+                        if override:
+                            field.field_type = override.get('field_type', field.field_type)
+                            if override.get('length') is not None:
+                                field.length = override['length']
+                                field.is_combed = (field.field_type == 'Text-Combed')
+                            preconfigured_fields.add(field.field_name)
 
             # Show field type audit dialog
             audit = FieldTypeAuditDialog(self.root, self.analyzed_fields, preconfigured_fields)
             self.root.wait_window(audit)
             if audit.result is not None:
-                for field, dtype in zip(self.analyzed_fields, audit.result):
-                    field.data_type = dtype
+                for field, res in zip(self.analyzed_fields, audit.result):
+                    field.data_type = res['data_type']
+                    field.field_type = res['field_type']
+                    if res['field_type'] == 'Text-Combed':
+                        field.is_combed = True
+                        field.length = res['length']
+                        # Keep combed_fields if already populated (sub-field combed);
+                        # leave empty for single-field combed
+                    else:
+                        field.is_combed = False
+                        field.length = None
+                        field.combed_fields = []
                 self.display_analyzed_fields()  # Refresh to show updated types
 
         except Exception as e:
@@ -1847,6 +1870,16 @@ class VCAAPDFGeneratorV2:
             # so that explicit 'text' choices override smart-guess defaults)
             field_data_types = {f.field_name: f.data_type for f in self.analyzed_fields}
 
+            # Collect field type overrides (only save single-field combed overrides)
+            field_type_overrides = {}
+            for f in self.analyzed_fields:
+                if f.is_combed and not f.combed_fields:
+                    # Single-field combed (user-marked or MaxLen-detected)
+                    field_type_overrides[f.field_name] = {
+                        'field_type': f.field_type,
+                        'length': f.length,
+                    }
+
             config = TemplateConfig(
                 template_name=template_name,
                 pdf_filename=os.path.basename(self.pdf_template_path.get()),
@@ -1859,6 +1892,7 @@ class VCAAPDFGeneratorV2:
                 use_auto_matching=True,
                 critical_fields=['surname', 'First name', 'VCAA student number'],
                 field_data_types=field_data_types,
+                field_type_overrides=field_type_overrides,
                 notes="",
                 version="2.0"
             )
