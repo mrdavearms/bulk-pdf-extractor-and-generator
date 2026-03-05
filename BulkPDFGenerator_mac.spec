@@ -107,8 +107,8 @@ app = BUNDLE(
     info_plist={
         'CFBundleName': 'Bulk PDF Generator',
         'CFBundleDisplayName': 'Bulk PDF Generator',
-        'CFBundleVersion': '2.4.0',
-        'CFBundleShortVersionString': '2.4',
+        'CFBundleVersion': '2.5.0',
+        'CFBundleShortVersionString': '2.5',
         'NSHighResolutionCapable': True,
         'NSRequiresAquaSystemAppearance': False,
     },
