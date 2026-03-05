@@ -2638,6 +2638,15 @@ class VCAAPDFGeneratorV2:
         if isinstance(val, (datetime, pd.Timestamp)):
             return val.strftime('%d/%m/%Y')
 
+        # Date type: handle pandas-stringified datetimes e.g. "2024-05-01 00:00:00"
+        # (occurs when dtype=str is used on read_excel — Timestamps become strings)
+        if data_type == "date" and isinstance(val, str):
+            for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+                try:
+                    return datetime.strptime(val.strip(), fmt).strftime('%d/%m/%Y')
+                except ValueError:
+                    pass
+
         # Date type: convert Excel serial numbers to DD/MM/YYYY
         if data_type == "date" and isinstance(val, (int, float)):
             serial = int(val)
