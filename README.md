@@ -442,6 +442,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for a full technical breakdown of data fl
 | Accidentally closed the sheet-picker dialog | Click **Load & Preview Data** again to re-open it |
 | Fields not filling in output PDFs | Check that Excel column headers exactly match PDF field names (case-insensitive) |
 | Date shows as a number like `45313` | Set the field to **Date (DD/MM/YYYY)** in the field type audit dialog during analysis |
+| Date shows as `2024-05-01 00:00:00` | Set the field to **Date (DD/MM/YYYY)** in the audit dialog — fixed in v2.5 |
 | Visual preview not showing | Click **Analyse Fields** first in Tab 1 |
 | Combed fields not splitting into separate boxes | Run **Analyse Fields** in Tab 1 before generating in Tab 3 |
 | Combed field not detected automatically | Change the field to **Text-Combed** in the audit dialog and enter the character length |
@@ -535,6 +536,25 @@ bulk-pdf-extractor-and-generator/
 ```
 
 </details>
+
+---
+
+## Release Notes
+
+### v2.5 — March 2026
+
+**New**
+- **macOS support** — pre-built `.dmg` for macOS 12 Monterey or later; drag-to-install, no Python required
+- **Field Type Audit dialog** — review and set field types (Text, Text-Combed with character length) and data formats (Text, Number, Date DD/MM/YYYY) after analysis; choices are saved in the template
+- **Single-field combed detection** — automatically detects PDF fields with a `MaxLen` comb flag, no manual setup required
+- **Multi-sheet Excel** — prompts to pick the correct sheet when a workbook has multiple tabs
+
+**Fixed**
+- Date fields showing as `2024-05-01 00:00:00` — now correctly formatted to `DD/MM/YYYY`
+- Date fields showing as raw Excel serial numbers — resolved by setting the field to **Date** in the audit dialog
+- Numbers showing trailing `.0` (e.g. `12345.0`) — all data now read as text to preserve formatting
+- Combed field grouping incorrectly matching space-separated numbered fields
+- Audit dialog and sheet-picker dialog heights truncating buttons on smaller screens
 
 ---
 
