@@ -40,8 +40,16 @@ class CombedFieldFiller:
             Example: {'First_Name[0]': 'J', 'First_Name[1]': 'o', ...}
         """
         if not field.is_combed:
-            # Not a combed field - return as single value
+            # Regular field - return as single value
             return {field.field_name: str(text_value)}
+
+        if not field.combed_fields:
+            # Single-field combed (PDF has comb property on one field).
+            # Truncate to length and write to the original field name.
+            text = str(text_value).strip()
+            if field.length and len(text) > field.length:
+                text = text[:field.length]
+            return {field.field_name: text}
 
         # Clean and prepare text
         text = str(text_value).strip()

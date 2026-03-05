@@ -4,7 +4,7 @@
 
 **Batch-fill PDF forms from spreadsheet data — turning hours of manual data entry into a single click.**
 
-[![Download](https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20download-v2.4-0078d4?style=for-the-badge)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.4)
+[![Download](https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20download-v2.5-0078d4?style=for-the-badge)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.5)
 
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078d4?logo=windows&logoColor=white)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases)
 [![License](https://img.shields.io/badge/license-MIT-22c55e)](LICENSE)
@@ -36,11 +36,11 @@ Originally built to streamline VCAA Special Examination Arrangements Evidence Ap
 |:---:|---|
 | **Batch processing** | Generate hundreds of filled PDFs from a single spreadsheet |
 | **Auto field detection** | Scans any PDF and maps every form field automatically |
-| **Combed field support** | Handles character-by-character boxes without any manual setup |
+| **Combed field support** | Detects both multi-field and single-field combed formats automatically — including PDF comb flags with MaxLen |
 | **Visual field preview** | Click any field to see it highlighted on the PDF page with zoomable preview (50%–400%) |
-| **Field type audit** | Mark fields as Text, Number, or Date — Excel serial numbers convert to DD/MM/YYYY automatically |
+| **Field type audit** | Set field type (Text or Text-Combed with character length) and data format (Text, Number, Date) — Excel serial numbers convert to DD/MM/YYYY automatically |
 | **Multi-sheet Excel** | Prompts you to pick the right sheet when a workbook has multiple tabs |
-| **Export mapping file** | One-click Excel export with Field Mapping, Data Entry, Instructions, and About sheets |
+| **Export mapping file** | One-click Excel export with Field Mapping, Data Entry, Instructions, and About sheets — all data columns formatted as text to preserve numbers |
 | **Template library** | Save, reload, and manage template configurations across sessions |
 | **School settings** | Configures school name and year for output filenames once, remembered forever |
 | **One-click output** | All PDFs saved to a named folder; output opens automatically |
@@ -64,7 +64,7 @@ flowchart TB
 
         subgraph tab1 ["Tab 1 — Analyse Template"]
             Analyse["Discover & map all form fields"]
-            Audit["Review field data types\n(Text / Number / Date)"]
+            Audit["Review field types & data formats\n(Text / Combed / Number / Date)"]
             Export["Export mapping file (.xlsx)\nwith 4 formatted sheets"]
             Analyse --> Audit --> Export
         end
@@ -107,13 +107,16 @@ flowchart TB
 
 ### Step 1 — Download
 
+> [!IMPORTANT]
+> **Pre-built binaries available for Windows 10/11 and macOS 12+.** Linux users can [run from source](#-for-developers--running-from-source).
+
 **No Python, no installation, no IT support required** — just download and double-click.
 
 <div align="center">
 
 | Windows | macOS |
 |:---:|:---:|
-| [![Windows](https://img.shields.io/badge/⬇️%20Download%20for-Windows-0078d4?style=for-the-badge&logo=windows&logoColor=white)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.4) | [![macOS](https://img.shields.io/badge/⬇️%20Download%20for-macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.4/downloads/binaries/Bulk.PDF.Generator.Mac.dmg) |
+| [![Windows](https://img.shields.io/badge/⬇️%20Download%20for-Windows-0078d4?style=for-the-badge&logo=windows&logoColor=white)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.5) | [![macOS](https://img.shields.io/badge/⬇️%20Download%20for-macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.5/downloads/binaries/Bulk.PDF.Generator.Mac.dmg) |
 | `Bulk PDF Generator.exe` | `Bulk.PDF.Generator.Mac.dmg` |
 | Windows 10 / 11 | macOS 12 Monterey or later |
 
@@ -231,10 +234,11 @@ An in-app guide covering how to prepare PDF templates — naming form fields in 
 
 1. Click **Browse** and select your blank PDF form
 2. Click **Analyse Fields** — every form field is listed with its name, type, page, and length
-3. **Review Field Data Types** — an audit dialog appears with smart defaults:
+3. **Review Field Types** — an audit dialog appears with four columns:
+   - **Field Type** — toggle between Text and Text-Combed (with character length) for any text field
+   - **Data Type** — set to Text, Number (strips trailing `.0`), or Date (converts Excel serial numbers)
    - Fields with "date", "dob", or "birth" in their name default to **Date (DD/MM/YYYY)**
-   - Everything else defaults to **Text**
-   - Change any field to **Number** (strips trailing `.0`) or **Date** (converts Excel serial numbers)
+   - Single-field comb fields (PDF comb flag + MaxLen) are auto-detected as Text-Combed
    - Your choices are saved with the template and restored next time
 4. Click any field in the list to see it **highlighted in red** on the zoomable PDF preview
 5. Double-click the **Data Type** column to change a field's type inline at any time
@@ -281,9 +285,18 @@ Government PDF forms often use individual character boxes for identifiers like s
 +-+-+-+-+-+-+-+-+-+-+
 ```
 
-The app **automatically detects** these and splits your data character-by-character — just put the full value in your spreadsheet and it handles the rest.
+The app **automatically detects** these and fills your data correctly — just put the full value in your spreadsheet.
 
-The detection engine recognises three common naming patterns:
+### Two types of combed field
+
+| Type | How it works | Detection |
+|------|-------------|-----------|
+| **Multi-field combed** | Each character box is a separate PDF field (`Surname[0]`, `Surname[1]`, ...) | Auto-detected by field name pattern — the app splits your text character-by-character |
+| **Single-field combed** | One PDF field with a comb flag and MaxLen property | Auto-detected by reading the PDF field dictionary — the app writes the value directly and the PDF renderer handles the character boxes |
+
+### Multi-field naming patterns
+
+The detection engine recognises three common naming patterns for multi-field combed fields:
 
 | Pattern | Example fields |
 |---------|---------------|
@@ -292,6 +305,10 @@ The detection engine recognises three common naming patterns:
 | Sequential | `StudentNumber0`, `StudentNumber1`, `StudentNumber2` ... |
 
 All three are grouped automatically under a single logical field (e.g. `StudentNumber`) in the analysis view.
+
+### Manual override
+
+If the analyser misses a combed field, you can manually change any text field to **Text-Combed** in the field type audit dialog and specify the character length. This override is saved with the template configuration.
 
 ---
 
@@ -427,9 +444,10 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for a full technical breakdown of data fl
 | Date shows as a number like `45313` | Set the field to **Date (DD/MM/YYYY)** in the field type audit dialog during analysis |
 | Visual preview not showing | Click **Analyse Fields** first in Tab 1 |
 | Combed fields not splitting into separate boxes | Run **Analyse Fields** in Tab 1 before generating in Tab 3 |
+| Combed field not detected automatically | Change the field to **Text-Combed** in the audit dialog and enter the character length |
+| Text truncated or misaligned in combed boxes | Ensure the field is detected as Text-Combed — the app uses the correct rendering mode for each type |
 | "Permission denied" error when loading Excel | Close the file in Excel before running the app |
-| Text cut off in combed boxes | Expected — combed fields have a fixed character limit set by the PDF |
-| Numbers showing as `12345.0` | Set the field to **Number** in the field type audit to strip trailing `.0` |
+| Numbers showing as `12345.0` | Re-export the mapping file — v2.5 formats all data columns as text. Or set the field to **Number** in the audit dialog |
 
 ---
 

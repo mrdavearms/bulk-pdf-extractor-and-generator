@@ -96,10 +96,15 @@ class PDFAnalyzer:
                 groups[(potential_base, '_')].append((index, name, widget, page_num))
                 continue
 
-            # Try pattern 3: FieldN (no separator)
+            # Try pattern 3: FieldN (no separator, e.g. StudentNumber0)
+            # But NOT "Provision 1" — space before number means separate named fields
             match = re.match(r'^(.+?)(\d+)$', name)
             if match:
                 potential_base = match.group(1)
+                if potential_base.endswith(' '):
+                    # "Provision 1", "Date implemented 3" — separate fields, not combed
+                    groups[name].append((0, name, widget, page_num))
+                    continue
                 index = int(match.group(2))
                 groups[(potential_base, '')].append((index, name, widget, page_num))
                 continue
@@ -140,13 +145,28 @@ class PDFAnalyzer:
             else:
                 # Single field(s) - treat each separately
                 for index, name, widget, page_num in items:
+                    ftype = widget.field_type_string or 'Text'
+                    max_len = None
+                    is_combed = False
+
+                    # Detect single-field combed: Text field with MaxLen set
+                    if ftype == 'Text':
+                        try:
+                            max_len_val = self._get_widget_maxlen(widget)
+                            if max_len_val and max_len_val > 1:
+                                max_len = max_len_val
+                                is_combed = True
+                                ftype = 'Text-Combed'
+                        except (AttributeError, TypeError, ValueError):
+                            pass
+
                     result.append(PDFField(
                         field_name=name,
-                        field_type=widget.field_type_string or 'Text',
+                        field_type=ftype,
                         page=page_num,
-                        length=None,
-                        is_combed=False,
-                        combed_fields=[],
+                        length=max_len,
+                        is_combed=is_combed,
+                        combed_fields=[],  # Single-field combed: no sub-fields
                         rect=tuple(widget.rect),
                         current_value=widget.field_value or "",
                         is_critical=False,
@@ -175,6 +195,34 @@ class PDFAnalyzer:
         start = indices[0]
         expected = list(range(start, start + len(indices)))
         return indices == expected
+
+    def _get_widget_maxlen(self, widget) -> int:
+        """
+        Read MaxLen from a PDF widget's field dictionary.
+
+        PyMuPDF 1.27.x does not expose text_maxlen on Widget objects,
+        so we read MaxLen directly from the field's xref dictionary.
+
+        Args:
+            widget: A fitz.Widget object
+
+        Returns:
+            MaxLen value as int, or None if not set
+        """
+        # Try the direct attribute first (future PyMuPDF versions)
+        if hasattr(widget, 'text_maxlen') and widget.text_maxlen:
+            return int(widget.text_maxlen)
+
+        # Fallback: read MaxLen from the field's PDF dictionary via xref
+        try:
+            annot_xref = widget.xref
+            field_entry = self.doc.xref_get_key(annot_xref, "MaxLen")
+            if field_entry[0] != "null":
+                return int(field_entry[1])
+        except (AttributeError, TypeError, ValueError, RuntimeError):
+            pass
+
+        return None
 
     def get_field_statistics(self, fields: List[PDFField]) -> Dict[str, int]:
         """

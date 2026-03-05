@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Bulk PDF Generator v2.4
+Bulk PDF Generator v2.5
 A GUI application to analyze PDF templates, map fields, and batch-fill forms.
 
 Features:
@@ -407,29 +407,32 @@ def _guess_data_type(field_name: str) -> str:
 
 
 class FieldTypeAuditDialog(tk.Toplevel):
-    """Dialog for reviewing and setting the data type of each PDF field."""
+    """Dialog for reviewing and setting field types and data types."""
 
     DATA_TYPE_OPTIONS = ['Text', 'Number', 'Date (DD/MM/YYYY)']
     _LABEL_TO_VALUE = {'Text': 'text', 'Number': 'number', 'Date (DD/MM/YYYY)': 'date'}
     _VALUE_TO_LABEL = {v: k for k, v in _LABEL_TO_VALUE.items()}
 
+    FIELD_TYPE_OPTIONS = ['Text', 'Text-Combed']
+    _EDITABLE_FIELD_TYPES = {'Text', 'Text-Combed'}  # Types the user can toggle between
+
     def __init__(self, parent, fields: list, preconfigured: set = None):
         super().__init__(parent)
-        self.title("Review Field Data Types")
+        self.title("Review Field Types")
         self.configure(bg=COLORS['bg_elevated'])
         self.transient(parent)
         self.grab_set()
 
         self.fields = fields
         self.preconfigured = preconfigured or set()
-        self.result = None  # Will be list of data_type strings on OK
+        self.result = None  # Will be list of dicts on OK
         C = COLORS
         ff = SYSTEM_FONTS['family']
 
         # Title
         tk.Label(
             self,
-            text="Review Field Data Types",
+            text="Review Field Types",
             font=(ff, 16, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_elevated'],
@@ -438,8 +441,8 @@ class FieldTypeAuditDialog(tk.Toplevel):
 
         tk.Label(
             self,
-            text="Set each field's data type so values are formatted correctly.\n"
-                 "Date fields will convert Excel serial numbers to DD/MM/YYYY.",
+            text="Set each field's type and data format.\n"
+                 "Text-Combed fields require a character length.",
             font=(ff, 10),
             fg=C['text_secondary'],
             bg=C['bg_elevated'],
@@ -486,7 +489,7 @@ class FieldTypeAuditDialog(tk.Toplevel):
         hdr = tk.Frame(self.inner_frame, bg=C['bg_surface'], autostyle=False)
         hdr.pack(fill=tk.X, padx=5, pady=(5, 2))
         _bind_scroll(hdr)
-        for hdr_text, hdr_w in [("Field Name", 30), ("PDF Type", 14), ("Data Type", 18)]:
+        for hdr_text, hdr_w in [("Field Name", 26), ("Field Type", 14), ("Data Type", 16), ("Length", 8)]:
             lbl = tk.Label(hdr, text=hdr_text, font=(ff, 10, 'bold'),
                            fg=C['text_primary'], bg=C['bg_surface'], width=hdr_w,
                            anchor=tk.W, autostyle=False)
@@ -494,39 +497,65 @@ class FieldTypeAuditDialog(tk.Toplevel):
             _bind_scroll(lbl)
 
         # Field rows
-        self.combo_vars = []
+        self.combo_vars = []       # Data type combobox StringVars
+        self.ftype_vars = []       # Field type combobox StringVars
+        self.length_entries = []   # Length (Entry widget, StringVar) tuples
+
         for i, field in enumerate(fields):
             bg = C['bg_surface'] if i % 2 == 0 else C['bg_elevated']
             row = tk.Frame(self.inner_frame, bg=bg, autostyle=False)
             row.pack(fill=tk.X, padx=5, pady=1)
             _bind_scroll(row)
 
+            # Column 1: Field Name
             lbl_name = tk.Label(row, text=field.field_name, font=(ff, 10),
-                               fg=C['text_primary'], bg=bg, width=30,
-                               anchor=tk.W, autostyle=False)
+                                fg=C['text_primary'], bg=bg, width=26,
+                                anchor=tk.W, autostyle=False)
             lbl_name.pack(side=tk.LEFT)
             _bind_scroll(lbl_name)
-            lbl_type = tk.Label(row, text=field.field_type, font=(ff, 10),
-                               fg=C['text_secondary'], bg=bg, width=14,
-                               anchor=tk.W, autostyle=False)
-            lbl_type.pack(side=tk.LEFT)
-            _bind_scroll(lbl_type)
 
-            # Smart default: use saved type as-is for preconfigured fields,
-            # otherwise apply smart guess only for fresh (unconfigured) fields
+            # Column 2: Field Type (editable for Text types, read-only for others)
+            if field.field_type in self._EDITABLE_FIELD_TYPES:
+                ftype_var = tk.StringVar(value=field.field_type)
+                ftype_combo = ttk.Combobox(row, textvariable=ftype_var,
+                                            values=self.FIELD_TYPE_OPTIONS,
+                                            state='readonly', width=14)
+                ftype_combo.pack(side=tk.LEFT, padx=(2, 0))
+                _bind_scroll(ftype_combo)
+                # Bind change handler (closure over index)
+                ftype_combo.bind('<<ComboboxSelected>>',
+                                 lambda e, idx=i: self._on_field_type_changed(idx))
+            else:
+                ftype_var = tk.StringVar(value=field.field_type)
+                lbl_ftype = tk.Label(row, text=field.field_type, font=(ff, 10),
+                                     fg=C['text_secondary'], bg=bg, width=14,
+                                     anchor=tk.W, autostyle=False)
+                lbl_ftype.pack(side=tk.LEFT, padx=(2, 0))
+                _bind_scroll(lbl_ftype)
+            self.ftype_vars.append(ftype_var)
+
+            # Column 3: Data Type
             if field.field_name in self.preconfigured:
                 default_type = field.data_type
             elif field.data_type != 'text':
                 default_type = field.data_type
             else:
                 default_type = _guess_data_type(field.field_name)
-            var = tk.StringVar(value=self._VALUE_TO_LABEL.get(default_type, 'Text'))
-            combo = ttk.Combobox(row, textvariable=var,
+            dtype_var = tk.StringVar(value=self._VALUE_TO_LABEL.get(default_type, 'Text'))
+            combo = ttk.Combobox(row, textvariable=dtype_var,
                                  values=self.DATA_TYPE_OPTIONS,
-                                 state='readonly', width=18)
+                                 state='readonly', width=16)
             combo.pack(side=tk.LEFT, padx=(5, 0))
             _bind_scroll(combo)
-            self.combo_vars.append(var)
+            self.combo_vars.append(dtype_var)
+
+            # Column 4: Length (enabled only for Text-Combed)
+            length_var = tk.StringVar(value=str(field.length) if field.length else "")
+            length_entry = ttk.Entry(row, textvariable=length_var, width=8)
+            length_entry.pack(side=tk.LEFT, padx=(5, 0))
+            if field.field_type != 'Text-Combed':
+                length_entry.config(state='disabled')
+            self.length_entries.append((length_entry, length_var))
 
         # Buttons
         btn_frame = tk.Frame(self, bg=C['bg_elevated'], autostyle=False)
@@ -538,20 +567,63 @@ class FieldTypeAuditDialog(tk.Toplevel):
                    command=self.on_apply,
                    bootstyle='primary').pack(side=tk.RIGHT)
 
-        # Size and center
+        # Size and center — use most of the parent height so buttons
+        # remain visible even with many fields (the list scrolls).
         self.update_idletasks()
-        dialog_w = max(620, self.winfo_reqwidth())
-        dialog_h = min(600, max(400, 180 + len(fields) * 28))
+        dialog_w = max(740, self.winfo_reqwidth())
+        parent_h = parent.winfo_height()
+        dialog_h = min(int(parent_h * 0.85), max(500, 200 + len(fields) * 28))
         x = parent.winfo_x() + (parent.winfo_width() // 2) - (dialog_w // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (dialog_h // 2)
+        y = parent.winfo_y() + (parent_h // 2) - (dialog_h // 2)
         self.geometry(f"{dialog_w}x{dialog_h}+{x}+{y}")
 
         self.lift()
         self.attributes('-topmost', True)
         self.after(100, lambda: self.attributes('-topmost', False))
 
+    def _on_field_type_changed(self, idx):
+        """Enable/disable Length entry when field type changes."""
+        new_type = self.ftype_vars[idx].get()
+        entry, var = self.length_entries[idx]
+        if new_type == 'Text-Combed':
+            entry.config(state='normal')
+            entry.focus_set()
+        else:
+            var.set("")
+            entry.config(state='disabled')
+
     def on_apply(self):
-        self.result = [self._LABEL_TO_VALUE[v.get()] for v in self.combo_vars]
+        # Validate: any Text-Combed field must have a valid length
+        for i, field in enumerate(self.fields):
+            ftype = self.ftype_vars[i].get()
+            if ftype == 'Text-Combed':
+                entry, var = self.length_entries[i]
+                length_str = var.get().strip()
+                if not length_str or not length_str.isdigit() or int(length_str) < 1:
+                    messagebox.showwarning(
+                        "Invalid Length",
+                        f"Field '{field.field_name}' is set to Text-Combed "
+                        f"but has no valid character length.\n\n"
+                        f"Please enter a positive number.",
+                        parent=self,
+                    )
+                    entry.focus_set()
+                    return
+
+        # Collect results
+        self.result = []
+        for i in range(len(self.fields)):
+            dtype = self._LABEL_TO_VALUE[self.combo_vars[i].get()]
+            ftype = self.ftype_vars[i].get()
+            _, length_var = self.length_entries[i]
+            length_str = length_var.get().strip()
+            length = int(length_str) if length_str and length_str.isdigit() else None
+
+            self.result.append({
+                'data_type': dtype,
+                'field_type': ftype,
+                'length': length,
+            })
         self.destroy()
 
     def on_skip(self):
@@ -564,7 +636,7 @@ class VCAAPDFGeneratorV2:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("Bulk PDF Generator v2.4")
+        self.root.title("Bulk PDF Generator v2.5")
         self.root.geometry("1000x800")
         self.root.minsize(900, 700)
 
@@ -1008,7 +1080,7 @@ class VCAAPDFGeneratorV2:
 
         # Version — commit hash and build date baked in at build time
         _commit, _date = _get_build_info()
-        version_str = f"v2.4  ·  {_commit}  ·  {_date}"
+        version_str = f"v2.5  ·  {_commit}  ·  {_date}"
         tk.Label(card, text=version_str, font=(ff, 10),
                  fg=C['text_tertiary'], bg=C['bg_surface']).pack()
 
@@ -1316,21 +1388,44 @@ class VCAAPDFGeneratorV2:
 
             messagebox.showinfo("Analysis Complete", f"Found {total} fields ({combed} combed fields)")
 
-            # Restore saved data types from current template if available
+            # Restore saved overrides from current template if available
             preconfigured_fields = set()
-            if self.current_template and self.current_template.field_data_types:
-                for field in self.analyzed_fields:
-                    saved = self.current_template.field_data_types.get(field.field_name)
-                    if saved:
-                        field.data_type = saved
-                        preconfigured_fields.add(field.field_name)
+            if self.current_template:
+                # Restore data types
+                if self.current_template.field_data_types:
+                    for field in self.analyzed_fields:
+                        saved = self.current_template.field_data_types.get(field.field_name)
+                        if saved:
+                            field.data_type = saved
+                            preconfigured_fields.add(field.field_name)
+
+                # Restore field type overrides
+                if self.current_template.field_type_overrides:
+                    for field in self.analyzed_fields:
+                        override = self.current_template.field_type_overrides.get(field.field_name)
+                        if override:
+                            field.field_type = override.get('field_type', field.field_type)
+                            if override.get('length') is not None:
+                                field.length = override['length']
+                                field.is_combed = (field.field_type == 'Text-Combed')
+                            preconfigured_fields.add(field.field_name)
 
             # Show field type audit dialog
             audit = FieldTypeAuditDialog(self.root, self.analyzed_fields, preconfigured_fields)
             self.root.wait_window(audit)
             if audit.result is not None:
-                for field, dtype in zip(self.analyzed_fields, audit.result):
-                    field.data_type = dtype
+                for field, res in zip(self.analyzed_fields, audit.result):
+                    field.data_type = res['data_type']
+                    field.field_type = res['field_type']
+                    if res['field_type'] == 'Text-Combed':
+                        field.is_combed = True
+                        field.length = res['length']
+                        # Keep combed_fields if already populated (sub-field combed);
+                        # leave empty for single-field combed
+                    else:
+                        field.is_combed = False
+                        field.length = None
+                        field.combed_fields = []
                 self.display_analyzed_fields()  # Refresh to show updated types
 
         except Exception as e:
@@ -1621,6 +1716,12 @@ class VCAAPDFGeneratorV2:
 
                 # ── Format: Data Entry sheet ──
                 ws_entry = wb['Data Entry']
+                # Format all columns as Text so numbers stay as strings
+                from openpyxl.utils import get_column_letter
+                for c in range(1, len(data_entry_cols) + 1):
+                    col_letter = get_column_letter(c)
+                    for row_num in range(2, 502):  # rows 2-501 for data
+                        ws_entry.cell(row=row_num, column=c).number_format = '@'
                 # Apply wrap text to ALL cells (headers + 50 empty rows for data entry)
                 for r in range(1, 52):
                     for c in range(1, len(data_entry_cols) + 1):
@@ -1680,7 +1781,7 @@ class VCAAPDFGeneratorV2:
                         'body'
                     ),
                     ('', None),
-                    (f'Version: v2.4  ·  {_commit}  ·  {_date}', 'muted'),
+                    (f'Version: v2.5  ·  {_commit}  ·  {_date}', 'muted'),
                 ]
 
                 title_font   = Font(bold=True, size=18, color='1D1D1F')
@@ -1777,6 +1878,16 @@ class VCAAPDFGeneratorV2:
             # so that explicit 'text' choices override smart-guess defaults)
             field_data_types = {f.field_name: f.data_type for f in self.analyzed_fields}
 
+            # Collect field type overrides (only save single-field combed overrides)
+            field_type_overrides = {}
+            for f in self.analyzed_fields:
+                if f.is_combed and not f.combed_fields:
+                    # Single-field combed (user-marked or MaxLen-detected)
+                    field_type_overrides[f.field_name] = {
+                        'field_type': f.field_type,
+                        'length': f.length,
+                    }
+
             config = TemplateConfig(
                 template_name=template_name,
                 pdf_filename=os.path.basename(self.pdf_template_path.get()),
@@ -1789,6 +1900,7 @@ class VCAAPDFGeneratorV2:
                 use_auto_matching=True,
                 critical_fields=['surname', 'First name', 'VCAA student number'],
                 field_data_types=field_data_types,
+                field_type_overrides=field_type_overrides,
                 notes="",
                 version="2.0"
             )
@@ -2046,7 +2158,7 @@ class VCAAPDFGeneratorV2:
         dialog.update_idletasks()
         px = self.root.winfo_x() + (self.root.winfo_width() // 2) - 220
         py = self.root.winfo_y() + (self.root.winfo_height() // 2) - 80
-        dialog.geometry(f"440x160+{px}+{py}")
+        dialog.geometry(f"440x210+{px}+{py}")
 
         # Content
         inner = tk.Frame(dialog, bg=C['bg_base'], padx=24, pady=20)
@@ -2126,7 +2238,7 @@ class VCAAPDFGeneratorV2:
                     chosen_sheet = self._pick_excel_sheet(sheet_names)
                     if chosen_sheet is None:
                         return  # User cancelled the dialog
-                self.df = xl.parse(chosen_sheet)
+                self.df = xl.parse(chosen_sheet, dtype=str)
 
             # Clean column names (strip whitespace, lowercase for matching)
             self.df.columns = [str(col).strip() for col in self.df.columns]
@@ -2480,14 +2592,30 @@ class VCAAPDFGeneratorV2:
                     val = self.format_value_tab3(row_dict_lower[pdf_field_lower])
                     field_values[pdf_field] = val
 
-        # Fill all pages.
-        # auto_regenerate=False prevents pypdf from emitting a spurious
-        # /NeedAppearances flag that causes some viewers to re-render fields
-        # on open and can leave a stale appearance stream in the output.
+        # Split values into regular fields and single-field comb fields.
+        # Comb fields need auto_regenerate=True so pypdf builds the
+        # per-character appearance stream; regular fields use False to
+        # avoid a spurious /NeedAppearances flag in some viewers.
+        comb_field_names = set()
+        if ctx['analyzed_fields']:
+            for f in ctx['analyzed_fields']:
+                if f.is_combed and not f.combed_fields:
+                    comb_field_names.add(f.field_name)
+
+        regular_values = {k: v for k, v in field_values.items()
+                          if k not in comb_field_names}
+        comb_values = {k: v for k, v in field_values.items()
+                       if k in comb_field_names}
+
         for page in writer.pages:
-            writer.update_page_form_field_values(
-                page, field_values, auto_regenerate=False
-            )
+            if regular_values:
+                writer.update_page_form_field_values(
+                    page, regular_values, auto_regenerate=False
+                )
+            if comb_values:
+                writer.update_page_form_field_values(
+                    page, comb_values, auto_regenerate=True
+                )
 
         # Save the filled PDF
         with open(output_path, 'wb') as f:
