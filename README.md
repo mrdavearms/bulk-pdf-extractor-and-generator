@@ -4,7 +4,7 @@
 
 **Batch-fill PDF forms from spreadsheet data — turning hours of manual data entry into a single click.**
 
-[![Latest Release](https://img.shields.io/badge/latest-v2.5.3-0078d4?style=for-the-badge)](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases/latest)
+[![Latest Release](https://img.shields.io/badge/latest-v2.5.4-0078d4?style=for-the-badge)](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases/latest)
 
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078d4?logo=windows&logoColor=white)](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases)
 [![License](https://img.shields.io/badge/license-MIT-22c55e)](LICENSE)
