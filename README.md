@@ -4,9 +4,9 @@
 
 **Batch-fill PDF forms from spreadsheet data — turning hours of manual data entry into a single click.**
 
-[![Download](https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20download-v2.5-0078d4?style=for-the-badge)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.5)
+[![Latest Release](https://img.shields.io/badge/latest-v2.5-0078d4?style=for-the-badge)](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/latest)
 
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078d4?logo=windows&logoColor=white)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078d4?logo=windows&logoColor=white)](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases)
 [![License](https://img.shields.io/badge/license-MIT-22c55e)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3b82f6?logo=python&logoColor=white)](https://python.org)
 
@@ -145,15 +145,12 @@ That's it. No coding, no merging, no manual form filling. The same workflow appl
 
 **No Python, no installation, no IT support required** — just download and double-click.
 
-<div align="center">
+Go to the **[Releases page](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/latest)** and download the file for your platform:
 
-| Windows | macOS |
-|:---:|:---:|
-| [![Windows](https://img.shields.io/badge/⬇️%20Download%20for-Windows-0078d4?style=for-the-badge&logo=windows&logoColor=white)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.5) | [![macOS](https://img.shields.io/badge/⬇️%20Download%20for-macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.5/downloads/binaries/Bulk.PDF.Generator.Mac.dmg) |
-| `Bulk PDF Generator.exe` (~61 MB) | `Bulk.PDF.Generator.Mac.dmg` |
-| Windows 10 / 11 | macOS 12 Monterey or later |
-
-</div>
+| Platform | File | Requirements |
+|:---:|:---:|:---:|
+| Windows | `Bulk PDF Generator.exe` (~61 MB) | Windows 10 / 11 |
+| macOS | `Bulk.PDF.Generator.Mac.dmg` | macOS 12 Monterey or later |
 
 Save the file somewhere convenient — your Desktop, a shared school drive, or a dedicated apps folder. The app is self-contained; it doesn't install anything or modify your system.
 
@@ -186,7 +183,7 @@ Because this app is not commercially code-signed (certificates cost hundreds of 
 You only need to do this **once**. Windows remembers your choice and the app opens normally from then on.
 
 > [!TIP]
-> **School IT environments:** If your managed security policy shows no "Run anyway" option, ask your IT administrator to whitelist the app or add an exclusion. The complete source code is at [gitlab.com/davearmswork/bulk-pdf-extractor-and-generator](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator) for their review.
+> **School IT environments:** If your managed security policy shows no "Run anyway" option, ask your IT administrator to whitelist the app or add an exclusion. The complete source code is at [github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools) for their review.
 
 </details>
 
@@ -492,7 +489,7 @@ FirstName_Surname_TemplateName SchoolName Year.pdf
 | **No AI** | No machine learning, no generative AI, no data processing beyond simple text formatting. |
 | **Local storage only** | Settings, template configs, and cached preview images are stored in local files. Generated PDFs are saved to a folder you choose. |
 | **No code execution** | Student names, dates, and other data values are treated as plain text strings for PDF field filling. No data is ever evaluated as code. |
-| **Open source** | The complete source code is publicly available for inspection at [gitlab.com/davearmswork/bulk-pdf-extractor-and-generator](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator). |
+| **Open source** | The complete source code is publicly available for inspection at [github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools). |
 
 For the full security policy, see [SECURITY.md](SECURITY.md).
 
@@ -578,7 +575,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for a full technical breakdown of data fl
 |---------|----------|
 | **Windows shows "Windows protected your PC"** | Click **More info** then **Run anyway** — see the [warning guide](#step-2--run-the-app) above |
 | **Mac shows "cannot be opened because it is from an unidentified developer"** | Open **System Settings → Privacy & Security**, find the blocked app message, click **Open Anyway** — see the [Mac warning guide](#step-2--run-the-app) above |
-| **IT security blocks the app with no "Run anyway" option** | Ask your IT admin to whitelist it; share the [open-source repo](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator) for their review |
+| **IT security blocks the app with no "Run anyway" option** | Ask your IT admin to whitelist it; share the [open-source repo](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools) for their review |
 | **A "Select Sheet" dialog appeared** | Expected — your file has multiple sheets. Select the one with your data and click **Load this sheet** |
 | **Accidentally closed the sheet-picker dialog** | Click **Load & Preview Data** again to re-open it |
 | **Fields not filling in output PDFs** | Check that your Excel column headers exactly match the PDF field names. The matching is case-insensitive but the text must otherwise be identical (including spaces) |
@@ -677,7 +674,7 @@ No. The app is completely offline. It has no internet access, no network calls, 
 
 <br>
 
-Yes, but your school's IT policy may block unsigned executables. If you see a security warning with no "Run anyway" option, ask your IT administrator to whitelist the app. You can share the [open-source repository](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator) with them for review.
+Yes, but your school's IT policy may block unsigned executables. If you see a security warning with no "Run anyway" option, ask your IT administrator to whitelist the app. You can share the [open-source repository](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools) with them for review.
 
 </details>
 
@@ -706,7 +703,7 @@ No. The app reads your template PDF but never writes to it. Each generated PDF i
 ### Setup
 
 ```bash
-git clone https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator.git
+git clone https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools.git
 cd bulk-pdf-extractor-and-generator
 python -m venv venv
 
@@ -842,7 +839,7 @@ A Principal-developed app for educators and school leaders.
 | | |
 |---|---|
 | Email | [Dave.Armstrong@education.vic.gov.au](mailto:Dave.Armstrong@education.vic.gov.au) |
-| GitLab | [gitlab.com/davearmswork/bulk-pdf-extractor-and-generator](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator) |
+| GitHub | [github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools) |
 
 ---
 
