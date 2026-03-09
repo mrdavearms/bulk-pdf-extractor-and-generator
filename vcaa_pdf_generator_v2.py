@@ -1059,13 +1059,13 @@ class VCAAPDFGeneratorV2:
         email_label.bind('<Button-1>',
                          lambda e: webbrowser.open('mailto:Dave.Armstrong@education.vic.gov.au'))
 
-        # GitLab link
-        gitlab_label = tk.Label(card, text="gitlab.com/davearmswork/bulk-pdf-extractor-and-generator",
+        # GitHub link
+        gitlab_label = tk.Label(card, text="github.com/mrdavearms/bulk-pdf-extractor-and-generator",
                                 font=(ff, 11, 'underline'), fg=C['info'],
                                 bg=C['bg_surface'], cursor='hand2')
         gitlab_label.pack(pady=(0, 20))
         gitlab_label.bind('<Button-1>',
-                          lambda e: webbrowser.open('https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator'))
+                          lambda e: webbrowser.open('https://github.com/mrdavearms/bulk-pdf-extractor-and-generator'))
 
         # Divider
         tk.Frame(card, bg=C['border_subtle'], height=1).pack(fill=tk.X, pady=(0, 16))
@@ -1772,7 +1772,7 @@ class VCAAPDFGeneratorV2:
                     ('', None),
                     ('CONTACT', 'heading'),
                     ('Email:   Dave.Armstrong@education.vic.gov.au', 'body'),
-                    ('GitLab:  gitlab.com/davearmswork/bulk-pdf-extractor-and-generator', 'body'),
+                    ('GitHub:  github.com/mrdavearms/bulk-pdf-extractor-and-generator', 'body'),
                     ('', None),
                     ('DISCLAIMER', 'heading'),
                     (
