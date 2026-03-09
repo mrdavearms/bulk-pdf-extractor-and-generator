@@ -4,11 +4,6 @@
 
 **Batch-fill PDF forms from spreadsheet data — turning hours of manual data entry into a single click.**
 
-[![Download](https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20download-v2.2-0078d4?style=for-the-badge)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.2)
-
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078d4?logo=windows&logoColor=white)](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases)
-[![License](https://img.shields.io/badge/license-MIT-22c55e)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.10%2B-3b82f6?logo=python&logoColor=white)](https://python.org)
 
 </div>
 
@@ -21,9 +16,6 @@ Originally built to streamline VCAA Special Examination Arrangements Evidence Ap
 
 ---
 
-<div align="center">
-  <img src="app_visualisation.png" alt="Bulk PDF Generator — select a template, load your spreadsheet, generate filled PDFs instantly" width="820">
-</div>
 
 ---
 
@@ -41,8 +33,8 @@ Originally built to streamline VCAA Special Examination Arrangements Evidence Ap
 | **Template library** | Save, reload, and manage template configurations across sessions |
 | **School settings** | Configures school name and year for output filenames once, remembered forever |
 | **One-click output** | All PDFs saved to a named folder; output opens automatically |
-| **Cross-platform** | Runs on Windows 10/11, macOS, and Linux from source; pre-built `.exe` for Windows |
-| **No tech skills needed** | Single `.exe` file, no Python or IT support required |
+| **Cross-platform** | Runs on Windows 10/11, macOS, and Linux from source; pre-built `.exe` for Windows in releases |
+| **No tech skills needed** |No tech skills needed: Pre-compiled Windows executable available in Releases; no Python installation required.
 
 ---
 
@@ -102,22 +94,19 @@ flowchart TB
 
 ## Quick Start
 
-### Step 1 — Download
+### Step 1 —
 
-> [!IMPORTANT]
-> **Pre-built `.exe` available for Windows 10/11.** macOS and Linux users can [run from source](#-for-developers--running-from-source).
 
-### [Download Bulk PDF Generator.exe](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.2)
 
-**No Python, no installation, no IT support required** — just download and double-click.
 
-Save the file somewhere convenient — your Desktop, a shared school drive, or a dedicated apps folder.
+**No Python, no installation, no IT support required** 
+
 
 ---
 
 ### Step 2 — Run the app
 
-Double-click **`Bulk PDF Generator.exe`**.
+
 
 <details>
 <summary><strong>Windows Security Warning — what to do if you see it</strong></summary>
@@ -148,24 +137,13 @@ You only need to do this **once**. Windows remembers your choice and the app ope
 
 ## Try It With Sample Data
 
-Not sure where to start? Download the sample files to see exactly how the app works before touching any real data — no setup required.
+Not sure where to start? Download the sample files (PDF and Excel) from the latest release assets. These samples are provided to show you exactly how the app maps fields before you use your own data..
 
 <div align="center">
 
-### [Download All Sample Files — ZIP, 2 MB](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Sample.Files.zip)
 
 </div>
 
-### What's included
-
-| File | Download | Description |
-|------|:--------:|-------------|
-| `Evidence Application sample PDF from VCAA.pdf` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Evidence.Application.sample.PDF.from.VCAA.pdf) | **The blank PDF template** — this is the form the app fills in |
-| `Evidence Application spreadsheet with data.xlsx` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Evidence.Application.spreadsheet.with.data.xlsx) | **Full data spreadsheet** — 3 fictional students; multi-sheet workbook that demonstrates the sheet-picker dialog |
-| `sample data.xlsx` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/sample.data.xlsx) | **Simple single-sheet version** — loads instantly, no sheet-picker dialog |
-| `Duis_Ex_Evidence Application ... 2026.pdf` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Duis_Ex_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 1 |
-| `Minim_Elit_Evidence Application ... 2026.pdf` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Minim_Elit_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 2 |
-| `Sunt_Culpa_Evidence Application ... 2026.pdf` | [Link](https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools/releases/download/v2.1/Sunt_Culpa_Evidence.Application.Wangaratta.High.School.2026.pdf) | **Sample output** — completed form for student 3 |
 
 ### How to run the sample
 
@@ -439,18 +417,15 @@ python vcaa_pdf_generator_v2.py
 | [Pillow](https://pypi.org/project/Pillow/) | >= 10.0.0 | Image processing for visual preview |
 | [ttkbootstrap](https://pypi.org/project/ttkbootstrap/) | >= 1.10.1 | Modern themed GUI framework on top of tkinter |
 
-### Building the Windows Executable
+
 
 ```bash
 pip install pyinstaller
 python _generate_version.py          # Bake git commit + date into _version.py
 python -m PyInstaller BulkPDFGenerator.spec --clean
-# Output: dist/Bulk PDF Generator.exe
+
 ```
 
-Or double-click **`build_windows.bat`** for a guided, one-step build.
-
-The spec file bundles PyMuPDF binaries, ttkbootstrap theme assets, openpyxl templates, pandas data files, and all app resources into a single ~80–120 MB `.exe`. UPX compression is disabled to reduce antivirus false positives.
 
 ### Project Structure
 
