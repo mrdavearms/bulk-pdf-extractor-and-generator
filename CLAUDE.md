@@ -24,7 +24,7 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 | | |
 |---|---|
 | **Primary (origin)** | `https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator.git` |
-| **Mirror (github)** | `https://github.com/mrdavearms/Bulk-PDF-generator-for-Vic-schools.git` (suspended) |
+| **Mirror (github)** | `https://github.com/mrdavearms/bulk-pdf-extractor-and-generator.git` (suspension resolved March 2026) |
 | **GitLab user** | `dave401` |
 | **glab CLI** | Authenticated, v1.86.0+ |
 
@@ -32,7 +32,7 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 
 | File | Purpose |
 |------|---------|
-| `vcaa_pdf_generator_v2.py` | Main application (~2700 lines) — GUI, dialogs, generation pipeline |
+| `vcaa_pdf_generator_v2.py` | Main application (~3050 lines) — GUI, dialogs, generation pipeline |
 | `vcaa_models.py` | Data models: `PDFField`, `TemplateConfig`, `AppSettings` |
 | `vcaa_pdf_analyzer.py` | PDF field extraction engine (PyMuPDF) |
 | `vcaa_visual_preview.py` | PDF page rendering + field highlighting, dual-tier cache |
@@ -49,10 +49,24 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 - **Dual-tier caching**: Preview renders cached in memory (LRU) and on disk (PNG).
 - **Cross-platform scrolling**: Mousewheel handlers branch by `sys.platform` — Windows (`delta/120`), macOS (`delta`), Linux (`Button-4`/`Button-5`).
 - **Backward-compatible persistence**: `from_json()` filters unknown keys so newer configs load in older versions.
+- **Field mapping**: `PDFField.excel_column` stores the explicit Excel column name per field. `TemplateConfig.field_excel_columns` persists these as `{field_name: col_name}`. Generation checks `field.excel_column` first, then falls back to auto-match by field name (case-insensitive). Tab 2 is the UI for viewing and editing these mappings.
+- **Tab lifecycle**: Tab 2 starts disabled; enabled by `analyze_pdf_fields()` after successful analysis. `_refresh_tab2_mappings()` is the single rebuild point — called after analysis, after Excel load, and after template load.
+
+## Tab Overview
+
+| Tab | Name | Purpose |
+|-----|------|---------|
+| 0 | Getting Started | In-app guide (Markdown rendered) |
+| 1 | Analyse Template | PDF analysis, field audit, visual preview, template save |
+| 2 | Map Fields | Explicit field→Excel column mapping editor |
+| 3 | Generate PDFs | Load data, preview students, batch generate |
+| 4 | About | Version, build info, developer contact |
 
 ## Release Workflow
 
-Releases go to **GitLab Releases** (not GitHub). The `.exe` is NOT committed to git (`dist/` is in `.gitignore`).
+Releases go to **GitLab Releases** (primary) and **GitHub Releases** (mirror). The `.exe` is NOT committed to git (`dist/` is in `.gitignore`).
+
+**GitHub compliance rule**: never link directly to binary assets (`.exe`, `.dmg`) in the README — link to the Releases *page* only. Direct binary links triggered GitHub's storage-abuse detection and caused account suspension.
 
 ### Quick release
 
@@ -89,6 +103,15 @@ curl --request POST --header "PRIVATE-TOKEN: $TOKEN" \
   "https://gitlab.com/api/v4/projects/davearmswork%2Fbulk-pdf-extractor-and-generator/releases/v2.X/assets/links"
 
 # 6. Update README badge version and push
+
+# 7. Push to GitHub mirror
+git push github main --tags
+
+# 8. Create GitHub release (link to GitLab for the binary — no direct .exe links)
+gh release create v2.X \
+  --repo mrdavearms/bulk-pdf-extractor-and-generator \
+  --title "Bulk PDF Generator v2.X" \
+  --notes "Release notes. Download the Windows .exe from [GitLab Releases](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.X)."
 ```
 
 ### Known quirks

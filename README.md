@@ -41,6 +41,7 @@ Originally built to streamline VCAA Special Examination Arrangements Evidence Ap
 - [How to Use](#how-to-use)
   - [Getting Started (Tab 0)](#getting-started-tab-0)
   - [Analyse Template (Tab 1)](#analyse-template-tab-1)
+  - [Map Fields (Tab 2)](#map-fields-tab-2)
   - [Generate PDFs (Tab 3)](#generate-pdfs-tab-3)
   - [About (Tab 4)](#about-tab-4)
 - [What Are Combed Fields?](#what-are-combed-fields)
@@ -70,6 +71,7 @@ Originally built to streamline VCAA Special Examination Arrangements Evidence Ap
 | **Combed field support** | Detects both multi-field and single-field combed formats automatically — including PDF comb flags with MaxLen. Government forms often use individual character boxes for student numbers, dates, and identifiers. The app recognises these automatically and fills them correctly. See [What Are Combed Fields?](#what-are-combed-fields) for details. |
 | **Visual field preview** | Click any field in the analysis list to see it highlighted in red on the actual PDF page. The preview supports zoom from 50% to 400%, and uses a dual-tier cache (memory + disk) so page switching is instant after the first render. |
 | **Field type audit** | After analysis, a dedicated audit dialog lets you review and configure every field. Set the field type (Text or Text-Combed with character length) and the data format (Text, Number, Date). Fields containing "date", "dob", or "birth" in their name are automatically suggested as Date fields. Your choices are saved with the template and restored on reload. |
+| **Field mapping editor** | Tab 2 shows every PDF field alongside a dropdown of your Excel columns. Set mappings manually, run Auto-Map All for smart guesses, or clear and start over. Explicit mappings take priority over auto-matching during generation, and are saved with the template. Tab 3 warns you if any fields won't match — with a direct prompt to fix them in Tab 2. |
 | **Multi-sheet Excel** | When you load an Excel workbook with multiple sheets, a dialog prompts you to pick the correct one. This commonly occurs with mapping files exported by the app itself (which contain Data, Field Mapping, Instructions, and About sheets). Single-sheet files load instantly with no prompt. |
 | **Export mapping file** | One-click Excel export with four formatted sheets: **Field Mapping** (every PDF field with type, page, and notes), **Data Entry** (ready-to-use template with column headers, 50 empty rows, frozen header row, auto-width columns, all data columns formatted as text), **Instructions** (step-by-step filling guide), and **About** (app version, developer info, disclaimer). |
 | **Template library** | Save, reload, and manage template configurations across sessions. Once you've analysed a PDF and set your field types, save the template config. Next time you use the same form, load the saved template to skip the analysis step entirely. Templates are stored as small JSON files in a configurable directory. |
@@ -320,7 +322,23 @@ This tab is where you set up a new PDF template for the first time. It reads you
 
    The exported file is ready to share with colleagues. They fill in the **Data Entry** sheet, return the file to you, and you load it straight into Tab 3 to generate PDFs.
 
-7. **Save Template Config** — Click this to save the current template's configuration (PDF path, field types, data types, combed overrides) as a named JSON file. Next time you use the same form, load the saved template instead of re-analysing.
+7. **Save Template Config** — Click this to save the current template's configuration (PDF path, field types, data types, combed overrides, field mappings) as a named JSON file. Next time you use the same form, load the saved template instead of re-analysing.
+
+---
+
+### Map Fields (Tab 2)
+
+Tab 2 unlocks after a successful analysis. It shows every PDF field alongside a dropdown of your Excel column names so you can control exactly which column fills each field.
+
+- **Auto-Map All** — applies smart guesses based on field name similarity to your column headers. Run this first; it handles most cases automatically.
+- **Manual override** — use any dropdown to reassign a field to any column, or set it to *-- not mapped --* to leave it blank.
+- **Clear All Mappings** — resets everything so you can start fresh.
+- **Status indicator** — shows how many fields are mapped (e.g. "34 of 36 fields mapped") and highlights individual fields with ✓ or –.
+- **Persistent** — mappings are saved with your template config and restored on next load.
+
+During generation, explicit mappings take priority. Any field without an explicit mapping falls back to auto-matching by field name — so existing templates work without any changes.
+
+> **When do I need this?** If your PDF field names don't match your Excel column headers exactly, fields will be blank without any error. Tab 2 is how you fix that — and Tab 3 will warn you if fields are at risk.
 
 ---
 
@@ -783,6 +801,14 @@ bulk-pdf-extractor-and-generator/
 ---
 
 ## Release Notes
+
+### v2.5.5 — March 2026
+
+- **Tab 2 field mapping editor** — live editor showing every PDF field alongside a dropdown of your Excel columns. Auto-Map All, manual overrides, and Clear All. Mappings persist to the template JSON and restore on reload.
+- Explicit field mappings take priority over auto-matching in generation; unset fields fall back to existing behaviour (no regressions)
+- Tab 3 validation now warns about fields with no mapping that won't auto-match any Excel column
+
+---
 
 ### v2.5 — March 2026
 
