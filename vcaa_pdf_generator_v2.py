@@ -658,6 +658,14 @@ class VCAAPDFGeneratorV2:
         self.excel_file_path = tk.StringVar()
         self.pdf_fields: List[str] = []
 
+        # Tab 2 (Map Fields) state
+        self._tab2_combos: Dict[str, tuple] = {}   # {field_name: (combobox, status_label)}
+        self._tab2_mapping_frame = None             # rebuilt on each refresh
+        self._tab2_status_label = None              # "X of Y fields mapped" label
+        self._tab2_file_label = None                # shows current Excel file path
+        self._tab2_auto_btn = None                  # "Auto-Map All" button
+        self._tab2_clear_btn = None                 # "Clear All Mappings" button
+
         # Tab 3 (Generate) state - from original app
         self.df = None
         self.selected_rows = {}
@@ -900,7 +908,7 @@ class VCAAPDFGeneratorV2:
         self.setup_tab3_generate()
         self.setup_tab_about()
 
-        # Disable Tab 2 (placeholder until Phase 3)
+        # Tab 2 starts disabled; enabled once a PDF template is analyzed
         self.notebook.tab(2, state='disabled')
 
     # ========== UI HELPERS ==========
@@ -1320,6 +1328,14 @@ class VCAAPDFGeneratorV2:
                         field.data_type = saved_types[field.field_name]
                 self.display_analyzed_fields()
 
+            # Restore saved field→Excel column mappings
+            saved_cols = self.current_template.field_excel_columns or {}
+            if saved_cols and self.analyzed_fields:
+                for field in self.analyzed_fields:
+                    if field.field_name in saved_cols:
+                        field.excel_column = saved_cols[field.field_name]
+            self._refresh_tab2_mappings()
+
             self.update_status(f"Template loaded: {self.current_template.template_name}", 'success')
             self.header_status.config(text=f"Template: {self.current_template.template_name}")
             self.status_template.config(text=self.current_template.template_name)
@@ -1410,6 +1426,13 @@ class VCAAPDFGeneratorV2:
                                 field.is_combed = (field.field_type == 'Text-Combed')
                             preconfigured_fields.add(field.field_name)
 
+                # Restore field→Excel column mappings
+                if self.current_template.field_excel_columns:
+                    for field in self.analyzed_fields:
+                        saved_col = self.current_template.field_excel_columns.get(field.field_name)
+                        if saved_col:
+                            field.excel_column = saved_col
+
             # Show field type audit dialog
             audit = FieldTypeAuditDialog(self.root, self.analyzed_fields, preconfigured_fields)
             self.root.wait_window(audit)
@@ -1427,6 +1450,11 @@ class VCAAPDFGeneratorV2:
                         field.length = None
                         field.combed_fields = []
                 self.display_analyzed_fields()  # Refresh to show updated types
+
+            # Enable Tab 2 and populate it (auto-map if Excel already loaded)
+            self.notebook.tab(2, state='normal')
+            self._auto_map_fields()
+            self._refresh_tab2_mappings()
 
         except Exception as e:
             self._close_preview_generator()  # Guarantee cleanup on error
@@ -1888,6 +1916,13 @@ class VCAAPDFGeneratorV2:
                         'length': f.length,
                     }
 
+            # Collect explicit field→Excel column mappings set in Tab 2
+            field_excel_columns = {
+                f.field_name: f.excel_column
+                for f in self.analyzed_fields
+                if f.excel_column is not None
+            }
+
             config = TemplateConfig(
                 template_name=template_name,
                 pdf_filename=os.path.basename(self.pdf_template_path.get()),
@@ -1901,6 +1936,7 @@ class VCAAPDFGeneratorV2:
                 critical_fields=['surname', 'First name', 'VCAA student number'],
                 field_data_types=field_data_types,
                 field_type_overrides=field_type_overrides,
+                field_excel_columns=field_excel_columns,
                 notes="",
                 version="2.0"
             )
@@ -1922,35 +1958,275 @@ class VCAAPDFGeneratorV2:
     # ========== TAB 2: MAP FIELDS ==========
 
     def setup_tab2_mapping(self):
-        """Setup Tab 2: Field Mapping (Placeholder for now)."""
+        """Setup Tab 2: Field Mapping — live editor for PDF field → Excel column mappings."""
         tab = self.tab2
+        C = COLORS
 
         container = ttk.Frame(tab, padding=str(SPACING['page_padding']))
         container.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(
+        # ── Card 1: Data File ──────────────────────────────────────────
+        file_inner = self.create_section(
             container,
-            text="Field Mapping",
-            style='Title.TLabel',
-        ).pack(pady=(20, 10))
+            "Data File",
+            subtitle="The Excel or CSV file whose columns will be mapped to PDF fields.",
+        )
 
-        ttk.Label(
-            container,
-            text="This tab will allow manual field mapping configuration.",
-            style='Subtitle.TLabel',
-        ).pack(pady=SPACING['element_gap'])
+        self._tab2_file_label = tk.Label(
+            file_inner,
+            text="No data file loaded — load your data file on the Generate tab first.",
+            font=font(10),
+            fg=C['text_tertiary'],
+            bg=C['bg_surface'],
+            anchor='w',
+            wraplength=680,
+        )
+        self._tab2_file_label.pack(anchor='w', pady=(0, 4))
 
-        ttk.Label(
+        # ── Card 2: Field Mappings ─────────────────────────────────────
+        mappings_inner = self.create_section(
             container,
-            text="Auto-matching is enabled by default",
-            style='Success.TLabel',
-        ).pack(pady=5)
+            "Field Mappings",
+            subtitle="Match each PDF form field to the Excel column that contains its data.",
+            expand=True,
+        )
 
-        ttk.Label(
-            container,
-            text="Coming in Phase 3...",
-            style='Muted.TLabel',
-        ).pack(pady=20)
+        # Status line (updated by _update_mapping_status)
+        self._tab2_status_label = tk.Label(
+            mappings_inner,
+            text="Analyze a PDF template on Tab 1 to begin.",
+            font=font(10),
+            fg=C['text_secondary'],
+            bg=C['bg_surface'],
+            anchor='w',
+        )
+        self._tab2_status_label.pack(anchor='w', pady=(0, SPACING['element_gap']))
+
+        # Column header row
+        header_frame = tk.Frame(mappings_inner, bg=C['bg_surface'])
+        header_frame.pack(fill=tk.X, pady=(0, 4))
+        tk.Label(header_frame, text="PDF Field", font=font(9, bold=True),
+                 fg=C['text_secondary'], bg=C['bg_surface'], width=28, anchor='w').pack(side=tk.LEFT)
+        tk.Label(header_frame, text="Excel Column", font=font(9, bold=True),
+                 fg=C['text_secondary'], bg=C['bg_surface'], width=32, anchor='w').pack(side=tk.LEFT, padx=(8, 0))
+        tk.Label(header_frame, text="Status", font=font(9, bold=True),
+                 fg=C['text_secondary'], bg=C['bg_surface'], width=10, anchor='w').pack(side=tk.LEFT, padx=(8, 0))
+
+        # Thin separator
+        tk.Frame(mappings_inner, bg=C['border_subtle'], height=1).pack(fill=tk.X, pady=(0, 6))
+
+        # Scrollable frame that holds the per-field rows
+        scroll = ScrollableFrame(mappings_inner)
+        scroll.pack(fill=tk.BOTH, expand=True)
+        self._tab2_mapping_frame = scroll.scrollable_frame
+
+        # ── Buttons ────────────────────────────────────────────────────
+        btn_frame = tk.Frame(container, bg=C['bg_base'])
+        btn_frame.pack(fill=tk.X, pady=(SPACING['element_gap'], 0))
+
+        self._tab2_auto_btn = ttk.Button(
+            btn_frame,
+            text="Auto-Map All",
+            command=self._auto_map_fields,
+            state=tk.DISABLED,
+        )
+        self._tab2_auto_btn.pack(side=tk.LEFT, padx=(0, 8))
+
+        self._tab2_clear_btn = ttk.Button(
+            btn_frame,
+            text="Clear All Mappings",
+            command=self._clear_all_mappings,
+            style='Secondary.TButton',
+            state=tk.DISABLED,
+        )
+        self._tab2_clear_btn.pack(side=tk.LEFT)
+
+    # ── Tab 2 helper methods ───────────────────────────────────────────────
+
+    def _refresh_tab2_mappings(self):
+        """Rebuild the Tab 2 mapping rows from current analyzed_fields and df columns.
+
+        Safe to call at any time; handles all partial-state combinations gracefully.
+        """
+        # Guard: widgets may not exist yet if called before setup_ui completes
+        if self._tab2_status_label is None:
+            return
+
+        C = COLORS
+
+        # Update the data-file label
+        excel_path = self.excel_file_path.get()
+        if excel_path:
+            self._tab2_file_label.config(
+                text=os.path.basename(excel_path),
+                fg=C['text_primary'],
+            )
+        else:
+            self._tab2_file_label.config(
+                text="No data file loaded — load your data file on the Generate tab first.",
+                fg=C['text_tertiary'],
+            )
+
+        # Case 1: No PDF analyzed yet
+        if not self.analyzed_fields:
+            self._tab2_status_label.config(
+                text="Analyze a PDF template on Tab 1 to begin.",
+                fg=C['text_secondary'],
+            )
+            self._clear_mapping_rows()
+            self._set_mapping_buttons(enabled=False)
+            return
+
+        # Case 2: PDF analyzed but no Excel loaded
+        if self.df is None:
+            self._tab2_status_label.config(
+                text="Load your data file on the Generate tab to see available columns.",
+                fg=C['text_secondary'],
+            )
+            self._clear_mapping_rows()
+            self._set_mapping_buttons(enabled=False)
+            return
+
+        # Case 3: Both available — build the mapping rows
+        self._clear_mapping_rows()
+        self._tab2_combos.clear()
+
+        col_list = sorted(self.df.columns.tolist())
+        column_options = ["-- not mapped --"] + col_list
+        col_set = set(self.df.columns.tolist())
+
+        for field in self.analyzed_fields:
+            row = tk.Frame(self._tab2_mapping_frame, bg=C['bg_surface'])
+            row.pack(fill=tk.X, pady=2)
+
+            # PDF field name label
+            tk.Label(
+                row,
+                text=field.field_name,
+                font=font(10),
+                fg=C['text_primary'],
+                bg=C['bg_surface'],
+                width=28,
+                anchor='w',
+            ).pack(side=tk.LEFT)
+
+            # Determine initial combobox value
+            if field.excel_column and field.excel_column in col_set:
+                initial = field.excel_column
+            else:
+                # Saved column no longer in file — clear it
+                field.excel_column = None
+                initial = "-- not mapped --"
+
+            combo = ttk.Combobox(
+                row,
+                values=column_options,
+                state="readonly",
+                width=32,
+            )
+            combo.set(initial)
+            combo.pack(side=tk.LEFT, padx=(8, 0))
+
+            # Status icon label
+            mapped = (initial != "-- not mapped --")
+            status_lbl = tk.Label(
+                row,
+                text="✓" if mapped else "–",
+                font=font(10),
+                fg=C['success'] if mapped else C['text_tertiary'],
+                bg=C['bg_surface'],
+                width=4,
+                anchor='w',
+            )
+            status_lbl.pack(side=tk.LEFT, padx=(8, 0))
+
+            self._tab2_combos[field.field_name] = (combo, status_lbl)
+
+            # Bind selection event (use default arg to capture loop variable)
+            combo.bind(
+                '<<ComboboxSelected>>',
+                lambda e, fn=field.field_name, cb=combo, sl=status_lbl:
+                    self._on_mapping_changed(fn, cb, sl),
+            )
+
+        self._update_mapping_status()
+        self._set_mapping_buttons(enabled=True)
+
+    def _clear_mapping_rows(self):
+        """Destroy all child widgets inside the mapping scroll frame."""
+        if self._tab2_mapping_frame is None:
+            return
+        for widget in self._tab2_mapping_frame.winfo_children():
+            widget.destroy()
+
+    def _set_mapping_buttons(self, enabled: bool):
+        """Enable or disable the Auto-Map and Clear All buttons."""
+        state = tk.NORMAL if enabled else tk.DISABLED
+        if self._tab2_auto_btn:
+            self._tab2_auto_btn.config(state=state)
+        if self._tab2_clear_btn:
+            self._tab2_clear_btn.config(state=state)
+
+    def _on_mapping_changed(self, field_name: str, combo: ttk.Combobox, status_lbl: tk.Label):
+        """Handle user changing a field mapping dropdown."""
+        val = combo.get()
+        for field in self.analyzed_fields:
+            if field.field_name == field_name:
+                field.excel_column = None if val == "-- not mapped --" else val
+                break
+        mapped = (val != "-- not mapped --")
+        status_lbl.config(
+            text="✓" if mapped else "–",
+            fg=COLORS['success'] if mapped else COLORS['text_tertiary'],
+        )
+        self._update_mapping_status()
+
+    def _auto_map_fields(self):
+        """Apply smart-guess mappings to all fields, overwriting existing mappings."""
+        if not self.df or not self.analyzed_fields:
+            return
+        column_lower = {col.lower(): col for col in self.df.columns}
+        for field in self.analyzed_fields:
+            # Try smart-guess name first, then underscore-stripped field name, then direct
+            guess = self.smart_guess_excel_column(field.field_name)
+            if guess.lower() in column_lower:
+                field.excel_column = column_lower[guess.lower()]
+            elif field.field_name.replace('_', ' ').lower() in column_lower:
+                field.excel_column = column_lower[field.field_name.replace('_', ' ').lower()]
+            elif field.field_name.lower() in column_lower:
+                field.excel_column = column_lower[field.field_name.lower()]
+            # else: no match found, leave as-is
+        self._refresh_tab2_mappings()
+
+    def _clear_all_mappings(self):
+        """Reset all field→Excel column mappings to unset."""
+        for field in self.analyzed_fields:
+            field.excel_column = None
+        self._refresh_tab2_mappings()
+
+    def _update_mapping_status(self):
+        """Update the 'X of Y fields mapped' status label in Tab 2."""
+        if self._tab2_status_label is None or not self.analyzed_fields:
+            return
+        total = len(self.analyzed_fields)
+        mapped = sum(1 for f in self.analyzed_fields if f.excel_column is not None)
+        C = COLORS
+        if mapped == total:
+            self._tab2_status_label.config(
+                text=f"All {total} fields mapped \u2713",
+                fg=C['success'],
+            )
+        elif mapped == 0:
+            self._tab2_status_label.config(
+                text="No fields mapped \u2014 use Auto-Map or set manually.",
+                fg=C['text_secondary'],
+            )
+        else:
+            unmatched = total - mapped
+            self._tab2_status_label.config(
+                text=f"{mapped} of {total} fields mapped, {unmatched} unmatched.",
+                fg=C['warning'],
+            )
 
     # ========== TAB 3: GENERATE PDFs (From original app) ==========
 
@@ -2260,6 +2536,12 @@ class VCAAPDFGeneratorV2:
             # Enable generate button
             self.generate_btn_tab3.config(state=tk.NORMAL)
 
+            # Refresh Tab 2 mapping dropdowns with the new column list;
+            # auto-map any fields that don't yet have an explicit mapping
+            if not self.analyzed_fields or any(f.excel_column is None for f in self.analyzed_fields):
+                self._auto_map_fields()
+            self._refresh_tab2_mappings()
+
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load data:\n{str(e)}")
 
@@ -2297,6 +2579,27 @@ class VCAAPDFGeneratorV2:
         else:
             self.validation_text_tab3.insert(1.0, "All students have required fields populated.")
             self.validation_text_tab3.config(fg=COLORS['success'])
+
+        # Warn about PDF fields that have no explicit mapping and won't auto-match any Excel column
+        if self.analyzed_fields and self.df is not None:
+            col_names_lower = {str(col).lower() for col in self.df.columns}
+            silent_blanks = [
+                f for f in self.analyzed_fields
+                if f.excel_column is None
+                and f.field_name.lower() not in col_names_lower
+            ]
+            if silent_blanks:
+                names = ", ".join(f.field_name for f in silent_blanks[:5])
+                if len(silent_blanks) > 5:
+                    names += f" (+{len(silent_blanks) - 5} more)"
+                mapping_note = (
+                    f"\n\n⚠ {len(silent_blanks)} field(s) have no mapping and won't "
+                    f"auto-match — they will be blank:\n{names}\n"
+                    f"Go to Tab 2 to set explicit mappings."
+                )
+                self.validation_text_tab3.config(state=tk.NORMAL)
+                self.validation_text_tab3.insert(tk.END, mapping_note)
+                self.validation_text_tab3.config(fg=COLORS['warning'])
 
         self.validation_text_tab3.config(state=tk.DISABLED)
 
@@ -2564,9 +2867,13 @@ class VCAAPDFGeneratorV2:
 
             # Process each analyzed field
             for field in ctx['analyzed_fields']:
-                # Find matching Excel column
-                field_name_lower = field.field_name.lower()
-                raw_val = row_raw_lower.get(field_name_lower)
+                # Find matching Excel column:
+                # 1. Explicit mapping from Tab 2 (field.excel_column) takes priority
+                # 2. Fall back to auto-match by PDF field name (case-insensitive)
+                if field.excel_column:
+                    raw_val = row_raw_lower.get(field.excel_column.lower())
+                else:
+                    raw_val = row_raw_lower.get(field.field_name.lower())
 
                 if raw_val is None:
                     continue
