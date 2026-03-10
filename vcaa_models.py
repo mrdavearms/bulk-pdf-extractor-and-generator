@@ -76,6 +76,7 @@ class TemplateConfig:
     critical_fields: List[str] = None
     field_data_types: Dict[str, str] = None  # {field_name: "text"|"number"|"date"}
     field_type_overrides: Dict[str, dict] = None  # {field_name: {"field_type": "Text-Combed", "length": 10}}
+    field_excel_columns: Dict[str, str] = None   # {field_name: excel_column_name}
     notes: str = ""
     version: str = "2.0"
 
@@ -86,6 +87,8 @@ class TemplateConfig:
             self.field_data_types = {}
         if self.field_type_overrides is None:
             self.field_type_overrides = {}
+        if self.field_excel_columns is None:
+            self.field_excel_columns = {}
 
     def to_json(self) -> str:
         """Serialize to JSON string."""
