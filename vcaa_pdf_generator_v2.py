@@ -1068,11 +1068,11 @@ class VCAAPDFGeneratorV2:
                          lambda e: webbrowser.open('mailto:Dave.Armstrong@education.vic.gov.au'))
 
         # GitHub link
-        gitlab_label = tk.Label(card, text="github.com/mrdavearms/bulk-pdf-extractor-and-generator",
+        github_label = tk.Label(card, text="github.com/mrdavearms/bulk-pdf-extractor-and-generator",
                                 font=(ff, 11, 'underline'), fg=C['info'],
                                 bg=C['bg_surface'], cursor='hand2')
-        gitlab_label.pack(pady=(0, 20))
-        gitlab_label.bind('<Button-1>',
+        github_label.pack(pady=(0, 20))
+        github_label.bind('<Button-1>',
                           lambda e: webbrowser.open('https://github.com/mrdavearms/bulk-pdf-extractor-and-generator'))
 
         # Divider
