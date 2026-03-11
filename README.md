@@ -288,6 +288,10 @@ The guide walks you through:
 
 ### Analyse Template (Tab 1)
 
+<div align="center">
+  <img src="docs/screenshots/tab1_analyse_template.png" alt="Tab 1 — Analyse Template" width="760">
+</div>
+
 This tab is where you set up a new PDF template for the first time. It reads your PDF, discovers all form fields, lets you configure their types, and exports a ready-to-use spreadsheet template.
 
 #### Step-by-step
@@ -343,6 +347,10 @@ During generation, explicit mappings take priority. Any field without an explici
 ---
 
 ### Generate PDFs (Tab 3)
+
+<div align="center">
+  <img src="docs/screenshots/tab3_generate_pdfs.png" alt="Tab 3 — Generate PDFs" width="760">
+</div>
 
 This is where you turn your data into filled PDFs. If you've already saved a template config, you can jump straight here without going through Tab 1 again.
 
