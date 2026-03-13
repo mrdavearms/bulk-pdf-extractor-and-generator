@@ -28,7 +28,7 @@ pandas_datas = collect_data_files('pandas')
 
 # ── Analysis ─────────────────────────────────────────────────────────────────
 a = Analysis(
-    ['vcaa_pdf_generator_v2.py'],
+    ['pdf_generator.py'],
     pathex=[],
     binaries=pymupdf_binaries + fitz_binaries + ttkbs_binaries,
     datas=[

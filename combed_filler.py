@@ -5,7 +5,7 @@ Handles splitting text into character-by-character fields.
 """
 
 from typing import Dict, List
-from vcaa_models import PDFField
+from models import PDFField
 
 
 class CombedFieldFiller:

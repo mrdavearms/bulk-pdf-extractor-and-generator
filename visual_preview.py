@@ -10,7 +10,7 @@ from collections import OrderedDict
 from typing import Optional, Tuple
 from PIL import Image, ImageDraw, ImageFont
 import fitz  # PyMuPDF
-from vcaa_models import PDFField
+from models import PDFField
 
 _MAX_CACHED_PAGES = 5  # Cap memory cache (~60 MB at 200 DPI)
 
@@ -23,7 +23,7 @@ class VisualPreviewGenerator:
         # Default to the system temp directory so we never crash on read-only
         # network shares or system paths where the PDF might reside.
         self.cache_dir = cache_dir or os.path.join(
-            tempfile.gettempdir(), 'vcaa_preview_cache'
+            tempfile.gettempdir(), 'bulk_pdf_preview_cache'
         )
         self.doc = None
         self._cached_pages = OrderedDict()  # LRU cache {cache_key: Image}

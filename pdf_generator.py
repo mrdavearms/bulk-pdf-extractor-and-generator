@@ -72,15 +72,15 @@ def _get_build_info() -> tuple:
 
 
 # Import our new modules
-from vcaa_models import PDFField, TemplateConfig, AppSettings
-from vcaa_pdf_analyzer import PDFAnalyzer, auto_name_template
-from vcaa_visual_preview import VisualPreviewGenerator
-from vcaa_combed_filler import CombedFieldFiller
-from vcaa_theme import (
+from models import PDFField, TemplateConfig, AppSettings
+from pdf_analyzer import PDFAnalyzer, auto_name_template
+from visual_preview import VisualPreviewGenerator
+from combed_filler import CombedFieldFiller
+from theme import (
     COLORS, SPACING, SYSTEM_FONTS, font,
     apply_dark_theme, setup_treeview_tags, bind_treeview_hover,
 )
-from vcaa_markdown_renderer import load_and_render
+from markdown_renderer import load_and_render
 
 
 class ScrollableFrame(ttk.Frame):
@@ -631,7 +631,7 @@ class FieldTypeAuditDialog(tk.Toplevel):
         self.destroy()
 
 
-class VCAAPDFGeneratorV2:
+class BulkPDFGenerator:
     """Main application class with tabbed interface."""
 
     def __init__(self, root):
@@ -3055,7 +3055,7 @@ def main():
         root.iconphoto(True, _icon)
         root._icon_ref = _icon
 
-    app = VCAAPDFGeneratorV2(root)
+    app = BulkPDFGenerator(root)
     root.mainloop()
 
 

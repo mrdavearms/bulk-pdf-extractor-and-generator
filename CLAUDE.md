@@ -32,13 +32,13 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 
 | File | Purpose |
 |------|---------|
-| `vcaa_pdf_generator_v2.py` | Main application (~3050 lines) — GUI, dialogs, generation pipeline |
-| `vcaa_models.py` | Data models: `PDFField`, `TemplateConfig`, `AppSettings` |
-| `vcaa_pdf_analyzer.py` | PDF field extraction engine (PyMuPDF) |
-| `vcaa_visual_preview.py` | PDF page rendering + field highlighting, dual-tier cache |
-| `vcaa_combed_filler.py` | Character-by-character combed field filling |
-| `vcaa_theme.py` | Centralised theme (colours, fonts, spacing) |
-| `vcaa_markdown_renderer.py` | Markdown → tkinter Text widget renderer |
+| `pdf_generator.py` | Main application (~3050 lines) — GUI, dialogs, generation pipeline |
+| `models.py` | Data models: `PDFField`, `TemplateConfig`, `AppSettings` |
+| `pdf_analyzer.py` | PDF field extraction engine (PyMuPDF) |
+| `visual_preview.py` | PDF page rendering + field highlighting, dual-tier cache |
+| `combed_filler.py` | Character-by-character combed field filling |
+| `theme.py` | Centralised theme (colours, fonts, spacing) |
+| `markdown_renderer.py` | Markdown → tkinter Text widget renderer |
 | `_generate_version.py` | Build-time script: bakes git commit + date into `_version.py` |
 | `getting_started.md` | In-app guide content (rendered in Tab 0) |
 

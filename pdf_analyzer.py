@@ -8,7 +8,7 @@ import re
 from collections import defaultdict
 from typing import List, Dict, Tuple
 import fitz  # PyMuPDF
-from vcaa_models import PDFField
+from models import PDFField
 
 
 class PDFAnalyzer:

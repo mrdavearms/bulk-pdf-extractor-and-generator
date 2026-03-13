@@ -9,24 +9,24 @@ This document describes the internal architecture of the Bulk PDF Generator, cov
 The application is structured as seven Python modules with clear separation of concerns:
 
 ```
-vcaa_pdf_generator_v2.py   ─── GUI + orchestration (main entry point)
-    ├── vcaa_models.py         ─── Data models and persistence
-    ├── vcaa_pdf_analyzer.py   ─── PDF field extraction engine
-    ├── vcaa_visual_preview.py ─── PDF page rendering + field highlighting
-    ├── vcaa_combed_filler.py  ─── Character-by-character field filling
-    ├── vcaa_theme.py          ─── Centralised theme (colours, fonts, styles)
-    └── vcaa_markdown_renderer.py ─── Markdown-to-tkinter Text renderer
+pdf_generator.py       ─── GUI + orchestration (main entry point)
+    ├── models.py              ─── Data models and persistence
+    ├── pdf_analyzer.py        ─── PDF field extraction engine
+    ├── visual_preview.py      ─── PDF page rendering + field highlighting
+    ├── combed_filler.py       ─── Character-by-character field filling
+    ├── theme.py               ─── Centralised theme (colours, fonts, styles)
+    └── markdown_renderer.py   ─── Markdown-to-tkinter Text renderer
 ```
 
-All modules are pure Python with no circular imports. The main module imports all others; supporting modules only import `vcaa_models` (for the `PDFField` dataclass) and `vcaa_theme` (for rendering constants).
+All modules are pure Python with no circular imports. The main module imports all others; supporting modules only import `models` (for the `PDFField` dataclass) and `theme` (for rendering constants).
 
 ---
 
 ## Module Details
 
-### `vcaa_pdf_generator_v2.py` -- Main Application
+### `pdf_generator.py` -- Main Application
 
-**~2100 lines.** Contains the `VCAAPDFGeneratorV2` class plus supporting dialog classes.
+**~2100 lines.** Contains the `BulkPDFGenerator` class plus supporting dialog classes.
 
 **Responsibilities:**
 - tkinter root window, notebook (tabs), and all widget layout
@@ -39,13 +39,13 @@ All modules are pure Python with no circular imports. The main module imports al
 
 | Class | Purpose |
 |-------|---------|
-| `VCAAPDFGeneratorV2` | Main app. Owns the root window, all tabs, settings, and state. |
+| `BulkPDFGenerator` | Main app. Owns the root window, all tabs, settings, and state. |
 | `ScrollableFrame` | Reusable scrollable container. Platform-aware mousewheel handling. |
 | `WelcomeDialog` | First-run dialog. Routes user to Getting Started or Generate tab. |
 | `SchoolSetupDialog` | Prompts for school name and year (used in output filenames). |
 | `TemplateNameDialog` | Names a template when saving config. |
 
-**Key methods on `VCAAPDFGeneratorV2`:**
+**Key methods on `BulkPDFGenerator`:**
 
 | Method | What it does |
 |--------|-------------|
@@ -60,7 +60,7 @@ All modules are pure Python with no circular imports. The main module imports al
 
 ---
 
-### `vcaa_models.py` -- Data Models
+### `models.py` -- Data Models
 
 Three dataclasses with JSON serialisation:
 
@@ -79,7 +79,7 @@ Application preferences. Stores template directory, school info, combed field al
 
 ---
 
-### `vcaa_pdf_analyzer.py` -- PDF Analysis Engine
+### `pdf_analyzer.py` -- PDF Analysis Engine
 
 Uses PyMuPDF (`fitz`) to open PDF documents and extract all form widgets.
 
@@ -101,7 +101,7 @@ The `_is_sequential()` method accepts contiguous sequences starting from any ind
 
 ---
 
-### `vcaa_visual_preview.py` -- Visual Preview
+### `visual_preview.py` -- Visual Preview
 
 Renders PDF pages as PIL Images and draws field highlight overlays.
 
@@ -128,7 +128,7 @@ Request page 3 at 150 DPI
 
 ---
 
-### `vcaa_combed_filler.py` -- Combed Field Filler
+### `combed_filler.py` -- Combed Field Filler
 
 Pure-logic module (no GUI dependency) that splits text values into individual character fields.
 
@@ -146,7 +146,7 @@ Pure-logic module (no GUI dependency) that splits text values into individual ch
 
 ---
 
-### `vcaa_theme.py` -- Theme System
+### `theme.py` -- Theme System
 
 Centralised theme configuration. All colours, fonts, and spacing constants are defined here and imported by other modules.
 
@@ -172,7 +172,7 @@ Centralised theme configuration. All colours, fonts, and spacing constants are d
 
 ---
 
-### `vcaa_markdown_renderer.py` -- Markdown Renderer
+### `markdown_renderer.py` -- Markdown Renderer
 
 Parses a subset of Markdown and renders formatted text into a `tkinter.Text` widget using the tag system.
 

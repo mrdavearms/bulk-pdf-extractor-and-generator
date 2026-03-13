@@ -526,19 +526,19 @@ For the full security policy, see [SECURITY.md](SECURITY.md).
 ```mermaid
 graph LR
     subgraph ui ["GUI Layer"]
-        Main["vcaa_pdf_generator_v2.py\n(Main Application)"]
-        Theme["vcaa_theme.py\n(Theme & Styling)"]
-        MD["vcaa_markdown_renderer.py\n(Markdown Renderer)"]
+        Main["pdf_generator.py\n(Main Application)"]
+        Theme["theme.py\n(Theme & Styling)"]
+        MD["markdown_renderer.py\n(Markdown Renderer)"]
     end
 
     subgraph core ["Core Engines"]
-        Analyzer["vcaa_pdf_analyzer.py\n(Field Extraction)"]
-        Preview["vcaa_visual_preview.py\n(Page Rendering)"]
-        Filler["vcaa_combed_filler.py\n(Combed Field Logic)"]
+        Analyzer["pdf_analyzer.py\n(Field Extraction)"]
+        Preview["visual_preview.py\n(Page Rendering)"]
+        Filler["combed_filler.py\n(Combed Field Logic)"]
     end
 
     subgraph data ["Data Layer"]
-        Models["vcaa_models.py\n(PDFField, TemplateConfig,\nAppSettings)"]
+        Models["models.py\n(PDFField, TemplateConfig,\nAppSettings)"]
     end
 
     subgraph ext ["External Libraries"]
@@ -574,13 +574,13 @@ graph LR
 
 | Module | Lines | Responsibility |
 |--------|------:|----------------|
-| `vcaa_pdf_generator_v2.py` | ~2,700 | Main application — tabbed GUI, dialogs, Excel I/O, PDF generation pipeline, template management |
-| `vcaa_models.py` | ~190 | Data models (`PDFField`, `TemplateConfig`, `AppSettings`) with JSON serialization and atomic file writes |
-| `vcaa_pdf_analyzer.py` | ~200 | PDF field extraction using PyMuPDF — detects combed fields via regex pattern matching on field names and PDF field dictionary flags |
-| `vcaa_visual_preview.py` | ~200 | PDF page rendering with red-rectangle field highlighting; dual-tier cache (memory LRU + disk PNG) for instant page switching |
-| `vcaa_combed_filler.py` | ~200 | Pure-logic module for splitting text into character-by-character fields with configurable alignment and padding |
-| `vcaa_theme.py` | ~250 | Centralised theme system built on ttkbootstrap; platform-aware typography, semantic colour palette, spacing constants |
-| `vcaa_markdown_renderer.py` | ~170 | Subset markdown parser rendering headings, bold, bullets, and clickable links into tkinter Text widgets |
+| `pdf_generator.py` | ~2,700 | Main application — tabbed GUI, dialogs, Excel I/O, PDF generation pipeline, template management |
+| `models.py` | ~190 | Data models (`PDFField`, `TemplateConfig`, `AppSettings`) with JSON serialization and atomic file writes |
+| `pdf_analyzer.py` | ~200 | PDF field extraction using PyMuPDF — detects combed fields via regex pattern matching on field names and PDF field dictionary flags |
+| `visual_preview.py` | ~200 | PDF page rendering with red-rectangle field highlighting; dual-tier cache (memory LRU + disk PNG) for instant page switching |
+| `combed_filler.py` | ~200 | Pure-logic module for splitting text into character-by-character fields with configurable alignment and padding |
+| `theme.py` | ~250 | Centralised theme system built on ttkbootstrap; platform-aware typography, semantic colour palette, spacing constants |
+| `markdown_renderer.py` | ~170 | Subset markdown parser rendering headings, bold, bullets, and clickable links into tkinter Text widgets |
 | `_generate_version.py` | ~30 | Build-time script — extracts git commit hash and date, writes `_version.py` for the About tab |
 
 ### Key design decisions
@@ -740,7 +740,7 @@ python -m venv venv
 source venv/bin/activate
 
 pip install -r requirements.txt
-python vcaa_pdf_generator_v2.py
+python pdf_generator.py
 ```
 
 ### Dependencies
@@ -776,13 +776,13 @@ macOS builds must be done on a Mac — PyInstaller cannot cross-compile. Clone t
 ```
 bulk-pdf-extractor-and-generator/
 |
-|-- vcaa_pdf_generator_v2.py          # Main application (GUI, dialogs, generation pipeline)
-|-- vcaa_models.py                    # Data models (PDFField, TemplateConfig, AppSettings)
-|-- vcaa_pdf_analyzer.py              # PDF field extraction engine (PyMuPDF)
-|-- vcaa_visual_preview.py            # PDF page rendering + field highlighting
-|-- vcaa_combed_filler.py             # Character-by-character field filling logic
-|-- vcaa_theme.py                     # Theme system (colours, fonts, spacing)
-|-- vcaa_markdown_renderer.py         # Markdown renderer for Getting Started tab
+|-- pdf_generator.py                  # Main application (GUI, dialogs, generation pipeline)
+|-- models.py                         # Data models (PDFField, TemplateConfig, AppSettings)
+|-- pdf_analyzer.py                   # PDF field extraction engine (PyMuPDF)
+|-- visual_preview.py                 # PDF page rendering + field highlighting
+|-- combed_filler.py                  # Character-by-character field filling logic
+|-- theme.py                          # Theme system (colours, fonts, spacing)
+|-- markdown_renderer.py              # Markdown renderer for Getting Started tab
 |
 |-- getting_started.md                # In-app guide content (rendered in Tab 0)
 |-- icon.png / icon.ico               # Application icons

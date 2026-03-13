@@ -21,7 +21,7 @@ import re
 import tkinter as tk  # tk.Text, tk.END, tk.NORMAL, tk.DISABLED — no ttkbootstrap needed here
 import webbrowser
 
-from vcaa_theme import COLORS, SYSTEM_FONTS, font
+from theme import COLORS, SYSTEM_FONTS, font
 
 # Regex that matches **bold** spans and [text](url) links within a line.
 _INLINE_RE = re.compile(
