@@ -16,7 +16,7 @@
 ---
 
 Originally built to streamline VCAA Special Examination Arrangements Evidence Application forms, but works with **any** PDF form — TAFE enrolments, leave applications, compliance forms, consent forms, and more. The app examines the PDF for any fillable form fields, seeks confirmation and changes and then generates an Excel file
-for you to fill in content. Then use that data to fill in the form in bulk at high soeedy. Massive time saver if used well.
+for you to fill in content. Then use that Excel data to fill in the form in bulk at high speed. Massive time saver if used well.
 
 > [!NOTE]
 > A Principal-developed app for educators and school leaders. Always review all generated outputs before use.
