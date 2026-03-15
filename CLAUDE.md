@@ -23,10 +23,9 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 
 | | |
 |---|---|
-| **Primary (origin)** | `https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator.git` |
-| **Mirror (github)** | `https://github.com/mrdavearms/bulk-pdf-extractor-and-generator.git` (suspension resolved March 2026) |
-| **GitLab user** | `dave401` |
-| **glab CLI** | Authenticated, v1.86.0+ |
+| **Primary (origin)** | `https://github.com/mrdavearms/bulk-pdf-extractor-and-generator.git` |
+| **Backup (gitlab)** | `https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator.git` |
+| **CI/CD** | GitHub Actions (`.github/workflows/release.yml`) |
 
 ## Source Files
 
@@ -64,71 +63,38 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 
 ## Release Workflow
 
-Releases go to **GitLab Releases** (primary) and **GitHub Releases** (mirror). The `.exe` is NOT committed to git (`dist/` is in `.gitignore`).
+Releases are built by **GitHub Actions** and published to **GitHub Releases**. The `.exe` and `.app` are NOT committed to git (`dist/` is in `.gitignore`).
 
 **GitHub compliance rule**: never link directly to binary assets (`.exe`, `.dmg`) in the README — link to the Releases *page* only. Direct binary links triggered GitHub's storage-abuse detection and caused account suspension.
 
-### Quick release
+### Automated release (GitHub Actions)
 
 ```bash
-./release.sh v2.X
-```
-
-This script automates: version baking, PyInstaller build, git tag + push, GitLab Release creation, `.exe` upload + linking, and README badge update.
-
-### Manual release (if the script breaks)
-
-```bash
-# 1. Build
-python _generate_version.py
-python -m PyInstaller BulkPDFGenerator.spec --clean
-
-# 2. Tag and push
 git tag v2.X
-git push origin main --tags
-
-# 3. Create release
-glab release create v2.X --name "Bulk PDF Generator v2.X" --notes "Release notes"
-
-# 4. Upload exe (glab has a bug with direct file uploads, use curl)
-TOKEN=$(glab auth status --show-token 2>&1 | grep "Token found" | sed 's/.*Token found: //')
-curl --request POST --header "PRIVATE-TOKEN: $TOKEN" \
-  --form "file=@dist/Bulk PDF Generator.exe" \
-  "https://gitlab.com/api/v4/projects/davearmswork%2Fbulk-pdf-extractor-and-generator/uploads"
-
-# 5. Link the upload to the release (use full_path from step 4 JSON response)
-curl --request POST --header "PRIVATE-TOKEN: $TOKEN" \
-  --header "Content-Type: application/json" \
-  --data '{"name":"Bulk.PDF.Generator.exe","url":"https://gitlab.com<FULL_PATH>","filepath":"/binaries/Bulk.PDF.Generator.exe","link_type":"other"}' \
-  "https://gitlab.com/api/v4/projects/davearmswork%2Fbulk-pdf-extractor-and-generator/releases/v2.X/assets/links"
-
-# 6. Update README badge version and push
-
-# 7. Push to GitHub mirror
-git push github main --tags
-
-# 8. Create GitHub release (link to GitLab for the binary — no direct .exe links)
-gh release create v2.X \
-  --repo mrdavearms/bulk-pdf-extractor-and-generator \
-  --title "Bulk PDF Generator v2.X" \
-  --notes "Release notes. Download the Windows .exe from [GitLab Releases](https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator/-/releases/v2.X)."
+git push origin --tags
 ```
 
-### Known quirks
+This triggers `.github/workflows/release.yml` which:
+1. Builds Windows `.exe` on `windows-latest` using `BulkPDFGenerator.spec`
+2. Builds macOS `.app` on `macos-latest` using `BulkPDFGenerator_mac.spec` (zipped as `Bulk.PDF.Generator.macOS.zip`)
+3. Creates a GitHub Release with auto-generated notes and both binaries attached
 
-- `glab release create` with file arguments fails with "Filepath is in an invalid format" — this is a glab CLI bug. Use the curl two-step (upload then link) as a workaround.
-- GitLab project uploads go to `/-/project/<id>/uploads/<hash>/filename` — the `full_path` from the upload response is what you pass to the asset link.
-- The README download badge is a static shields.io badge (not dynamic) — the version must be updated manually in `README.md` after each release (the release script handles this).
+The README download badge version still needs updating manually after a release.
+
+### Legacy local release (fallback)
+
+`release.sh` still exists for local builds if needed. It builds the Windows `.exe` locally, creates a GitLab Release, and uploads the binary. Use the GitHub Actions workflow instead for normal releases.
 
 ## Cross-Platform Build
 
-- **Windows .exe**: Build on Windows with `python -m PyInstaller BulkPDFGenerator.spec --clean`. Output: `dist/Bulk PDF Generator.exe`.
-- **macOS .app**: Must build on macOS. PyInstaller cannot cross-compile. Clone repo on Mac, install deps, run PyInstaller.
+Both platforms are built automatically by GitHub Actions. For local builds:
+- **Windows .exe**: `python -m PyInstaller BulkPDFGenerator.spec --clean` → `dist/Bulk PDF Generator.exe`
+- **macOS .app**: `python -m PyInstaller BulkPDFGenerator_mac.spec --clean` → `dist/Bulk PDF Generator.app`
 - **Linux**: Run from source. No packaging currently set up.
 
 ## Git LFS
 
-**Not used and not needed.** The `.exe` is distributed via GitLab Releases (file hosting), not stored in git history. The `.gitignore` excludes `dist/` and `build/`. The only binaries tracked in git are small PNGs (icon, app visualisation).
+**Not used and not needed.** Binaries are distributed via GitHub Releases, not stored in git history. The `.gitignore` excludes `dist/` and `build/`. The only binaries tracked in git are small PNGs (icon, app visualisation).
 
 ## Field Data Types
 
