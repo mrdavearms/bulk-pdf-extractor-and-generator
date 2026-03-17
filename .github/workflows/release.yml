@@ -129,6 +129,7 @@ jobs:
 
             ### 🪟 Windows
             **[Bulk.PDF.Generator.exe](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases/download/${{ github.ref_name }}/Bulk.PDF.Generator.exe)** — Double-click to run. No installation needed.
+            > **Windows security prompt:** Windows may show a "Windows protected your PC" screen. This is normal for newly released apps. Click **More info → Run anyway** to proceed.
 
             ### 🍎 macOS
             **[Bulk.PDF.Generator.macOS.zip](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases/download/${{ github.ref_name }}/Bulk.PDF.Generator.macOS.zip)** — Unzip, then open the app.
