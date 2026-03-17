@@ -14,6 +14,7 @@ Features:
 
 import os
 import sys
+import webbrowser
 import tkinter as tk
 import ttkbootstrap as ttk
 from tkinter import filedialog, messagebox, simpledialog
@@ -1073,7 +1074,6 @@ class BulkPDFGenerator:
 
     def setup_tab_about(self):
         """Build the About tab with developer info and project links."""
-        import webbrowser
         C = COLORS
         ff = SYSTEM_FONTS['family']
 
@@ -1158,7 +1158,49 @@ class BulkPDFGenerator:
         _commit, _date, _version_tag = self._build_info
         version_str = f"{_version_tag}  ·  {_commit}  ·  {_date}"
         tk.Label(card, text=version_str, font=(ff, 10),
-                 fg=C['text_tertiary'], bg=C['bg_surface']).pack()
+                 fg=C['text_tertiary'], bg=C['bg_surface']).pack(pady=(0, 8))
+
+        update_btn = ttk.Button(card, text='Check for Updates', bootstyle='outline-secondary',
+                                width=20)
+        update_btn.config(command=lambda: self._run_update_check(update_btn))
+        update_btn.pack()
+
+    def _run_update_check(self, button):
+        """Start a background update check. Disables the button while running."""
+        button.config(state='disabled', text='Checking…')
+
+        def _worker():
+            _commit, _date, current_version = self._build_info
+            result = check_for_update(current_version)
+            self.root.after(0, lambda: self._show_update_result(result, button))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _show_update_result(self, result, button):
+        """Display update-check result. Re-enables the button when done."""
+        button.config(state='normal', text='Check for Updates')
+
+        status = result.get('status')
+
+        if status == 'update_available':
+            latest = result['latest']
+            url = result['html_url']
+            go = messagebox.askyesno(
+                'Update Available',
+                f'Version {latest} is available.\n\nOpen the Releases page to download?',
+                icon='info'
+            )
+            if go:
+                webbrowser.open(url)
+
+        elif status == 'up_to_date':
+            messagebox.showinfo('Up to Date', "You're running the latest version.")
+
+        else:
+            messagebox.showwarning(
+                'Update Check Failed',
+                f"Could not check for updates.\n\n{result.get('message', 'Unknown error')}"
+            )
 
     def update_status(self, message, level='info'):
         """Update the status bar message."""
