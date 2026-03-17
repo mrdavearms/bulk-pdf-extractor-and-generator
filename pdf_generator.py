@@ -81,6 +81,62 @@ def _get_build_info() -> tuple:
     return ('dev', 'local build', 'dev')
 
 
+def check_for_update(current_version: str) -> dict:
+    """Query GitHub Releases API and compare to current_version.
+
+    Args:
+        current_version: Version string like 'v2.6'. Pass 'dev' to skip check.
+
+    Returns:
+        dict with keys:
+          'status'   — 'update_available' | 'up_to_date' | 'error'
+          'latest'   — tag string from GitHub (present on non-error)
+          'html_url' — release page URL (present on non-error)
+          'message'  — human-readable error text (present on 'error' only)
+    """
+    import urllib.request
+
+    RELEASES_API = (
+        'https://api.github.com/repos/'
+        'mrdavearms/bulk-pdf-extractor-and-generator/releases/latest'
+    )
+
+    def _parse_version(tag: str):
+        """Convert 'v2.6' -> (2, 6) for numeric comparison."""
+        try:
+            return tuple(int(x) for x in tag.lstrip('v').split('.'))
+        except ValueError:
+            return (0,)
+
+    # Don't prompt dev/source-run users — they have no installed version to update
+    if not current_version.startswith('v'):
+        return {'status': 'up_to_date', 'latest': current_version, 'html_url': ''}
+
+    try:
+        req = urllib.request.Request(
+            RELEASES_API,
+            headers={'User-Agent': 'BulkPDFGenerator-UpdateCheck/1.0'}
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+
+        latest_tag = data.get('tag_name', '')
+        html_url = data.get('html_url', '')
+        is_newer = _parse_version(latest_tag) > _parse_version(current_version)
+
+        return {
+            'status': 'update_available' if is_newer else 'up_to_date',
+            'latest': latest_tag,
+            'html_url': html_url,
+        }
+
+    except Exception as exc:
+        return {
+            'status': 'error',
+            'message': str(exc),
+        }
+
+
 # Import our new modules
 from models import PDFField, TemplateConfig, AppSettings
 from pdf_analyzer import PDFAnalyzer, auto_name_template
