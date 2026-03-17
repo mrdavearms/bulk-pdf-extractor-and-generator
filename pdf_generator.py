@@ -41,7 +41,7 @@ def get_resource_path(filename: str) -> str:
 
 
 def _get_build_info() -> tuple:
-    """Return (commit_hash, build_date) for display in the About tab.
+    """Return (commit_hash, build_date, version_tag) for display.
 
     Priority:
     1. _version.py — baked in at build time by _generate_version.py (works in frozen exe)
@@ -50,7 +50,10 @@ def _get_build_info() -> tuple:
     """
     try:
         import _version
-        return (_version.BUILD_COMMIT, _version.BUILD_DATE)
+        commit = _version.BUILD_COMMIT
+        date = _version.BUILD_DATE
+        version = getattr(_version, 'BUILD_VERSION', 'dev')
+        return (commit, date, version)
     except ImportError:
         pass
 
@@ -64,11 +67,18 @@ def _get_build_info() -> tuple:
             ['git', 'log', '-1', '--format=%cd', '--date=format:%d %b %Y'],
             stderr=subprocess.DEVNULL, text=True
         ).strip()
-        return (commit, date)
+        try:
+            version = subprocess.check_output(
+                ['git', 'describe', '--tags', '--abbrev=0'],
+                stderr=subprocess.DEVNULL, text=True
+            ).strip()
+        except Exception:
+            version = 'dev'
+        return (commit, date, version)
     except Exception:
         pass
 
-    return ('dev', 'local build')
+    return ('dev', 'local build', 'dev')
 
 
 # Import our new modules
@@ -636,7 +646,9 @@ class BulkPDFGenerator:
 
     def __init__(self, root):
         self.root = root
-        self.root.title("Bulk PDF Generator v2.5")
+        self._build_info = _get_build_info()   # (commit, date, version) — cached once
+        _commit, _date, _version_tag = self._build_info
+        self.root.title(f"Bulk PDF Generator {_version_tag}")
         self.root.geometry("1000x800")
         self.root.minsize(900, 700)
 
@@ -1087,8 +1099,8 @@ class BulkPDFGenerator:
                  bg=C['bg_surface'], justify=tk.CENTER).pack(pady=(0, 12))
 
         # Version — commit hash and build date baked in at build time
-        _commit, _date = _get_build_info()
-        version_str = f"v2.5  ·  {_commit}  ·  {_date}"
+        _commit, _date, _version_tag = self._build_info
+        version_str = f"{_version_tag}  ·  {_commit}  ·  {_date}"
         tk.Label(card, text=version_str, font=(ff, 10),
                  fg=C['text_tertiary'], bg=C['bg_surface']).pack()
 
@@ -1779,7 +1791,7 @@ class BulkPDFGenerator:
                 ws_instr.column_dimensions['A'].width = 80
 
                 # ── About sheet ──
-                _commit, _date = _get_build_info()
+                _commit, _date, _version_tag = self._build_info
                 ws_about = wb.create_sheet(title='About')
 
                 about_rows = [
@@ -1809,7 +1821,7 @@ class BulkPDFGenerator:
                         'body'
                     ),
                     ('', None),
-                    (f'Version: v2.5  ·  {_commit}  ·  {_date}', 'muted'),
+                    (f'Version: {_version_tag}  ·  {_commit}  ·  {_date}', 'muted'),
                 ]
 
                 title_font   = Font(bold=True, size=18, color='1D1D1F')
