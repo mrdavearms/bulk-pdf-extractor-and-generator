@@ -124,7 +124,28 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body: |
+            ## ⬇ Download
+
+            ### 🪟 Windows
+            **[Bulk.PDF.Generator.exe](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases/download/${{ github.ref_name }}/Bulk.PDF.Generator.exe)** — Double-click to run. No installation needed.
+
+            ### 🍎 macOS
+            **[Bulk.PDF.Generator.macOS.zip](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases/download/${{ github.ref_name }}/Bulk.PDF.Generator.macOS.zip)** — Unzip, then open the app.
+            > First time only: right-click the app → Open (macOS security prompt).
+
+            ---
+
+            ## What's new in ${{ github.ref_name }}
+
+            <!-- Add release notes above this line before tagging -->
+
+            <details>
+            <summary>Technical details</summary>
+
+            Built by GitHub Actions from commit `${{ github.sha }}`.
+
+            </details>
           files: |
             artifacts/Bulk PDF Generator.exe
             artifacts/Bulk.PDF.Generator.macOS.zip
