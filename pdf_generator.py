@@ -2144,11 +2144,11 @@ class BulkPDFGenerator:
         # Column header row
         header_frame = tk.Frame(mappings_inner, bg=C['bg_surface'])
         header_frame.pack(fill=tk.X, pady=(0, 4))
-        tk.Label(header_frame, text="PDF Field", font=font(9, bold=True),
+        tk.Label(header_frame, text="PDF Field", font=font(9, 'bold'),
                  fg=C['text_secondary'], bg=C['bg_surface'], width=28, anchor='w').pack(side=tk.LEFT)
-        tk.Label(header_frame, text="Excel Column", font=font(9, bold=True),
+        tk.Label(header_frame, text="Excel Column", font=font(9, 'bold'),
                  fg=C['text_secondary'], bg=C['bg_surface'], width=32, anchor='w').pack(side=tk.LEFT, padx=(8, 0))
-        tk.Label(header_frame, text="Status", font=font(9, bold=True),
+        tk.Label(header_frame, text="Status", font=font(9, 'bold'),
                  fg=C['text_secondary'], bg=C['bg_surface'], width=10, anchor='w').pack(side=tk.LEFT, padx=(8, 0))
 
         # Thin separator
