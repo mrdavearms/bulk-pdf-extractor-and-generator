@@ -139,6 +139,8 @@ jobs:
 
             ## What's new in ${{ github.ref_name }}
 
+            - **Fixed: crash on first launch** — Tab 2 (Map Fields) crashed immediately on opening due to a font configuration error. All Windows and macOS users on v2.7 are affected.
+
             <!-- Add release notes above this line before tagging -->
 
             <details>
