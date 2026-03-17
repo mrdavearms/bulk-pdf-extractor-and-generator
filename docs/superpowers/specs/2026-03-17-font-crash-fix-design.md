@@ -75,9 +75,10 @@ Five tests, all pure unit tests (no tkinter display required):
 |------|---------|
 | `test_font_no_weight` | `font(10)` returns `(family, 10)` 2-tuple |
 | `test_font_bold` | `font(10, 'bold')` returns `(family, 10, 'bold')` 3-tuple |
+| `test_font_italic` | `font(10, 'italic')` returns `(family, 10, 'italic')` 3-tuple |
+| `test_font_bold_italic` | `font(10, 'bold italic')` returns `(family, 10, 'bold italic')` 3-tuple |
 | `test_font_invalid_weight_raises` | `font(10, 'Bold')` raises `ValueError` |
 | `test_font_invalid_kwarg_raises` | `font(9, bold=True)` raises `TypeError` |
-| `test_mono_font` | `mono_font(10)` returns `(mono_family, 10)` 2-tuple |
 
 ---
 
