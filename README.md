@@ -4,9 +4,10 @@
 
 **Batch-fill PDF forms from spreadsheet data — turning hours of manual data entry into a single click.**
 
-[![Latest Release](https://img.shields.io/badge/latest-v2.5.5-0078d4?style=for-the-badge)](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/mrdavearms/bulk-pdf-extractor-and-generator?style=for-the-badge&color=0078d4)](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases/latest)
 
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078d4?logo=windows&logoColor=white)](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases)
+[![Build](https://img.shields.io/github/actions/workflow/status/mrdavearms/bulk-pdf-extractor-and-generator/release.yml?logo=github&label=build)](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/actions/workflows/release.yml)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078d4?logo=windows&logoColor=white)](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases)
 [![License](https://img.shields.io/badge/license-MIT-22c55e)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3b82f6?logo=python&logoColor=white)](https://python.org)
 
@@ -14,7 +15,8 @@
 
 ---
 
-Originally built to streamline VCAA Special Examination Arrangements Evidence Application forms, but works with **any** PDF form — TAFE enrolments, leave applications, compliance forms, consent forms, and more.
+Originally built to streamline VCAA Special Examination Arrangements Evidence Application forms, but works with **any** PDF form — TAFE enrolments, leave applications, compliance forms, consent forms, and more. The app examines the PDF for any fillable form fields, seeks confirmation and changes and then generates an Excel file
+for you to fill in content. Then use that Excel data to fill in the form in bulk at high speed. Massive time saver if used well.
 
 > [!NOTE]
 > A Principal-developed app for educators and school leaders. Always review all generated outputs before use.

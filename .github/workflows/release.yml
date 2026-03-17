@@ -1,0 +1,130 @@
+# ============================================================
+# Bulk PDF Generator — GitHub Actions Release Pipeline
+# ============================================================
+# Triggered by pushing a version tag (e.g. v2.6).
+# Builds Windows .exe and macOS .app in parallel, then creates
+# a GitHub Release with both binaries attached.
+#
+# Usage:
+#   git tag v2.6
+#   git push origin --tags
+# ============================================================
+
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Windows .exe build ──────────────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for _generate_version.py
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Bake version info
+        run: python _generate_version.py
+
+      - name: Build .exe
+        run: python -m PyInstaller BulkPDFGenerator.spec --clean --noconfirm
+
+      - name: Verify build output
+        run: |
+          if (!(Test-Path "dist/Bulk PDF Generator.exe")) {
+            Write-Error "Build failed — .exe not found"
+            exit 1
+          }
+          $size = (Get-Item "dist/Bulk PDF Generator.exe").Length / 1MB
+          Write-Host "Built: Bulk PDF Generator.exe ($([math]::Round($size, 1)) MB)"
+        shell: pwsh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: dist/Bulk PDF Generator.exe
+          retention-days: 1
+
+  # ── macOS .app build ────────────────────────────────────────
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Bake version info
+        run: python _generate_version.py
+
+      - name: Build .app
+        run: python -m PyInstaller BulkPDFGenerator_mac.spec --clean --noconfirm
+
+      - name: Verify and zip .app bundle
+        run: |
+          if [ ! -d "dist/Bulk PDF Generator.app" ]; then
+            echo "Build failed — .app not found"
+            exit 1
+          fi
+          cd dist
+          zip -r "Bulk.PDF.Generator.macOS.zip" "Bulk PDF Generator.app"
+          SIZE=$(du -h "Bulk.PDF.Generator.macOS.zip" | cut -f1)
+          echo "Built: Bulk.PDF.Generator.macOS.zip ($SIZE)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: dist/Bulk.PDF.Generator.macOS.zip
+          retention-days: 1
+
+  # ── Create GitHub Release ───────────────────────────────────
+  release:
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: artifacts/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-app
+          path: artifacts/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/Bulk PDF Generator.exe
+            artifacts/Bulk.PDF.Generator.macOS.zip
