@@ -101,7 +101,14 @@ def get_system_fonts() -> dict:
 SYSTEM_FONTS = get_system_fonts()
 
 
+_VALID_WEIGHTS = {'', 'bold', 'italic', 'bold italic'}
+
+
 def font(size: int, weight: str = '') -> tuple:
+    if weight not in _VALID_WEIGHTS:
+        raise ValueError(
+            f"font() weight must be one of {sorted(_VALID_WEIGHTS)!r}, got {weight!r}"
+        )
     if weight:
         return (SYSTEM_FONTS['family'], size, weight)
     return (SYSTEM_FONTS['family'], size)
