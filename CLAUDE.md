@@ -31,15 +31,16 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 
 | File | Purpose |
 |------|---------|
-| `pdf_generator.py` | Main application (~3050 lines) — GUI, dialogs, generation pipeline |
+| `pdf_generator.py` | Main application (~3230 lines) — GUI, dialogs, generation pipeline |
 | `models.py` | Data models: `PDFField`, `TemplateConfig`, `AppSettings` |
 | `pdf_analyzer.py` | PDF field extraction engine (PyMuPDF) |
 | `visual_preview.py` | PDF page rendering + field highlighting, dual-tier cache |
 | `combed_filler.py` | Character-by-character combed field filling |
 | `theme.py` | Centralised theme (colours, fonts, spacing) |
 | `markdown_renderer.py` | Markdown → tkinter Text widget renderer |
-| `_generate_version.py` | Build-time script: bakes git commit + date into `_version.py` |
+| `_generate_version.py` | Build-time script: bakes git commit, date, and version tag into `_version.py` |
 | `getting_started.md` | In-app guide content (rendered in Tab 0) |
+| `tests/` | Unit test suite — run with `venv/bin/python -m pytest tests/ -v` |
 
 ## Key Architecture Decisions
 
@@ -50,6 +51,9 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 - **Backward-compatible persistence**: `from_json()` filters unknown keys so newer configs load in older versions.
 - **Field mapping**: `PDFField.excel_column` stores the explicit Excel column name per field. `TemplateConfig.field_excel_columns` persists these as `{field_name: col_name}`. Generation checks `field.excel_column` first, then falls back to auto-match by field name (case-insensitive). Tab 2 is the UI for viewing and editing these mappings.
 - **Tab lifecycle**: Tab 2 starts disabled; enabled by `analyze_pdf_fields()` after successful analysis. `_refresh_tab2_mappings()` is the single rebuild point — called after analysis, after Excel load, and after template load.
+- **Data directory resilience**: `_resolve_data_dir()` tries `~/Documents/BulkPDFGenerator` first; falls back to `%LOCALAPPDATA%/BulkPDFGenerator` if `makedirs` fails (common on school networks with GPO-redirected Documents folders). Both `settings_file` and `templates_directory` derive from this resolved path.
+- **Build version**: `_get_build_info()` returns a 3-tuple `(commit, date, version_tag)` — `BUILD_VERSION` is baked at build time via `git describe --tags --abbrev=0`. Result cached on `self._build_info` in `__init__` to avoid duplicate subprocess calls.
+- **Update check**: `check_for_update(current_version)` is a module-level pure function (no GUI dependency) hitting the GitHub Releases API. Called from `_run_update_check()` on a daemon thread; result dispatched to `_show_update_result()` via `root.after()` — consistent with the existing thread-safety pattern.
 
 ## Tab Overview
 
@@ -106,6 +110,14 @@ Fields can be typed as `text`, `number`, or `date`:
 The audit dialog appears after PDF analysis with smart defaults (fields containing "date", "dob", "birth" → Date). Types are persisted in the template config JSON and restored on reload. Explicit user choices (including reverting a smart-guessed Date back to Text) are preserved.
 
 Excel serial date range validation: only serials 1–2958465 are converted (1900-01-01 to 9999-12-31). Invalid values fall through to string conversion.
+
+## Dev Environment
+
+- **Python**: Use `venv/bin/python` — system `python`/`python3` doesn't have project deps. Install pytest once: `venv/bin/pip install pytest`.
+- **Run tests**: `venv/bin/python -m pytest tests/ -v`
+- **Main class**: `BulkPDFGenerator` (not `BulkPDFApp` or similar)
+- **About tab method**: `setup_tab_about()` (not `setup_tab4_about`)
+- **Mocking**: patch at the module level — e.g. `patch.object(_generate_version.os.path, 'abspath', ...)` not `patch('os.path.abspath')`
 
 ## Developer
 

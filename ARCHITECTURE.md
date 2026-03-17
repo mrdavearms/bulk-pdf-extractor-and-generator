@@ -1,4 +1,4 @@
-# Architecture -- Bulk PDF Generator v2.0
+# Architecture -- Bulk PDF Generator v2.7
 
 This document describes the internal architecture of the Bulk PDF Generator, covering module responsibilities, data flow, threading model, caching strategy, file safety, and platform considerations.
 
@@ -26,7 +26,7 @@ All modules are pure Python with no circular imports. The main module imports al
 
 ### `pdf_generator.py` -- Main Application
 
-**~2100 lines.** Contains the `BulkPDFGenerator` class plus supporting dialog classes.
+**~3230 lines.** Contains the `BulkPDFGenerator` class plus supporting dialog classes.
 
 **Responsibilities:**
 - tkinter root window, notebook (tabs), and all widget layout
@@ -402,7 +402,7 @@ The PDF field preview canvas supports:
 
 ## Security Considerations
 
-- **No network access:** The app is fully offline. No data is sent anywhere.
+- **Network access:** One outbound HTTPS GET to the GitHub Releases API (`api.github.com`) when the user clicks "Check for Updates" in the About tab. No data is transmitted — it is a read-only version check. All other operation is fully offline.
 - **No credential storage:** No passwords, API keys, or tokens.
 - **File system scope:** The app reads PDFs and spreadsheets selected by the user, and writes output PDFs to a user-selected directory. It does not traverse directories or access files outside user selection.
 - **Filename sanitisation:** Output filenames strip all characters except alphanumeric, spaces, hyphens, and underscores to prevent path traversal or shell injection via crafted student names.
@@ -412,7 +412,7 @@ The PDF field preview canvas supports:
 
 ## Future Considerations
 
-- **Tab 2 (Map Fields):** Currently a placeholder. The intended feature is a drag-and-drop UI for manually mapping PDF fields to Excel columns when auto-matching fails.
+- **Tab 2 (Map Fields):** Fully implemented — combobox editor for mapping each PDF field to an Excel column name, with auto-map and clear-all actions.
 - **Settings dialog:** In-app UI for changing combed field alignment, padding, and other preferences currently stored in `settings.json`.
 - **Overflow warnings:** Pre-generation warnings when data values exceed combed field lengths, with option to proceed or cancel.
 - **Cache management:** UI controls to view cache size and clear cached preview images.
