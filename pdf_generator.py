@@ -138,6 +138,28 @@ def check_for_update(current_version: str) -> dict:
         }
 
 
+def _resolve_data_dir() -> str:
+    """Return the app data directory, creating it if needed.
+
+    Tries ~/Documents/BulkPDFGenerator first. If that fails (common on school
+    networks where Documents is a network-redirected folder that isn't mounted
+    at login time), falls back to %LOCALAPPDATA%/BulkPDFGenerator on Windows,
+    or ~/BulkPDFGenerator on other platforms. LOCALAPPDATA is always a local
+    path and cannot be redirected by Group Policy.
+    """
+    primary = os.path.expanduser("~/Documents/BulkPDFGenerator")
+    try:
+        os.makedirs(primary, exist_ok=True)
+        return primary
+    except OSError:
+        fallback = os.path.join(
+            os.environ.get('LOCALAPPDATA', os.path.expanduser('~')),
+            'BulkPDFGenerator'
+        )
+        os.makedirs(fallback, exist_ok=True)
+        return fallback
+
+
 # Import our new modules
 from models import PDFField, TemplateConfig, AppSettings
 from pdf_analyzer import PDFAnalyzer, auto_name_template
@@ -713,9 +735,16 @@ class BulkPDFGenerator:
         self._icon_refs = {}
         self._load_app_icon()
 
-        # Settings
-        self.settings_file = os.path.expanduser("~/Documents/BulkPDFGenerator/settings.json")
+        # Settings — resolve data dir with fallback for network-redirected Documents
+        _data_dir = _resolve_data_dir()
+        self.settings_file = os.path.join(_data_dir, 'settings.json')
         self.settings = self.load_settings()
+
+        # If templates_directory still points to the Documents default, remap it to
+        # the resolved data dir (covers the fallback case transparently).
+        _docs_default = os.path.expanduser("~/Documents/BulkPDFGenerator/templates")
+        if self.settings.templates_directory == _docs_default:
+            self.settings.templates_directory = os.path.join(_data_dir, 'templates')
 
         # Ensure templates directory exists
         os.makedirs(self.settings.templates_directory, exist_ok=True)
