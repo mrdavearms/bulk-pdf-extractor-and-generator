@@ -95,7 +95,9 @@ def check_for_update(current_version: str) -> dict:
           'html_url' — release page URL (present on non-error)
           'message'  — human-readable error text (present on 'error' only)
     """
+    import ssl
     import urllib.request
+    import certifi
 
     RELEASES_API = (
         'https://api.github.com/repos/'
@@ -114,11 +116,12 @@ def check_for_update(current_version: str) -> dict:
         return {'status': 'up_to_date', 'latest': current_version, 'html_url': ''}
 
     try:
+        ctx = ssl.create_default_context(cafile=certifi.where())
         req = urllib.request.Request(
             RELEASES_API,
             headers={'User-Agent': 'BulkPDFGenerator-UpdateCheck/1.0'}
         )
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
             data = json.loads(resp.read())
 
         latest_tag = data.get('tag_name', '')
