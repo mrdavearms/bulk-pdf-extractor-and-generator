@@ -812,6 +812,12 @@ bulk-pdf-extractor-and-generator/
 
 ## Release Notes
 
+### v2.7.3 — March 2026
+
+- **Fixed: crash on macOS when opening dialogs** — The app could crash immediately when the School Setup, Template Name, Field Type Audit, or Sheet Picker dialog appeared on newer versions of macOS. This was caused by a timing issue between Tk and macOS window management. Dialogs now open reliably on all macOS versions.
+
+---
+
 ### v2.7.2 — March 2026
 
 - **Fixed: "Check for Updates" failing on Mac** — The update checker now works reliably on macOS. Previously it showed an SSL certificate error when checking for new versions.

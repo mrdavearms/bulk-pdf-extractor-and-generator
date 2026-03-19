@@ -254,7 +254,6 @@ class SchoolSetupDialog(tk.Toplevel):
         self.configure(bg=COLORS['bg_elevated'])
         self.resizable(False, False)
         self.transient(parent)
-        self.grab_set()
 
         self.result_name = None
         self.result_year = None
@@ -352,6 +351,8 @@ class SchoolSetupDialog(tk.Toplevel):
         self.lift()
         self.attributes('-topmost', True)
         self.after(100, lambda: self.attributes('-topmost', False))
+        # Defer grab_set so the window is fully realised by AppKit (macOS crash fix)
+        self.after(50, self.grab_set)
 
     def on_save(self):
         name = self.name_var.get().strip()
@@ -378,7 +379,6 @@ class TemplateNameDialog(tk.Toplevel):
         self.geometry("520x280")
         self.configure(bg=COLORS['bg_elevated'])
         self.transient(parent)
-        self.grab_set()
 
         self.result = None
         C = COLORS
@@ -472,6 +472,8 @@ class TemplateNameDialog(tk.Toplevel):
         self.lift()
         self.attributes('-topmost', True)
         self.after(100, lambda: self.attributes('-topmost', False))
+        # Defer grab_set so the window is fully realised by AppKit (macOS crash fix)
+        self.after(50, self.grab_set)
 
     def on_save(self):
         self.result = self.name_var.get().strip()
@@ -513,7 +515,6 @@ class FieldTypeAuditDialog(tk.Toplevel):
         self.title("Review Field Types")
         self.configure(bg=COLORS['bg_elevated'])
         self.transient(parent)
-        self.grab_set()
 
         self.fields = fields
         self.preconfigured = preconfigured or set()
@@ -672,6 +673,8 @@ class FieldTypeAuditDialog(tk.Toplevel):
         self.lift()
         self.attributes('-topmost', True)
         self.after(100, lambda: self.attributes('-topmost', False))
+        # Defer grab_set so the window is fully realised by AppKit (macOS crash fix)
+        self.after(50, self.grab_set)
 
     def _on_field_type_changed(self, idx):
         """Enable/disable Length entry when field type changes."""
@@ -2570,7 +2573,8 @@ class BulkPDFGenerator:
         dialog.title("Select Sheet")
         dialog.resizable(False, False)
         dialog.configure(bg=C['bg_base'])
-        dialog.grab_set()
+        # Defer grab_set so the window is fully realised by AppKit (macOS crash fix)
+        dialog.after(50, dialog.grab_set)
 
         # Centre over the main window
         dialog.update_idletasks()
