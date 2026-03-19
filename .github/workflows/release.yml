@@ -139,7 +139,7 @@ jobs:
 
             ## What's new in ${{ github.ref_name }}
 
-            - **Fixed: crash on first launch** — Tab 2 (Map Fields) crashed immediately on opening due to a font configuration error. All Windows and macOS users on v2.7 are affected.
+            - **Fixed: "Check for Updates" failing on Mac** — The update checker now works reliably on macOS. Previously it failed with an SSL certificate error because bundled Mac apps couldn't access the system certificate store.
 
             <!-- Add release notes above this line before tagging -->
 
