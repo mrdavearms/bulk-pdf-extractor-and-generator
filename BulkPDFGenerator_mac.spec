@@ -26,6 +26,9 @@ openpyxl_datas = collect_data_files('openpyxl')
 # ── pandas ───────────────────────────────────────────────────────────────────
 pandas_datas = collect_data_files('pandas')
 
+# ── certifi (SSL CA bundle) ───────────────────────────────────────────────
+certifi_datas = collect_data_files('certifi')
+
 # ── Analysis ─────────────────────────────────────────────────────────────────
 a = Analysis(
     ['pdf_generator.py'],
@@ -35,7 +38,7 @@ a = Analysis(
         ('getting_started.md', '.'),
         ('icon.png',           '.'),
         ('icon.ico',           '.'),
-    ] + pymupdf_datas + fitz_datas + openpyxl_datas + pandas_datas + ttkbs_datas,
+    ] + pymupdf_datas + fitz_datas + openpyxl_datas + pandas_datas + ttkbs_datas + certifi_datas,
     hiddenimports=(
         pymupdf_hidden
         + fitz_hidden
@@ -53,6 +56,7 @@ a = Analysis(
             'tkinter.simpledialog',
             'tkinter.ttk',
             '_version',
+            'certifi',
         ]
     ),
     hookspath=[],
