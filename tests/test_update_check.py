@@ -61,6 +61,16 @@ class TestCheckForUpdate(unittest.TestCase):
             result = pdf_generator.check_for_update('dev')
         self.assertEqual(result['status'], 'up_to_date')
 
+    def test_urlopen_receives_ssl_context(self):
+        """urlopen must be called with an ssl.SSLContext for macOS compatibility."""
+        import ssl
+        with patch('urllib.request.urlopen', return_value=_mock_response('v2.6')) as mock_urlopen:
+            pdf_generator.check_for_update('v2.5')
+        args, kwargs = mock_urlopen.call_args
+        # The SSL context should be passed as the `context` kwarg
+        self.assertIn('context', kwargs, 'urlopen must be called with context= kwarg')
+        self.assertIsInstance(kwargs['context'], ssl.SSLContext)
+
     def test_multi_segment_version_comparison(self):
         """v2.10 is correctly treated as newer than v2.9 (not string comparison)."""
         with patch('urllib.request.urlopen', return_value=_mock_response('v2.10')):
