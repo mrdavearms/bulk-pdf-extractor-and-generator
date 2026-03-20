@@ -85,21 +85,23 @@ jobs:
       - name: Build .app
         run: python -m PyInstaller BulkPDFGenerator_mac.spec --clean --noconfirm
 
-      - name: Verify and zip .app bundle
+      - name: Create .dmg installer
         run: |
           if [ ! -d "dist/Bulk PDF Generator.app" ]; then
             echo "Build failed — .app not found"
             exit 1
           fi
-          cd dist
-          zip -r "Bulk.PDF.Generator.macOS.zip" "Bulk PDF Generator.app"
-          SIZE=$(du -h "Bulk.PDF.Generator.macOS.zip" | cut -f1)
-          echo "Built: Bulk.PDF.Generator.macOS.zip ($SIZE)"
+          hdiutil create -volname "Bulk PDF Generator" \
+            -srcfolder "dist/Bulk PDF Generator.app" \
+            -ov -format UDZO \
+            "dist/Bulk.PDF.Generator.macOS.dmg"
+          SIZE=$(du -h "dist/Bulk.PDF.Generator.macOS.dmg" | cut -f1)
+          echo "Built: Bulk.PDF.Generator.macOS.dmg ($SIZE)"
 
       - uses: actions/upload-artifact@v4
         with:
           name: macos-app
-          path: dist/Bulk.PDF.Generator.macOS.zip
+          path: dist/Bulk.PDF.Generator.macOS.dmg
           retention-days: 1
 
   # ── Create GitHub Release ───────────────────────────────────
@@ -132,7 +134,7 @@ jobs:
             > **Windows security prompt:** Windows may show a "Windows protected your PC" screen. This is normal for newly released apps. Click **More info → Run anyway** to proceed.
 
             ### 🍎 macOS
-            **[Bulk.PDF.Generator.macOS.zip](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases/download/${{ github.ref_name }}/Bulk.PDF.Generator.macOS.zip)** — Unzip, then open the app.
+            **[Bulk.PDF.Generator.macOS.dmg](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases/download/${{ github.ref_name }}/Bulk.PDF.Generator.macOS.dmg)** — Open the disk image and drag the app to Applications.
             > First time only: right-click the app → Open (macOS security prompt).
 
             ---
@@ -151,4 +153,4 @@ jobs:
             </details>
           files: |
             artifacts/Bulk PDF Generator.exe
-            artifacts/Bulk.PDF.Generator.macOS.zip
+            artifacts/Bulk.PDF.Generator.macOS.dmg

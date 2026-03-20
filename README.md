@@ -154,7 +154,7 @@ Go to the **[Releases page](https://github.com/mrdavearms/bulk-pdf-extractor-and
 | Platform | File | Requirements |
 |:---:|:---:|:---:|
 | Windows | `Bulk PDF Generator.exe` (~61 MB) | Windows 10 / 11 |
-| macOS | `Bulk.PDF.Generator.macOS.zip` | macOS 12 Monterey or later |
+| macOS | `Bulk.PDF.Generator.macOS.dmg` | macOS 12 Monterey or later |
 
 Save the file somewhere convenient — your Desktop, a shared school drive, or a dedicated apps folder. The app is self-contained; it doesn't install anything or modify your system.
 
@@ -164,7 +164,7 @@ Save the file somewhere convenient — your Desktop, a shared school drive, or a
 
 **Windows:** Double-click **`Bulk PDF Generator.exe`**. The first launch takes a few seconds as the app extracts its bundled files to a temporary directory. Subsequent launches are faster.
 
-**Mac:** Unzip **`Bulk.PDF.Generator.macOS.zip`**, then drag **Bulk PDF Generator** into your Applications folder. Double-click to open from there.
+**Mac:** Open **`Bulk.PDF.Generator.macOS.dmg`**, then drag **Bulk PDF Generator** into your Applications folder. Double-click to open from there.
 
 <details>
 <summary><strong>Windows Security Warning — what to do if you see it</strong></summary>

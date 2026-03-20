@@ -80,7 +80,7 @@ git push origin --tags
 
 This triggers `.github/workflows/release.yml` which:
 1. Builds Windows `.exe` on `windows-latest` using `BulkPDFGenerator.spec`
-2. Builds macOS `.app` on `macos-latest` using `BulkPDFGenerator_mac.spec` (zipped as `Bulk.PDF.Generator.macOS.zip`)
+2. Builds macOS `.app` on `macos-latest` using `BulkPDFGenerator_mac.spec` (packaged as `Bulk.PDF.Generator.macOS.dmg`)
 3. Creates a GitHub Release with auto-generated notes and both binaries attached
 
 The README download badge version still needs updating manually after a release.
