@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bulk PDF Generator — Batch-fill PDF forms from spreadsheet data</title>
+  <meta name="description" content="Free desktop app for educators and school leaders. Batch-fill PDF forms from Excel/CSV data. No coding, no cloud, no installation. Windows and macOS.">
+  <style>
+    :root {
+      --blue: #0078d4;
+      --green: #22c55e;
+      --bg: #fafafa;
+      --text: #1d1d1f;
+      --muted: #6b7280;
+      --card-bg: #ffffff;
+      --border: #e5e7eb;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .container { max-width: 800px; margin: 0 auto; padding: 0 24px; }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 80px 24px 48px;
+    }
+    .hero h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    .hero p {
+      font-size: 1.2rem;
+      color: var(--muted);
+      max-width: 600px;
+      margin: 0 auto 32px;
+    }
+    .cta-row {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .btn-primary { background: var(--blue); color: #fff; }
+    .btn-secondary { background: var(--card-bg); color: var(--text); border: 1px solid var(--border); }
+
+    /* Screenshot */
+    .screenshot {
+      text-align: center;
+      padding: 0 24px 48px;
+    }
+    .screenshot img {
+      max-width: 100%;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    }
+
+    /* Features */
+    .features {
+      padding: 48px 0;
+    }
+    .features h2 {
+      text-align: center;
+      font-size: 1.8rem;
+      margin-bottom: 32px;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 600px) { .feature-grid { grid-template-columns: 1fr; } }
+    .feature-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+    }
+    .feature-card h3 {
+      font-size: 1rem;
+      margin-bottom: 8px;
+    }
+    .feature-card p {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    /* Privacy banner */
+    .privacy {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 10px;
+      padding: 24px;
+      margin: 32px 0;
+      text-align: center;
+    }
+    .privacy strong { color: #166534; }
+
+    /* Screenshots detail */
+    .screens {
+      padding: 48px 0;
+    }
+    .screens h2 {
+      text-align: center;
+      font-size: 1.8rem;
+      margin-bottom: 32px;
+    }
+    .screen-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 600px) { .screen-row { grid-template-columns: 1fr; } }
+    .screen-row figure { text-align: center; }
+    .screen-row img {
+      max-width: 100%;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .screen-row figcaption {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    footer a { color: var(--blue); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <div class="hero">
+    <h1>Bulk PDF Generator</h1>
+    <p>Batch-fill PDF forms from spreadsheet data. Turn hours of manual data entry into a single click.</p>
+    <div class="cta-row">
+      <a href="https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases/latest" class="btn btn-primary">
+        Download (Free)
+      </a>
+      <a href="https://github.com/mrdavearms/bulk-pdf-extractor-and-generator" class="btn btn-secondary">
+        View on GitHub
+      </a>
+    </div>
+  </div>
+
+  <div class="screenshot container">
+    <img src="screenshots/tab1_analyse_template.png" alt="Bulk PDF Generator — Analyse Template tab showing PDF field detection">
+  </div>
+
+  <div class="container">
+    <div class="privacy">
+      <strong>100% offline. No cloud, no AI, no telemetry.</strong><br>
+      Your data never leaves your computer. No accounts, no logins required.
+    </div>
+  </div>
+
+  <div class="container features">
+    <h2>Built for educators</h2>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <h3>Batch processing</h3>
+        <p>Generate hundreds of filled PDFs from a single spreadsheet. Each row produces one complete PDF.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Auto field detection</h3>
+        <p>Scans any PDF form and maps every field automatically. No manual configuration needed.</p>
+      </div>
+      <div class="feature-card">
+        <h3>No tech skills needed</h3>
+        <p>Single-file download. No Python, no installation, no IT support required. Download and double-click.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Works with any PDF form</h3>
+        <p>VCAA exam forms, TAFE enrolments, leave applications, compliance forms, consent forms, and more.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Smart field types</h3>
+        <p>Automatically detects date fields and converts Excel serial numbers to DD/MM/YYYY format.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Template library</h3>
+        <p>Save and reload configurations. Analyse once, generate forever.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="container screens">
+    <h2>See it in action</h2>
+    <div class="screen-row">
+      <figure>
+        <img src="screenshots/tab1_analyse_template.png" alt="Analyse Template tab">
+        <figcaption>Analyse Template — discover and configure form fields</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/tab3_generate_pdfs.png" alt="Generate PDFs tab">
+        <figcaption>Generate PDFs — load data, preview, and batch-generate</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <footer>
+    <p>
+      Made by <a href="mailto:Dave.Armstrong@education.vic.gov.au">Dave Armstrong</a> — Principal, Wangaratta High School<br>
+      <a href="https://github.com/mrdavearms/bulk-pdf-extractor-and-generator">GitHub</a> &middot;
+      <a href="https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases">Releases</a> &middot;
+      MIT License
+    </p>
+  </footer>
+
+</body>
+</html>

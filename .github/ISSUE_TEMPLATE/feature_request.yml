@@ -1,0 +1,48 @@
+name: Feature Request
+description: Suggest an improvement or new feature
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea for making Bulk PDF Generator better? We'd love to hear it.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the situation or workflow that's currently difficult or missing.
+      placeholder: "When I'm processing forms for 300 students, I need to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: What would you like to happen?
+      description: Describe your ideal solution in plain language.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: Your role
+      description: Helps us understand your perspective
+      options:
+        - Principal / Assistant Principal
+        - Teacher
+        - School admin / office staff
+        - IT support
+        - TAFE / university staff
+        - Other
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Additional context, screenshots, or examples.
+    validations:
+      required: false

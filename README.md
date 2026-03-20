@@ -10,7 +10,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078d4?logo=windows&logoColor=white)](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases)
 [![License](https://img.shields.io/badge/license-MIT-22c55e)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3b82f6?logo=python&logoColor=white)](https://python.org)
-[![Downloads](https://img.shields.io/github/downloads/mrdavearms/bulk-pdf-extractor-and-generator/total?style=flat&logo=github&label=downloads&color=22c55e)](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases)
+[![Tests](https://img.shields.io/github/actions/workflow/status/mrdavearms/bulk-pdf-extractor-and-generator/test.yml?logo=github&label=tests)](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/actions/workflows/test.yml)
 
 </div>
 

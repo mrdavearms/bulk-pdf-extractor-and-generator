@@ -1,0 +1,71 @@
+name: Bug Report
+description: Something isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill in the details below so we can reproduce and fix it.
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Which operating system are you using?
+      options:
+        - Windows 10
+        - Windows 11
+        - macOS 12 Monterey
+        - macOS 13 Ventura
+        - macOS 14 Sonoma
+        - macOS 15 Sequoia
+        - macOS 16 Tahoe
+        - Linux (running from source)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Found in the About tab (Tab 4), e.g. v2.7.5
+      placeholder: v2.x.x
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug clearly. What did you expect to happen vs. what actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce the problem?
+      placeholder: |
+        1. Open the app
+        2. Load a PDF template...
+        3. Click...
+        4. Error appears
+    validations:
+      required: true
+
+  - type: textarea
+    id: pdf-info
+    attributes:
+      label: PDF template details (if relevant)
+      description: What kind of PDF form were you using? (e.g. VCAA Evidence Application, a custom form, etc.) Do NOT attach PDFs containing student data.
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or error messages
+      description: If applicable, paste screenshots or copy the error message text.
+    validations:
+      required: false
