@@ -174,10 +174,10 @@ jobs:
 
             ## What's new in ${{ github.ref_name }}
 
+            - **Fixed: macOS dialog input** — School name, template name, and sheet picker dialogs now accept keyboard input immediately on macOS Tahoe (26).
+            - **Faster macOS startup** — Eliminated redundant icon loading (1.3 MB image was opened 3 times, now once). ~24% faster startup.
             - **Polished macOS DMG installer** — The disk image now opens with a professional background, drag-to-Applications arrow, and volume icon.
-            - **Ad-hoc code signing** — The macOS app is now signed, reducing Gatekeeper warnings on subsequent versions.
-            - **Accurate macOS version metadata** — `CFBundleVersion` is now injected from the git tag at build time instead of being hardcoded.
-            - **Updated Gatekeeper instructions** — Release notes now cover both the classic right-click method (macOS 14 and earlier) and the System Settings path (macOS 15+).
+            - **Ad-hoc code signing** — The macOS app is now signed, reducing Gatekeeper warnings.
 
             <!-- Add release notes above this line before tagging -->
 
