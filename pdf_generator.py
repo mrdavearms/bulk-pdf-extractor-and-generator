@@ -351,8 +351,12 @@ class SchoolSetupDialog(tk.Toplevel):
         self.lift()
         self.attributes('-topmost', True)
         self.after(100, lambda: self.attributes('-topmost', False))
-        # Defer grab_set so the window is fully realised by AppKit (macOS crash fix)
-        self.after(50, self.grab_set)
+        # Defer grab_set so the window is fully realised by AppKit (macOS crash fix).
+        # Re-focus the name entry after grab — grab_set resets focus on macOS Tahoe.
+        def _grab_and_focus():
+            self.grab_set()
+            name_entry.focus_set()
+        self.after(50, _grab_and_focus)
 
     def on_save(self):
         name = self.name_var.get().strip()
@@ -412,7 +416,9 @@ class TemplateNameDialog(tk.Toplevel):
                  bg=C['bg_elevated'], autostyle=False).pack(anchor=tk.W, pady=(0, 5))
 
         self.name_var = tk.StringVar(value=suggested_name)
-        ttk.Entry(name_frame, textvariable=self.name_var, width=50).pack(fill=tk.X)
+        name_entry = ttk.Entry(name_frame, textvariable=self.name_var, width=50)
+        name_entry.pack(fill=tk.X)
+        name_entry.focus_set()
 
         # Auto-generated info
         tk.Label(
@@ -472,8 +478,12 @@ class TemplateNameDialog(tk.Toplevel):
         self.lift()
         self.attributes('-topmost', True)
         self.after(100, lambda: self.attributes('-topmost', False))
-        # Defer grab_set so the window is fully realised by AppKit (macOS crash fix)
-        self.after(50, self.grab_set)
+        # Defer grab_set so the window is fully realised by AppKit (macOS crash fix).
+        # Re-focus the name entry after grab — grab_set resets focus on macOS Tahoe.
+        def _grab_and_focus():
+            self.grab_set()
+            name_entry.focus_set()
+        self.after(50, _grab_and_focus)
 
     def on_save(self):
         self.result = self.name_var.get().strip()
@@ -673,8 +683,12 @@ class FieldTypeAuditDialog(tk.Toplevel):
         self.lift()
         self.attributes('-topmost', True)
         self.after(100, lambda: self.attributes('-topmost', False))
-        # Defer grab_set so the window is fully realised by AppKit (macOS crash fix)
-        self.after(50, self.grab_set)
+        # Defer grab_set so the window is fully realised by AppKit (macOS crash fix).
+        # Re-focus the dialog after grab — grab_set resets focus on macOS Tahoe.
+        def _grab_and_focus():
+            self.grab_set()
+            self.focus_set()
+        self.after(50, _grab_and_focus)
 
     def _on_field_type_changed(self, idx):
         """Enable/disable Length entry when field type changes."""
@@ -783,36 +797,33 @@ class BulkPDFGenerator:
 
 
     def _load_app_icon(self):
-        """Load icon.png / icon.ico and apply to window and pre-scale for UI use.
+        """Load icon.png once and derive all sizes from the single PIL Image.
 
         Pre-scaled ImageTk.PhotoImage objects are stored in self._icon_refs so
         they are never garbage-collected while the app is running:
+          'window' → 64×64  used for macOS/Linux title-bar icon
           'header' → 32×32  used in the header bar
           'about'  → 72×72  used in the About tab card
         """
-        ico_path = get_resource_path('icon.ico')
         png_path = get_resource_path('icon.png')
+        if not os.path.exists(png_path):
+            return
 
-        # Set taskbar / title-bar icon (Windows .ico already set in main();
-        # this handles macOS/Linux via .png)
         try:
-            if sys.platform != 'win32' and os.path.exists(png_path):
-                _img = Image.open(png_path).convert('RGBA')
+            _img = Image.open(png_path).convert('RGBA')
+
+            # macOS/Linux title-bar icon (Windows .ico already set in main())
+            if sys.platform != 'win32':
                 _photo = ImageTk.PhotoImage(_img.resize((64, 64), Image.LANCZOS))
                 self.root.iconphoto(True, _photo)
                 self._icon_refs['window'] = _photo
-        except Exception:
-            pass  # Fall back to default tkinter icon
 
-        # Pre-scale for UI use
-        if os.path.exists(png_path):
-            try:
-                _img = Image.open(png_path).convert('RGBA')
-                for size, key in [(32, 'header'), (72, 'about')]:
-                    _scaled = _img.resize((size, size), Image.LANCZOS)
-                    self._icon_refs[key] = ImageTk.PhotoImage(_scaled)
-            except Exception:
-                pass  # UI falls back to diamond glyph
+            # Pre-scale for UI use
+            for size, key in [(32, 'header'), (72, 'about')]:
+                _scaled = _img.resize((size, size), Image.LANCZOS)
+                self._icon_refs[key] = ImageTk.PhotoImage(_scaled)
+        except Exception:
+            pass  # Fall back to default tkinter icon / diamond glyph
 
     def _close_preview_generator(self):
         """Safely close the preview generator if open."""
@@ -2573,8 +2584,6 @@ class BulkPDFGenerator:
         dialog.title("Select Sheet")
         dialog.resizable(False, False)
         dialog.configure(bg=C['bg_base'])
-        # Defer grab_set so the window is fully realised by AppKit (macOS crash fix)
-        dialog.after(50, dialog.grab_set)
 
         # Centre over the main window
         dialog.update_idletasks()
@@ -2599,6 +2608,13 @@ class BulkPDFGenerator:
                              font=(ff, 11), width=36)
         combo.current(0)
         combo.pack(anchor=tk.W)
+
+        # Defer grab_set so the window is fully realised by AppKit (macOS crash fix).
+        # Re-focus the combobox after grab — grab_set resets focus on macOS Tahoe.
+        def _grab_and_focus():
+            dialog.grab_set()
+            combo.focus_set()
+        dialog.after(50, _grab_and_focus)
 
         # Buttons
         btn_row = tk.Frame(inner, bg=C['bg_base'])
@@ -3181,12 +3197,13 @@ def main():
     # Apply ttkbootstrap theme + custom styles
     apply_dark_theme(root)
 
-    # Set window icon AFTER ttkbootstrap theme (Style() can reset icons).
+    # Windows icon must be set AFTER ttkbootstrap theme (Style() can reset icons).
     # iconphoto with a PNG is more reliable than iconbitmap on Windows
     # for controlling the taskbar icon when ttkbootstrap is in use.
-    ico_path = get_resource_path('icon.ico')
-    png_path = get_resource_path('icon.png')
+    # macOS/Linux icon is handled by _load_app_icon() in BulkPDFGenerator.__init__.
     if sys.platform == 'win32':
+        ico_path = get_resource_path('icon.ico')
+        png_path = get_resource_path('icon.png')
         if os.path.exists(ico_path):
             root.iconbitmap(default=ico_path)
             root.iconbitmap(ico_path)
@@ -3195,11 +3212,6 @@ def main():
             _icon = ImageTk.PhotoImage(_img.resize((256, 256), Image.LANCZOS))
             root.iconphoto(True, _icon)
             root._icon_ref = _icon  # prevent garbage collection
-    elif os.path.exists(png_path):
-        _img = Image.open(png_path).convert('RGBA')
-        _icon = ImageTk.PhotoImage(_img.resize((64, 64), Image.LANCZOS))
-        root.iconphoto(True, _icon)
-        root._icon_ref = _icon
 
     app = BulkPDFGenerator(root)
     root.mainloop()

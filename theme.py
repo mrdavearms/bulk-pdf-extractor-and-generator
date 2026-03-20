@@ -12,7 +12,6 @@ import platform
 import tkinter as tk
 from tkinter import ttk  # ttk.Treeview type hints in helper functions
 import ttkbootstrap as tbs
-from ttkbootstrap.utility import enable_high_dpi_awareness
 
 
 # ============================================================
@@ -141,8 +140,8 @@ def apply_dark_theme(root: tk.Tk):
 
     Name kept as apply_dark_theme for backward compatibility.
     """
-    # Fix DPI scaling — resolves tab label overlap on high-DPI Windows displays
-    enable_high_dpi_awareness()
+    # DPI scaling is handled by main() before Tk() creation — not here.
+    # (Must be called before Tk window creation for correct Windows scaling.)
 
     # Initialise ttkbootstrap style on the existing root window.
     # 'litera' is a clean, professional light theme whose primary blue
