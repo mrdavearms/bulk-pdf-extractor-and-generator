@@ -84,7 +84,11 @@ This triggers `.github/workflows/release.yml` which:
 3. `CFBundleVersion` / `CFBundleShortVersionString` are injected from the git tag at build time (the spec keeps placeholder values)
 4. Creates a GitHub Release with both binaries attached
 
-The README download badge version still needs updating manually after a release.
+The README download badge auto-updates via shields.io — no manual step needed.
+
+Releases are created as **drafts** — after the build completes, review the release on GitHub and click **Publish** when ready. Release notes are read from `RELEASE_NOTES.md` in the repo root. If that file is empty, notes are auto-generated from conventional commit messages since the last tag.
+
+Pre-release tags (`v2.8-beta`, `v2.8-rc1`, etc.) are automatically flagged as pre-releases on GitHub and excluded from the "Latest" badge on the README.
 
 ### Legacy local release (fallback)
 
