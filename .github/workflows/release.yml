@@ -79,11 +79,28 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
+      - name: Install create-dmg
+        run: brew install create-dmg
+
       - name: Bake version info
         run: python _generate_version.py
 
+      - name: Inject version into mac spec
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          TAG="${TAG_NAME#v}"                  # v2.7.3 → 2.7.3
+          SHORT="${TAG%.*}"                    # 2.7.3 → 2.7
+          # Guard against two-segment tags (v2.8 → TAG=2.8, SHORT=2)
+          if [[ "$SHORT" == *"."* ]]; then : ; else SHORT="$TAG"; fi
+          sed -i '' "s/'CFBundleVersion': '[^']*'/'CFBundleVersion': '$TAG'/" BulkPDFGenerator_mac.spec
+          sed -i '' "s/'CFBundleShortVersionString': '[^']*'/'CFBundleShortVersionString': '$SHORT'/" BulkPDFGenerator_mac.spec
+
       - name: Build .app
         run: python -m PyInstaller BulkPDFGenerator_mac.spec --clean --noconfirm
+
+      - name: Ad-hoc code sign
+        run: codesign --force --deep --sign - "dist/Bulk PDF Generator.app"
 
       - name: Create .dmg installer
         run: |
@@ -91,10 +108,25 @@ jobs:
             echo "Build failed — .app not found"
             exit 1
           fi
-          hdiutil create -volname "Bulk PDF Generator" \
-            -srcfolder "dist/Bulk PDF Generator.app" \
-            -ov -format UDZO \
-            "dist/Bulk.PDF.Generator.macOS.dmg"
+          set +e
+          create-dmg \
+            --volname "Bulk PDF Generator" \
+            --volicon "icon.icns" \
+            --background "dmg_background.png" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 80 \
+            --icon "Bulk PDF Generator.app" 150 200 \
+            --app-drop-link 450 200 \
+            --no-internet-enable \
+            "dist/Bulk.PDF.Generator.macOS.dmg" \
+            "dist/Bulk PDF Generator.app"
+          EXIT_CODE=$?
+          set -e
+          if [ $EXIT_CODE -ne 0 ] && [ $EXIT_CODE -ne 2 ]; then
+            echo "create-dmg failed with exit code $EXIT_CODE"
+            exit $EXIT_CODE
+          fi
           SIZE=$(du -h "dist/Bulk.PDF.Generator.macOS.dmg" | cut -f1)
           echo "Built: Bulk.PDF.Generator.macOS.dmg ($SIZE)"
 
@@ -135,7 +167,8 @@ jobs:
 
             ### 🍎 macOS
             **[Bulk.PDF.Generator.macOS.dmg](https://github.com/mrdavearms/bulk-pdf-extractor-and-generator/releases/download/${{ github.ref_name }}/Bulk.PDF.Generator.macOS.dmg)** — Open the disk image and drag the app to Applications.
-            > First time only: right-click the app → Open (macOS security prompt).
+            > **First launch (macOS 14 and earlier):** Right-click the app → Open → click **Open** in the dialog.
+            > **First launch (macOS 15+):** If blocked, go to **System Settings → Privacy & Security**, scroll down to the "Bulk PDF Generator was blocked" message, and click **Open Anyway**.
 
             ---
 

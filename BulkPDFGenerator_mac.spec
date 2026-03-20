@@ -88,7 +88,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='icon.png',
+    icon='icon.icns',
 )
 
 # ── Collect into .app bundle ─────────────────────────────────────────────────
@@ -106,7 +106,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='Bulk PDF Generator.app',
-    icon='icon.png',
+    icon='icon.icns',
     bundle_identifier='com.antigravity.bulkpdfgenerator',
     info_plist={
         'CFBundleName': 'Bulk PDF Generator',

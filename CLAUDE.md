@@ -80,8 +80,9 @@ git push origin --tags
 
 This triggers `.github/workflows/release.yml` which:
 1. Builds Windows `.exe` on `windows-latest` using `BulkPDFGenerator.spec`
-2. Builds macOS `.app` on `macos-latest` using `BulkPDFGenerator_mac.spec` (packaged as `Bulk.PDF.Generator.macOS.dmg`)
-3. Creates a GitHub Release with auto-generated notes and both binaries attached
+2. Builds macOS `.app` on `macos-latest` using `BulkPDFGenerator_mac.spec`, ad-hoc signs it, then packages as a polished `Bulk.PDF.Generator.macOS.dmg` via `create-dmg` (background image, Applications shortcut, volume icon)
+3. `CFBundleVersion` / `CFBundleShortVersionString` are injected from the git tag at build time (the spec keeps placeholder values)
+4. Creates a GitHub Release with both binaries attached
 
 The README download badge version still needs updating manually after a release.
 
