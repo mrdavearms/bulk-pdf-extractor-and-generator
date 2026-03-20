@@ -170,7 +170,8 @@ from visual_preview import VisualPreviewGenerator
 from combed_filler import CombedFieldFiller
 from theme import (
     COLORS, SPACING, SYSTEM_FONTS, font,
-    apply_dark_theme, setup_treeview_tags, bind_treeview_hover,
+    apply_dark_theme, resolve_font_family, setup_treeview_tags,
+    bind_treeview_hover,
 )
 from markdown_renderer import load_and_render
 
@@ -3195,6 +3196,7 @@ def main():
     root.after(100, lambda: root.attributes('-topmost', False))
 
     # Apply ttkbootstrap theme + custom styles
+    resolve_font_family()   # check for Inter now that Tk exists
     apply_dark_theme(root)
 
     # Windows icon must be set AFTER ttkbootstrap theme (Style() can reset icons).

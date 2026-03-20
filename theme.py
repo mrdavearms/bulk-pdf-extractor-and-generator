@@ -21,65 +21,65 @@ import ttkbootstrap as tbs
 # ============================================================
 
 COLORS = {
-    # --- Backgrounds ---
-    'bg_base':        '#f2f2f4',
-    'bg_surface':     '#ffffff',
-    'bg_elevated':    '#ffffff',
-    'bg_input':       '#f7f7f9',
-    'bg_hover':       '#e9e9ec',
+    # --- Backgrounds (Tailwind Slate) ---
+    'bg_base':        '#f8fafc',   # slate-50  — page background
+    'bg_surface':     '#ffffff',   # white     — card/panel surfaces
+    'bg_elevated':    '#ffffff',   # white     — raised surfaces
+    'bg_input':       '#f8fafc',   # slate-50  — input field fill
+    'bg_hover':       '#f1f5f9',   # slate-100 — hover highlight
 
-    # --- Text ---
-    'text_primary':   '#1d1d1f',
-    'text_secondary': '#6e6e73',
-    'text_tertiary':  '#aeaeb2',
+    # --- Text (Tailwind Slate) ---
+    'text_primary':   '#1e293b',   # slate-800
+    'text_secondary': '#64748b',   # slate-500
+    'text_tertiary':  '#94a3b8',   # slate-400
     'text_inverse':   '#ffffff',
 
-    # --- Accent / Brand ---
-    'accent':         '#4c8bf5',
-    'accent_hover':   '#3a7ae0',
-    'accent_pressed': '#2d6ad4',
-    'accent_subtle':  '#e8f0fe',
+    # --- Accent / Brand (Tailwind Blue) ---
+    'accent':         '#2563eb',   # blue-600  — primary interactive
+    'accent_hover':   '#1d4ed8',   # blue-700  — hover
+    'accent_pressed': '#1e40af',   # blue-800  — active/pressed
+    'accent_subtle':  '#eff6ff',   # blue-50   — subtle background tint
 
-    # --- Borders ---
-    'border_subtle':  '#e0e0e3',
-    'border_default': '#c7c7cc',
-    'border_focus':   '#4c8bf5',
+    # --- Borders (Tailwind Slate) ---
+    'border_subtle':  '#e2e8f0',   # slate-200
+    'border_default': '#cbd5e1',   # slate-300
+    'border_focus':   '#2563eb',   # blue-600
 
-    # --- Semantic ---
-    'success':        '#34a853',
-    'success_bg':     '#e6f4ea',
-    'warning':        '#ea8600',
-    'warning_bg':     '#fef7e0',
-    'error':          '#d93025',
-    'error_bg':       '#fce8e6',
-    'info':           '#4c8bf5',
+    # --- Semantic (Tailwind Emerald / Amber / Red) ---
+    'success':        '#10b981',   # emerald-500
+    'success_bg':     '#ecfdf5',   # emerald-50
+    'warning':        '#f59e0b',   # amber-500
+    'warning_bg':     '#fffbeb',   # amber-50
+    'error':          '#ef4444',   # red-500
+    'error_bg':       '#fef2f2',   # red-50
+    'info':           '#3b82f6',   # blue-500
 
-    # --- Tab bar (used for custom tab rendering if needed) ---
-    'tab_inactive_bg':   '#e8e8eb',
-    'tab_inactive_text': '#6e6e73',
+    # --- Tab bar ---
+    'tab_inactive_bg':   '#e2e8f0',   # slate-200
+    'tab_inactive_text': '#64748b',   # slate-500
     'tab_active_bg':     '#ffffff',
-    'tab_active_text':   '#1d1d1f',
-    'tab_hover_bg':      '#dddde0',
+    'tab_active_text':   '#1e293b',   # slate-800
+    'tab_hover_bg':      '#cbd5e1',   # slate-300
 
     # --- Treeview ---
     'tree_row_even':  '#ffffff',
-    'tree_row_odd':   '#f7f7f9',
-    'tree_selected':  '#e8f0fe',
-    'tree_header_bg': '#f2f2f4',
-    'tree_header_fg': '#6e6e73',
+    'tree_row_odd':   '#f8fafc',   # slate-50
+    'tree_selected':  '#eff6ff',   # blue-50
+    'tree_header_bg': '#f8fafc',   # slate-50
+    'tree_header_fg': '#64748b',   # slate-500
 
     # --- Scrollbar ---
-    'scroll_track':   '#f2f2f4',
-    'scroll_thumb':   '#c7c7cc',
-    'scroll_hover':   '#a8a8ad',
+    'scroll_track':   '#f8fafc',   # slate-50
+    'scroll_thumb':   '#cbd5e1',   # slate-300
+    'scroll_hover':   '#94a3b8',   # slate-400
 
     # --- Progress bar ---
-    'progress_track': '#e0e0e3',
-    'progress_fill':  '#4c8bf5',
+    'progress_track': '#e2e8f0',   # slate-200
+    'progress_fill':  '#2563eb',   # blue-600
 
     # --- Canvas / Preview ---
-    'canvas_bg':      '#f7f7f9',
-    'canvas_border':  '#e0e0e3',
+    'canvas_bg':      '#f8fafc',   # slate-50
+    'canvas_border':  '#e2e8f0',   # slate-200
 }
 
 
@@ -88,16 +88,48 @@ COLORS = {
 # ============================================================
 
 def get_system_fonts() -> dict:
+    """Return platform-appropriate font families.
+
+    Font is resolved lazily by resolve_font_family() after Tk is
+    initialised — see below.  We store preferred + fallback here.
+    """
     system = platform.system()
     if system == 'Windows':
-        return {'family': 'Segoe UI', 'mono': 'Consolas'}
+        return {
+            'preferred': 'Inter',
+            'family': 'Segoe UI',       # resolved at runtime
+            'mono': 'Consolas',
+        }
     elif system == 'Darwin':
-        return {'family': 'Helvetica Neue', 'mono': 'Menlo'}
+        return {
+            'preferred': 'Inter',
+            'family': 'Helvetica Neue',  # resolved at runtime
+            'mono': 'Menlo',
+        }
     else:
-        return {'family': 'DejaVu Sans', 'mono': 'DejaVu Sans Mono'}
+        return {
+            'preferred': 'Inter',
+            'family': 'DejaVu Sans',     # resolved at runtime
+            'mono': 'DejaVu Sans Mono',
+        }
 
 
 SYSTEM_FONTS = get_system_fonts()
+
+
+def resolve_font_family():
+    """Check if Inter is available and update SYSTEM_FONTS['family'].
+
+    Must be called AFTER the Tk root window is created, because
+    tkinter.font.families() requires an active Tk instance.
+    """
+    try:
+        import tkinter.font as tkfont
+        available = tkfont.families()
+        if SYSTEM_FONTS['preferred'] in available:
+            SYSTEM_FONTS['family'] = SYSTEM_FONTS['preferred']
+    except Exception:
+        pass  # keep platform default
 
 
 _VALID_WEIGHTS = {'', 'bold', 'italic', 'bold italic'}
@@ -122,12 +154,12 @@ def mono_font(size: int) -> tuple:
 # ============================================================
 
 SPACING = {
-    'page_padding':  20,
-    'section_gap':   16,
-    'element_gap':   10,
-    'inner_padding': 16,
-    'button_gap':    10,
-    'input_gap':      8,
+    'page_padding':  24,   # was 20 — matches Tailwind p-6
+    'section_gap':   20,   # was 16 — more breathing room
+    'element_gap':   12,   # was 10
+    'inner_padding': 20,   # was 16 — matches Tailwind p-5
+    'button_gap':    12,   # was 10
+    'input_gap':     10,   # was 8
 }
 
 
@@ -276,11 +308,11 @@ def setup_treeview_tags(tree: ttk.Treeview):
     tree.tag_configure('hover', background=COLORS['bg_hover'])
     tree.tag_configure('warning_row',
         background=COLORS['warning_bg'],
-        foreground='#9a5c00',
+        foreground='#92400e',   # amber-800
     )
     tree.tag_configure('success_row',
         background=COLORS['success_bg'],
-        foreground='#1e7e34',
+        foreground='#065f46',   # emerald-800
     )
     tree.tag_configure('combed',
         foreground=COLORS['accent'],
