@@ -174,7 +174,10 @@ jobs:
 
             ## What's new in ${{ github.ref_name }}
 
-            - **Fixed: "Check for Updates" failing on Mac** — The update checker now works reliably on macOS. Previously it failed with an SSL certificate error because bundled Mac apps couldn't access the system certificate store.
+            - **Polished macOS DMG installer** — The disk image now opens with a professional background, drag-to-Applications arrow, and volume icon.
+            - **Ad-hoc code signing** — The macOS app is now signed, reducing Gatekeeper warnings on subsequent versions.
+            - **Accurate macOS version metadata** — `CFBundleVersion` is now injected from the git tag at build time instead of being hardcoded.
+            - **Updated Gatekeeper instructions** — Release notes now cover both the classic right-click method (macOS 14 and earlier) and the System Settings path (macOS 15+).
 
             <!-- Add release notes above this line before tagging -->
 
