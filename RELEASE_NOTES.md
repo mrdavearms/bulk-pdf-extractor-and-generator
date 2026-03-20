@@ -11,7 +11,5 @@
      comment and start fresh for the next version.
 -->
 
-- **Fixed: macOS dialog input** — School name, template name, and sheet picker dialogs now accept keyboard input immediately on macOS Tahoe (26).
-- **Faster macOS startup** — Eliminated redundant icon loading. ~24% faster startup.
-- **Polished macOS DMG installer** — The disk image now opens with a professional background, drag-to-Applications arrow, and volume icon.
-- **Ad-hoc code signing** — The macOS app is now signed, reducing Gatekeeper warnings.
+- **Fixed: macOS dialog focus** — Dialogs (school name, template name, sheet picker) now regain keyboard focus correctly after the window grab on macOS Tahoe (26). Previously you had to click inside the field before typing.
+- **Refreshed visual design** — Updated colour palette and spacing across the entire app for a cleaner, more modern look. Improved font detection with Inter support.
