@@ -2972,8 +2972,9 @@ class BulkPDFGenerator:
                 if first_val is None:
                     first_val = val
 
-            # Skip completely empty rows (check first dynamic column)
-            if not first_val:
+            # Skip completely empty rows (check first dynamic column).
+            # If no preview columns exist, treat every row as non-empty.
+            if self._preview_columns and not first_val:
                 continue
 
             # Check status using critical fields
@@ -3121,15 +3122,15 @@ class BulkPDFGenerator:
             success_count = 0
             error_count = 0
 
+            # Helper: sanitise a value for use in filenames
+            def _safe(val):
+                return "".join(c for c in str(val) if c.isalnum() or c in ' -_').strip()
+
+            critical = [f for f in ctx['analyzed_fields'] if f.is_critical]
+
             for i, idx in enumerate(ctx['selected_indices']):
                 row = ctx['df'].iloc[idx]
                 row_dict = {str(col).lower(): val for col, val in row.items()}
-
-                # Build filename from critical fields (dynamic)
-                def _safe(val):
-                    return "".join(c for c in str(val) if c.isalnum() or c in ' -_').strip()
-
-                critical = [f for f in ctx['analyzed_fields'] if f.is_critical]
                 name_parts = []
                 for cf in critical[:3]:
                     col_key = (cf.excel_column or cf.field_name).lower()
