@@ -24,6 +24,7 @@ from pypdf import PdfReader, PdfWriter
 import copy
 import threading
 import json
+import re
 from pathlib import Path
 from typing import List, Optional, Dict
 from io import BytesIO
@@ -174,6 +175,21 @@ from theme import (
     bind_treeview_hover,
 )
 from markdown_renderer import load_and_render
+
+# Common identifier-like field name patterns (normalised: lowercase, underscores→spaces).
+# Fields matching these are auto-marked as critical (used for preview columns,
+# validation, and output filenames).
+IDENTIFIER_PATTERNS = {
+    'surname', 'last name', 'family name',
+    'first name', 'given name', 'forename',
+    'full name', 'name',
+    'student number', 'student id',
+    'employee number', 'employee id',
+    'applicant name', 'id number',
+}
+
+# Regex for cryptic auto-generated PDF field names (e.g. Text47, Field_3)
+CRYPTIC_FIELD_RE = re.compile(r'^(Text|Field|Box|Untitled)\d+$', re.IGNORECASE)
 
 
 class ScrollableFrame(ttk.Frame):
@@ -784,11 +800,12 @@ class BulkPDFGenerator:
         self._tab2_file_label = None                # shows current Excel file path
         self._tab2_auto_btn = None                  # "Auto-Map All" button
         self._tab2_clear_btn = None                 # "Clear All Mappings" button
+        self._tab2_banner_frame = None              # guidance banner frame
+        self._tab2_banner_label = None              # guidance banner text
 
         # Tab 3 (Generate) state - from original app
         self.df = None
         self.selected_rows = {}
-        self.critical_fields = ['surname', 'first name', 'vcaa student number']
         self.output_dir_path = tk.StringVar()  # Optional custom output directory
 
         # Register cleanup on close
@@ -796,6 +813,11 @@ class BulkPDFGenerator:
 
         self.setup_ui()
 
+
+    @property
+    def critical_fields_list(self) -> list:
+        """Return field names marked as critical (used for preview, validation, filenames)."""
+        return [f.field_name for f in self.analyzed_fields if f.is_critical]
 
     def _load_app_icon(self):
         """Load icon.png once and derive all sizes from the single PIL Image.
@@ -1487,11 +1509,30 @@ class BulkPDFGenerator:
 
             # Restore saved field→Excel column mappings
             saved_cols = self.current_template.field_excel_columns or {}
+            has_saved_mappings = False
             if saved_cols and self.analyzed_fields:
                 for field in self.analyzed_fields:
                     if field.field_name in saved_cols:
                         field.excel_column = saved_cols[field.field_name]
+                        has_saved_mappings = True
+
+            # Restore critical-field flags from saved template
+            saved_critical = set(self.current_template.critical_fields or [])
+            if saved_critical and self.analyzed_fields:
+                for field in self.analyzed_fields:
+                    if field.field_name in saved_critical:
+                        field.is_critical = True
+
             self._refresh_tab2_mappings()
+
+            # Show template-specific banner message if mappings were restored
+            if has_saved_mappings and self._tab2_banner_label:
+                C = COLORS
+                self._tab2_banner_frame.config(bg='#eff6ff')
+                self._tab2_banner_label.config(
+                    text="Mappings restored from saved template. Review if your data file has changed.",
+                    fg=C['info'], bg='#eff6ff',
+                )
 
             self.update_status(f"Template loaded: {self.current_template.template_name}", 'success')
             self.header_status.config(text=f"Template: {self.current_template.template_name}")
@@ -1589,6 +1630,18 @@ class BulkPDFGenerator:
                         saved_col = self.current_template.field_excel_columns.get(field.field_name)
                         if saved_col:
                             field.excel_column = saved_col
+
+                # Restore critical-field flags from saved template
+                saved_critical = set(self.current_template.critical_fields or [])
+                for field in self.analyzed_fields:
+                    if field.field_name in saved_critical:
+                        field.is_critical = True
+
+            # Auto-detect critical fields for any not already set by template
+            for field in self.analyzed_fields:
+                if not field.is_critical:
+                    normalised = field.field_name.replace('_', ' ').lower()
+                    field.is_critical = normalised in IDENTIFIER_PATTERNS
 
             # Show field type audit dialog
             audit = FieldTypeAuditDialog(self.root, self.analyzed_fields, preconfigured_fields)
@@ -1832,10 +1885,7 @@ class BulkPDFGenerator:
                     'Excel_Column_Name': excel_col,
                     'Field_Type': field.field_type,
                     'Page': field.page,
-                    'Required': 'Yes' if field.field_name.lower() in [
-                        'surname', 'first_name', 'first name',
-                        'vcaa_number', 'vcaa student number'
-                    ] else 'No',
+                    'Required': 'Yes' if field.is_critical else 'No',
                     'Length': f"{field.length} chars" if field.is_combed else '-',
                     'Notes': self.generate_field_notes(field),
                 })
@@ -1858,7 +1908,7 @@ class BulkPDFGenerator:
                         'HOW TO USE THIS FILE:',
                         '1. Review the "Field Mapping" sheet',
                         '2. Update any "Excel_Column_Name" values to match your preferred headers',
-                        '3. The "Data Entry" sheet is where you can start typing student data',
+                        '3. The "Data Entry" sheet is where you can start typing your data',
                         '4. Save this file',
                         '5. Return to the app and load this file in Tab 3 (Generate PDFs)',
                         '',
@@ -2006,34 +2056,18 @@ class BulkPDFGenerator:
             messagebox.showerror("Error", f"Failed to export mapping file:\n{str(e)}")
 
     def smart_guess_excel_column(self, pdf_field_name: str) -> str:
-        """Generate a smart guess for Excel column name."""
-        # Convert underscores to spaces
-        name = pdf_field_name.replace('_', ' ')
+        """Normalise a PDF field name for matching against Excel columns.
 
-        # Known mappings
-        mappings = {
-            'first name': 'First name',
-            'surname': 'surname',
-            'vcaa number': 'VCAA student number',
-            'vcaa student number': 'VCAA student number',
-            'school name': 'School name',
-            'vcaa school code': 'VCAA school code',
-        }
-
-        lower_name = name.lower()
-        if lower_name in mappings:
-            return mappings[lower_name]
-
-        return name
+        Converts underscores to spaces so that PDF field names like
+        'First_Name' can match Excel columns named 'First Name'.
+        """
+        return pdf_field_name.replace('_', ' ')
 
     def generate_field_notes(self, field: PDFField) -> str:
         """Generate helpful notes for a field."""
         notes = []
 
-        if field.field_name.lower() in ['surname', 'first_name', 'first name']:
-            notes.append('Used for filename')
-
-        if field.field_name.lower() in ['surname', 'first name', 'vcaa student number', 'vcaa_number']:
+        if field.is_critical:
             notes.append('Critical field')
 
         if field.is_combed and 'dob' in field.field_name.lower():
@@ -2090,7 +2124,7 @@ class BulkPDFGenerator:
                 field_types=field_stats,
                 mapping_file=f"{template_name}_mapping.xlsx",
                 use_auto_matching=True,
-                critical_fields=['surname', 'First name', 'VCAA student number'],
+                critical_fields=self.critical_fields_list,
                 field_data_types=field_data_types,
                 field_type_overrides=field_type_overrides,
                 field_excel_columns=field_excel_columns,
@@ -2104,7 +2138,11 @@ class BulkPDFGenerator:
 
             self.current_template = config
 
-            messagebox.showinfo("Saved", f"Template configuration saved to:\n{config_path}")
+            # Note if custom mappings were included
+            mapping_note = ""
+            if field_excel_columns:
+                mapping_note = "\n\nIncludes your custom field mappings."
+            messagebox.showinfo("Saved", f"Template configuration saved to:\n{config_path}{mapping_note}")
 
             # Refresh recent templates
             self.populate_recent_templates()
@@ -2121,6 +2159,20 @@ class BulkPDFGenerator:
 
         container = ttk.Frame(tab, padding=str(SPACING['page_padding']))
         container.pack(fill=tk.BOTH, expand=True)
+
+        # ── Guidance banner ───────────────────────────────────────────
+        self._tab2_banner_frame = tk.Frame(container, bg=C['bg_surface'], padx=12, pady=8)
+        self._tab2_banner_frame.pack(fill=tk.X, pady=(0, SPACING['section_gap']))
+        self._tab2_banner_label = tk.Label(
+            self._tab2_banner_frame,
+            text="Start by analysing a PDF template on Tab 1.",
+            font=font(10),
+            fg=C['text_secondary'],
+            bg=C['bg_surface'],
+            anchor='w',
+            wraplength=680,
+        )
+        self._tab2_banner_label.pack(anchor='w')
 
         # ── Card 1: Data File ──────────────────────────────────────────
         file_inner = self.create_section(
@@ -2167,7 +2219,9 @@ class BulkPDFGenerator:
         tk.Label(header_frame, text="Excel Column", font=font(9, 'bold'),
                  fg=C['text_secondary'], bg=C['bg_surface'], width=32, anchor='w').pack(side=tk.LEFT, padx=(8, 0))
         tk.Label(header_frame, text="Status", font=font(9, 'bold'),
-                 fg=C['text_secondary'], bg=C['bg_surface'], width=10, anchor='w').pack(side=tk.LEFT, padx=(8, 0))
+                 fg=C['text_secondary'], bg=C['bg_surface'], width=4, anchor='w').pack(side=tk.LEFT, padx=(8, 0))
+        tk.Label(header_frame, text="Hint", font=font(9, 'bold'),
+                 fg=C['text_secondary'], bg=C['bg_surface'], width=30, anchor='w').pack(side=tk.LEFT, padx=(8, 0))
 
         # Thin separator
         tk.Frame(mappings_inner, bg=C['border_subtle'], height=1).pack(fill=tk.X, pady=(0, 6))
@@ -2210,6 +2264,9 @@ class BulkPDFGenerator:
             return
 
         C = COLORS
+
+        # Update the guidance banner
+        self._update_tab2_banner()
 
         # Update the data-file label
         excel_path = self.excel_file_path.get()
@@ -2297,6 +2354,28 @@ class BulkPDFGenerator:
             )
             status_lbl.pack(side=tk.LEFT, padx=(8, 0))
 
+            # Diagnostic hint label
+            if mapped:
+                was_auto = getattr(field, '_auto_mapped', False)
+                hint_text = "auto-matched" if was_auto else "manual"
+                hint_colour = C['success'] if was_auto else C['info']
+            elif CRYPTIC_FIELD_RE.match(field.field_name):
+                hint_text = "⚠ cryptic name — check visual preview"
+                hint_colour = C['warning']
+            else:
+                hint_text = "⚠ will be blank"
+                hint_colour = C['warning']
+
+            tk.Label(
+                row,
+                text=hint_text,
+                font=font(9),
+                fg=hint_colour,
+                bg=C['bg_surface'],
+                width=30,
+                anchor='w',
+            ).pack(side=tk.LEFT, padx=(8, 0))
+
             self._tab2_combos[field.field_name] = (combo, status_lbl)
 
             # Bind selection event (use default arg to capture loop variable)
@@ -2308,6 +2387,42 @@ class BulkPDFGenerator:
 
         self._update_mapping_status()
         self._set_mapping_buttons(enabled=True)
+
+    def _update_tab2_banner(self):
+        """Update the guidance banner at the top of Tab 2 based on mapping state."""
+        if self._tab2_banner_label is None:
+            return
+        C = COLORS
+
+        if not self.analyzed_fields:
+            text = "Start by analysing a PDF template on Tab 1."
+            bg = C['bg_surface']
+            fg = C['text_secondary']
+        elif self.df is None:
+            text = "PDF analysed — now load your data file on the Generate tab."
+            bg = '#eff6ff'  # light blue tint
+            fg = C['info']
+        else:
+            total = len(self.analyzed_fields)
+            mapped = sum(1 for f in self.analyzed_fields if f.excel_column is not None)
+            if mapped == total:
+                text = f"All {total} fields mapped ✓"
+                bg = C['success_bg']
+                fg = C['success']
+            elif mapped == 0:
+                text = (f"No fields could be auto-matched — set each one manually below, "
+                        f"or they will be left blank in the output.")
+                bg = C['warning_bg']
+                fg = C['warning']
+            else:
+                unmatched = total - mapped
+                text = (f"{unmatched} field(s) couldn't be auto-matched — "
+                        f"set them manually below, or they'll be left blank.")
+                bg = C['warning_bg']
+                fg = C['warning']
+
+        self._tab2_banner_frame.config(bg=bg)
+        self._tab2_banner_label.config(text=text, fg=fg, bg=bg)
 
     def _clear_mapping_rows(self):
         """Destroy all child widgets inside the mapping scroll frame."""
@@ -2330,6 +2445,7 @@ class BulkPDFGenerator:
         for field in self.analyzed_fields:
             if field.field_name == field_name:
                 field.excel_column = None if val == "-- not mapped --" else val
+                field._auto_mapped = False  # User made a manual choice
                 break
         mapped = (val != "-- not mapped --")
         status_lbl.config(
@@ -2344,15 +2460,21 @@ class BulkPDFGenerator:
             return
         column_lower = {col.lower(): col for col in self.df.columns}
         for field in self.analyzed_fields:
+            matched = False
             # Try smart-guess name first, then underscore-stripped field name, then direct
             guess = self.smart_guess_excel_column(field.field_name)
             if guess.lower() in column_lower:
                 field.excel_column = column_lower[guess.lower()]
+                matched = True
             elif field.field_name.replace('_', ' ').lower() in column_lower:
                 field.excel_column = column_lower[field.field_name.replace('_', ' ').lower()]
+                matched = True
             elif field.field_name.lower() in column_lower:
                 field.excel_column = column_lower[field.field_name.lower()]
+                matched = True
             # else: no match found, leave as-is
+            if matched:
+                field._auto_mapped = True
         self._refresh_tab2_mappings()
 
     def _clear_all_mappings(self):
@@ -2469,7 +2591,7 @@ class BulkPDFGenerator:
         selection_frame = tk.Frame(container, bg=COLORS['bg_base'])
         selection_frame.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
 
-        tk.Label(selection_frame, text="Select students to process:", font=font(11),
+        tk.Label(selection_frame, text="Select records to process:", font=font(11),
                  fg=COLORS['text_primary'], bg=COLORS['bg_base']).pack(side=tk.LEFT)
 
         ttk.Button(selection_frame, text="Select All", command=self.select_all_tab3).pack(side=tk.LEFT, padx=(15, 5))
@@ -2478,41 +2600,17 @@ class BulkPDFGenerator:
         self.selection_count_label_tab3 = ttk.Label(selection_frame, text="", style='Secondary.TLabel')
         self.selection_count_label_tab3.pack(side=tk.RIGHT)
 
-        # Student Preview section
-        preview_inner = self.create_section(container, "Student Preview",
+        # Record Preview section
+        preview_inner = self.create_section(container, "Record Preview",
                                             subtitle="Click rows to select or deselect", expand=True)
 
-        # Treeview for student list
-        columns = ('selected', 'row', 'surname', 'first_name', 'student_number', 'status')
-        self.tree_tab3 = ttk.Treeview(preview_inner, columns=columns, show='headings', height=12)
+        # Store the preview parent so _rebuild_preview_treeview can recreate the treeview
+        self._preview_inner = preview_inner
+        # Dynamic column definitions — rebuilt when data/template loads
+        self._preview_columns = []  # list of PDFField objects for dynamic columns
 
-        self.tree_tab3.heading('selected', text='Sel')
-        self.tree_tab3.heading('row', text='#')
-        self.tree_tab3.heading('surname', text='Surname')
-        self.tree_tab3.heading('first_name', text='First Name')
-        self.tree_tab3.heading('student_number', text='Student Number')
-        self.tree_tab3.heading('status', text='Status')
-
-        self.tree_tab3.column('selected', width=40, anchor='center')
-        self.tree_tab3.column('row', width=40, anchor='center')
-        self.tree_tab3.column('surname', width=140)
-        self.tree_tab3.column('first_name', width=140)
-        self.tree_tab3.column('student_number', width=110)
-        self.tree_tab3.column('status', width=180)
-
-        # Bind click event for toggling selection
-        self.tree_tab3.bind('<ButtonRelease-1>', self.toggle_selection_tab3)
-
-        # Scrollbar for treeview
-        scrollbar = ttk.Scrollbar(preview_inner, orient=tk.VERTICAL, command=self.tree_tab3.yview)
-        self.tree_tab3.configure(yscrollcommand=scrollbar.set)
-
-        self.tree_tab3.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        # Setup treeview tags and hover
-        setup_treeview_tags(self.tree_tab3)
-        bind_treeview_hover(self.tree_tab3)
+        # Initial treeview with default columns (rebuilt dynamically on data load)
+        self._build_treeview_in(preview_inner)
 
         # Summary label
         self.summary_label_tab3 = ttk.Label(container, text="No data loaded", style='Secondary.TLabel')
@@ -2532,13 +2630,73 @@ class BulkPDFGenerator:
         # Generate Button (large CTA)
         self.generate_btn_tab3 = ttk.Button(
             container,
-            text="Generate PDFs for Selected Students",
+            text="Generate PDFs for Selected Records",
             command=self.start_generation_tab3,
             state=tk.DISABLED,
             bootstyle='primary',
             padding=(32, 14),
         )
         self.generate_btn_tab3.pack(pady=SPACING['section_gap'])
+
+    def _get_preview_fields(self) -> list:
+        """Return the list of PDFField objects to use as dynamic preview columns.
+
+        Uses critical fields (up to 4); falls back to the first 3 mapped fields.
+        """
+        critical = [f for f in self.analyzed_fields if f.is_critical]
+        if critical:
+            return critical[:4]
+        mapped = [f for f in self.analyzed_fields if f.excel_column]
+        return mapped[:3]
+
+    def _build_treeview_in(self, parent):
+        """Create (or recreate) the preview treeview with dynamic columns."""
+        # Determine dynamic columns from critical/mapped fields
+        self._preview_columns = self._get_preview_fields()
+
+        # Build column IDs
+        dynamic_ids = [f'dyn_{i}' for i in range(len(self._preview_columns))]
+        all_cols = ('selected', 'row') + tuple(dynamic_ids) + ('status',)
+
+        self.tree_tab3 = ttk.Treeview(parent, columns=all_cols, show='headings', height=12)
+
+        # Fixed columns
+        self.tree_tab3.heading('selected', text='Sel')
+        self.tree_tab3.heading('row', text='#')
+        self.tree_tab3.heading('status', text='Status')
+        self.tree_tab3.column('selected', width=40, anchor='center')
+        self.tree_tab3.column('row', width=40, anchor='center')
+        self.tree_tab3.column('status', width=180)
+
+        # Dynamic columns — headings from field names
+        for col_id, field in zip(dynamic_ids, self._preview_columns):
+            display_name = field.field_name.replace('_', ' ')
+            self.tree_tab3.heading(col_id, text=display_name)
+            self.tree_tab3.column(col_id, width=140)
+
+        # Bind click event for toggling selection
+        self.tree_tab3.bind('<ButtonRelease-1>', self.toggle_selection_tab3)
+
+        # Scrollbar for treeview
+        self._tree_scrollbar = ttk.Scrollbar(parent, orient=tk.VERTICAL, command=self.tree_tab3.yview)
+        self.tree_tab3.configure(yscrollcommand=self._tree_scrollbar.set)
+
+        self.tree_tab3.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self._tree_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Setup treeview tags and hover
+        setup_treeview_tags(self.tree_tab3)
+        bind_treeview_hover(self.tree_tab3)
+
+    def _rebuild_preview_treeview(self):
+        """Destroy and recreate the preview treeview with updated dynamic columns."""
+        if hasattr(self, '_tree_scrollbar') and self._tree_scrollbar:
+            self._tree_scrollbar.pack_forget()
+            self._tree_scrollbar.destroy()
+        if self.tree_tab3:
+            self.tree_tab3.pack_forget()
+            self.tree_tab3.destroy()
+        self._build_treeview_in(self._preview_inner)
 
     def select_pdf_tab3(self):
         """Select PDF in Tab 3."""
@@ -2552,7 +2710,7 @@ class BulkPDFGenerator:
     def select_excel_tab3(self):
         """Select Excel file in Tab 3."""
         filepath = filedialog.askopenfilename(
-            title="Select Student Data Excel File",
+            title="Select Data File (Excel or CSV)",
             filetypes=[("Excel files", "*.xlsx *.xls"), ("CSV files", "*.csv"), ("All files", "*.*")]
         )
         if filepath:
@@ -2689,6 +2847,9 @@ class BulkPDFGenerator:
             # Clear previous selections
             self.selected_rows = {}
 
+            # Rebuild treeview with dynamic columns based on critical/mapped fields
+            self._rebuild_preview_treeview()
+
             # Validate and show preview
             self.validate_data_tab3()
             self.show_preview_tab3()
@@ -2712,35 +2873,46 @@ class BulkPDFGenerator:
         """Validate data for Tab 3."""
         warnings = []
 
+        # Build critical-field lookup: {display_name: excel_column_key}
+        critical_names = {
+            f.field_name: (f.excel_column or f.field_name)
+            for f in self.analyzed_fields if f.is_critical
+        }
+
         # Check each row for critical fields
         for idx, row in self.df.iterrows():
             row_warnings = []
             row_dict = {str(col).lower(): val for col, val in row.items()}
 
-            for field in self.critical_fields:
-                val = row_dict.get(field, '')
+            for display_name, col_name in critical_names.items():
+                val = row_dict.get(col_name.lower(), '')
                 if pd.isna(val) or str(val).strip() == '' or str(val).lower() == 'nan':
-                    row_warnings.append(field)
+                    row_warnings.append(display_name)
 
             if row_warnings:
-                surname = row_dict.get('surname', f'Row {idx+1}')
-                if pd.isna(surname) or str(surname).strip() == '':
-                    surname = f'Row {idx+1}'
-                warnings.append(f"• {surname}: Missing {', '.join(row_warnings)}")
+                # Use the first dynamic preview column value as row identifier
+                row_label = f'Row {idx+1}'
+                if self._preview_columns:
+                    first_col = (self._preview_columns[0].excel_column or
+                                 self._preview_columns[0].field_name).lower()
+                    first_val = row_dict.get(first_col, '')
+                    if first_val and not pd.isna(first_val) and str(first_val).strip():
+                        row_label = str(first_val).strip()
+                warnings.append(f"• {row_label}: Missing {', '.join(row_warnings)}")
 
         # Display warnings
         self.validation_text_tab3.config(state=tk.NORMAL)
         self.validation_text_tab3.delete(1.0, tk.END)
 
         if warnings:
-            warning_text = f"{len(warnings)} student(s) have missing critical fields:\n"
+            warning_text = f"{len(warnings)} record(s) have missing critical fields:\n"
             warning_text += "\n".join(warnings[:10])
             if len(warnings) > 10:
                 warning_text += f"\n... and {len(warnings) - 10} more"
             self.validation_text_tab3.insert(1.0, warning_text)
             self.validation_text_tab3.config(fg=COLORS['warning'])
         else:
-            self.validation_text_tab3.insert(1.0, "All students have required fields populated.")
+            self.validation_text_tab3.insert(1.0, "All records have required fields populated.")
             self.validation_text_tab3.config(fg=COLORS['success'])
 
         # Warn about PDF fields that have no explicit mapping and won't auto-match any Excel column
@@ -2767,7 +2939,7 @@ class BulkPDFGenerator:
         self.validation_text_tab3.config(state=tk.DISABLED)
 
     def show_preview_tab3(self):
-        """Show preview for Tab 3."""
+        """Show preview for Tab 3 using dynamic columns from critical/mapped fields."""
         # Clear existing items
         for item in self.tree_tab3.get_children():
             self.tree_tab3.delete(item)
@@ -2775,27 +2947,41 @@ class BulkPDFGenerator:
         # Reset selected rows tracking
         self.selected_rows = {}
 
-        # Add students to preview
+        # Build critical-field lookup for validation
+        critical_names = {}
+        for f in self.analyzed_fields:
+            if f.is_critical:
+                critical_names[f.field_name] = (f.excel_column or f.field_name)
+
         valid_count = 0
         warning_count = 0
 
         for idx, row in self.df.iterrows():
             row_dict = {str(col).lower(): val for col, val in row.items()}
 
-            surname = str(row_dict.get('surname', '')).strip()
-            first_name = str(row_dict.get('first name', '')).strip()
-            student_num = str(row_dict.get('vcaa student number', '')).strip()
+            # Build dynamic column values
+            dyn_values = []
+            first_val = None  # used for empty-row detection
+            for field in self._preview_columns:
+                col_key = (field.excel_column or field.field_name).lower()
+                raw = row_dict.get(col_key, '')
+                val = str(raw).strip() if not pd.isna(raw) else ''
+                if val.lower() == 'nan':
+                    val = ''
+                dyn_values.append(val)
+                if first_val is None:
+                    first_val = val
 
-            # Skip completely empty rows
-            if (pd.isna(row_dict.get('surname')) or surname == '' or surname.lower() == 'nan'):
+            # Skip completely empty rows (check first dynamic column)
+            if not first_val:
                 continue
 
-            # Check status
+            # Check status using critical fields
             missing = []
-            for field in self.critical_fields:
-                val = row_dict.get(field, '')
-                if pd.isna(val) or str(val).strip() == '' or str(val).lower() == 'nan':
-                    missing.append(field)
+            for display_name, col_name in critical_names.items():
+                val = row_dict.get(col_name.lower(), '')
+                if pd.isna(val) or str(val).strip() == '' or str(val).strip().lower() == 'nan':
+                    missing.append(display_name)
 
             if missing:
                 status = f"Missing: {', '.join(missing)}"
@@ -2804,22 +2990,15 @@ class BulkPDFGenerator:
                 status = "Ready"
                 valid_count += 1
 
-            # Clean display values
-            if surname.lower() == 'nan':
-                surname = ''
-            if first_name.lower() == 'nan':
-                first_name = ''
-            if student_num.lower() == 'nan':
-                student_num = ''
-
             # Build tags: alternating rows + status
             row_num = valid_count + warning_count
             row_tag = 'odd' if row_num % 2 else 'even'
             status_tag = 'warning_row' if missing else 'success_row'
 
-            # Insert with empty checkbox initially
+            # Insert with dynamic values
+            values = ('', idx+1) + tuple(dyn_values) + (status,)
             item_id = self.tree_tab3.insert('', tk.END,
-                values=('', idx+1, surname, first_name, student_num, status),
+                values=values,
                 tags=(row_tag, status_tag),
             )
             # Store mapping of item_id to dataframe index
@@ -2828,7 +3007,7 @@ class BulkPDFGenerator:
         # Update summary
         total = valid_count + warning_count
         self.summary_label_tab3.config(
-            text=f"Loaded {total} students: {valid_count} ready, {warning_count} with warnings"
+            text=f"Loaded {total} records: {valid_count} ready, {warning_count} with warnings"
         )
 
         self.update_selection_count_tab3()
@@ -2877,9 +3056,9 @@ class BulkPDFGenerator:
         if selected == 0:
             self.generate_btn_tab3.config(text="Generate PDFs (none selected)", state=tk.DISABLED)
         elif selected == 1:
-            self.generate_btn_tab3.config(text="Generate PDF for 1 Student", state=tk.NORMAL)
+            self.generate_btn_tab3.config(text="Generate PDF for 1 Record", state=tk.NORMAL)
         else:
-            self.generate_btn_tab3.config(text=f"Generate PDFs for {selected} Students", state=tk.NORMAL)
+            self.generate_btn_tab3.config(text=f"Generate PDFs for {selected} Records", state=tk.NORMAL)
 
     def start_generation_tab3(self):
         """Start PDF generation for Tab 3.
@@ -2887,10 +3066,10 @@ class BulkPDFGenerator:
         All shared state is snapshot here (main thread) so the worker
         thread never touches tkinter StringVars or mutable instance data.
         """
-        # Check if any students are selected
+        # Check if any records are selected
         selected_count = sum(1 for item in self.selected_rows.values() if item['selected'])
         if selected_count == 0:
-            messagebox.showwarning("No Selection", "Please select at least one student to generate PDFs.")
+            messagebox.showwarning("No Selection", "Please select at least one record to generate.")
             return
 
         # ── Snapshot all shared state in the main thread ──
@@ -2909,12 +3088,14 @@ class BulkPDFGenerator:
             'combed_padding': self.settings.combed_field_padding,
             'combed_align': self.settings.combed_field_align,
             'output_dir': self.output_dir_path.get().strip() or '',
+            'template_name': (self.current_template.template_name
+                              if self.current_template else 'Form'),
         }
 
         # Reset progress bar and disable button
         self.progress_var_tab3.set(0)
         self.generate_btn_tab3.config(state=tk.DISABLED)
-        self.update_status(f"Generating PDFs for {selected_count} students...", 'info')
+        self.update_status(f"Generating PDFs for {selected_count} records...", 'info')
 
         # Start generation in background thread with snapshot
         thread = threading.Thread(target=self.run_generation_tab3, args=(ctx,))
@@ -2944,23 +3125,31 @@ class BulkPDFGenerator:
                 row = ctx['df'].iloc[idx]
                 row_dict = {str(col).lower(): val for col, val in row.items()}
 
-                # Get name for filename
-                first_name = str(row_dict.get('first name', 'Unknown')).strip()
-                surname = str(row_dict.get('surname', 'Unknown')).strip()
+                # Build filename from critical fields (dynamic)
+                def _safe(val):
+                    return "".join(c for c in str(val) if c.isalnum() or c in ' -_').strip()
 
-                if first_name.lower() == 'nan':
-                    first_name = 'Unknown'
-                if surname.lower() == 'nan':
-                    surname = 'Unknown'
+                critical = [f for f in ctx['analyzed_fields'] if f.is_critical]
+                name_parts = []
+                for cf in critical[:3]:
+                    col_key = (cf.excel_column or cf.field_name).lower()
+                    val = str(row_dict.get(col_key, '')).strip()
+                    if val and val.lower() != 'nan':
+                        name_parts.append(_safe(val))
+                if not name_parts:
+                    name_parts = [f"Row_{idx+1}"]
 
-                # Clean names for filename (remove invalid characters)
-                safe_first = "".join(c for c in first_name if c.isalnum() or c in ' -_').strip()
-                safe_surname = "".join(c for c in surname if c.isalnum() or c in ' -_').strip()
-                safe_school = "".join(c for c in ctx['school_name'] if c.isalnum() or c in ' -_').strip()
-                safe_year = "".join(c for c in ctx['school_year'] if c.isalnum() or c in ' -_').strip()
+                # Template name + optional school info
+                safe_template = _safe(ctx.get('template_name', 'Form'))
+                suffix_parts = [safe_template]
+                safe_school = _safe(ctx['school_name'])
+                safe_year = _safe(ctx['school_year'])
+                if safe_school:
+                    suffix_parts.append(safe_school)
+                if safe_year:
+                    suffix_parts.append(safe_year)
 
-                # Create filename
-                filename = f"{safe_first}_{safe_surname}_Evidence Application {safe_school} {safe_year}.pdf"
+                filename = f"{'_'.join(name_parts)}_{' '.join(suffix_parts)}.pdf"
                 output_path = os.path.join(output_folder, filename)
 
                 # Avoid overwriting existing files (e.g. duplicate names, re-runs)
@@ -2977,7 +3166,8 @@ class BulkPDFGenerator:
                     status_text = f"Created: {filename}"
                 except Exception as e:
                     error_count += 1
-                    status_text = f"Error: {surname} - {str(e)}"
+                    row_label = '_'.join(name_parts) if name_parts else f'Row_{idx+1}'
+                    status_text = f"Error: {row_label} - {str(e)}"
 
                 # Update progress (UI calls are safe via root.after)
                 progress = ((i + 1) / total) * 100

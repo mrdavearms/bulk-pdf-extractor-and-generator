@@ -55,7 +55,7 @@ Once you are in **Prepare Form** mode:
 
 * **Surname** (not "Text1" or "field_42")
 * **First name**
-* **VCAA student number**
+* **Student ID** (or any identifier field)
 * **School name**
 
 The matching is case-insensitive, so "Surname" will match an Excel column called "surname" or "SURNAME".

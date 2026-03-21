@@ -58,7 +58,7 @@ body:
     id: pdf-info
     attributes:
       label: PDF template details (if relevant)
-      description: What kind of PDF form were you using? (e.g. VCAA Evidence Application, a custom form, etc.) Do NOT attach PDFs containing student data.
+      description: What kind of PDF form were you using? (e.g. an enrolment form, a leave application, a custom form, etc.) Do NOT attach PDFs containing personal data.
     validations:
       required: false
 

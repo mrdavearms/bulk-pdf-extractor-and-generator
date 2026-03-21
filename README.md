@@ -137,7 +137,7 @@ flowchart TB
 2. **Fill in** a spreadsheet — one row per person, column headers matching field names
 3. **Generate** — the app fills and saves a complete, separate PDF for every row
 
-That's it. No coding, no merging, no manual form filling. The same workflow applies whether you're processing VCAA exam forms, TAFE enrolments, or any other PDF with form fields.
+That's it. No coding, no merging, no manual form filling. The same workflow applies whether you're processing exam forms, TAFE enrolments, leave applications, or any other PDF with form fields.
 
 ---
 
@@ -299,7 +299,7 @@ This tab is where you set up a new PDF template for the first time. It reads you
 
 #### Step-by-step
 
-1. **Browse for your PDF** — Click the Browse button and select your blank PDF form template. This is the form you want to batch-fill (e.g. a VCAA Evidence Application form).
+1. **Browse for your PDF** — Click the Browse button and select your blank PDF form template. This is the form you want to batch-fill (e.g. an enrolment form, a leave application).
 
 2. **Analyse Fields** — Click the **Analyse Fields** button. The app uses PyMuPDF to scan every page of the PDF and extract all form fields. Within a few seconds you'll see a complete list showing:
    - **Field name** — the internal name stored in the PDF (e.g. "Surname", "StudentNumber[0]")
@@ -401,7 +401,7 @@ Government PDF forms often use individual character boxes for identifiers like s
 +-+-+-+-+-+-+-+-+-+-+
 ```
 
-The app **automatically detects** these and fills your data correctly — just put the full value in your spreadsheet (e.g. `VCAA123456` in a single cell).
+The app **automatically detects** these and fills your data correctly — just put the full value in your spreadsheet (e.g. `ABC123456` in a single cell).
 
 ### Two types of combed field
 
@@ -627,11 +627,11 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for a full technical breakdown of data fl
 ## Frequently Asked Questions
 
 <details>
-<summary><strong>Can I use this with any PDF form, or only VCAA forms?</strong></summary>
+<summary><strong>Can I use this with any PDF form?</strong></summary>
 
 <br>
 
-Any PDF with form fields. The app was originally built for VCAA Special Examination Arrangements forms, but it works with any standard PDF form — TAFE enrolments, leave applications, compliance forms, consent forms, medical forms, and more. If your PDF has fillable fields (text boxes, checkboxes, dropdowns), the app can fill them.
+Yes — any PDF with form fields. The app works with any standard PDF form — enrolment forms, leave applications, compliance forms, consent forms, medical forms, and more. If your PDF has fillable fields (text boxes, checkboxes, dropdowns), the app can fill them.
 
 </details>
 
