@@ -11,23 +11,16 @@
      comment and start fresh for the next version.
 -->
 
-## What's new in v2.8
+## What's new in v2.9
 
-### Now works with any PDF form — not just VCAA
+### Major performance improvements — especially on Mac
 
-- **Fully generic form support** — The app no longer assumes you're working with VCAA exam forms. It now works equally well with enrolment forms, leave applications, consent forms, compliance documents, or any other PDF that has fillable fields.
+- **Fixed: app freezing and lagging on macOS** — The app was nearly unusable on Mac, with tabs not responding, field selection freezing the window, and general sluggishness throughout. This release completely fixes those issues. Field previews now render in the background instead of freezing the window, and all bulk operations (Select All, loading data, switching tabs) are dramatically faster.
 
-- **Smart field detection** — When you analyse a PDF, the app automatically recognises common identifier fields (Surname, First Name, Student Number, Employee ID, etc.) and marks them as "critical". These are used for the preview, validation warnings, and output filenames.
+- **Smoother field preview** — Clicking through fields in the Analyse tab now feels instant. A fast preview appears immediately, then a high-quality version follows a moment later — no more waiting for each click.
 
-- **Improved Map Fields tab** — Tab 2 now shows a colour-coded guidance banner that tells you exactly what's happening: whether all fields matched, how many need manual mapping, or if you need to load a data file. Each field row also shows a helpful hint — "auto-matched", "manual", "⚠ will be blank", or "⚠ cryptic name — check visual preview".
+- **Faster data loading** — Loading a spreadsheet with hundreds of rows no longer causes a visible pause. The "Select All" operation and field mapping panel both update much more efficiently.
 
-- **Dynamic record preview** — The Generate tab preview now shows columns based on your actual form fields instead of hardcoded Surname / First Name / Student Number. This means the preview is useful for any form, not just student-related ones.
+- **Smoother scrolling and hover effects** — Mouse hover highlighting and scrolling in all lists and dialogs is now throttled to prevent unnecessary work, making the whole app feel more responsive.
 
-- **Smarter output filenames** — Generated PDFs are now named using your critical fields and template name (e.g. `John_Smith_Leave Application.pdf`) instead of the old hardcoded pattern. School name and year are still included if configured.
-
-- **Template mappings remembered** — When you save a template with custom field mappings, the app tells you they've been saved. When you reload that template, you'll see a clear message that your mappings have been restored.
-
-### Also included
-
-- **Fixed: macOS dialog focus** — Dialogs (school name, template name, sheet picker) now regain keyboard focus correctly after the window grab on macOS Tahoe (26). Previously you had to click inside the field before typing.
-- **Refreshed visual design** — Updated colour palette and spacing across the entire app for a cleaner, more modern look. Improved font detection with Inter support.
+- **Dialogs no longer flicker** — The School Setup, Template Name, and Field Type dialogs now appear cleanly without the brief flicker that was visible on macOS.
