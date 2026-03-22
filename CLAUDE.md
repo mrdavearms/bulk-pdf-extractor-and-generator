@@ -35,6 +35,7 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 | `models.py` | Data models: `PDFField`, `TemplateConfig`, `AppSettings` |
 | `pdf_analyzer.py` | PDF field extraction engine (PyMuPDF) |
 | `visual_preview.py` | PDF page rendering + field highlighting, dual-tier cache |
+| `preview_renderer.py` | Threaded preview renderer — wraps `visual_preview.py` with debouncing, stale-result guard, and background PIL work |
 | `combed_filler.py` | Character-by-character combed field filling |
 | `theme.py` | Centralised theme (colours, fonts, spacing) |
 | `markdown_renderer.py` | Markdown → tkinter Text widget renderer |
@@ -45,12 +46,14 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 ## Key Architecture Decisions
 
 - **Thread safety**: PDF generation runs on a background thread with `copy.deepcopy()` snapshot of all shared state. UI updates via `root.after()`.
+- **PyMuPDF thread safety (CRITICAL)**: `fitz.Document` is NOT thread-safe. `_get_page_image()` must ALWAYS run on the main thread. Only pure PIL operations (`Image.copy()`, `ImageDraw`, `Image.resize()`) are safe to run off-thread. `PreviewRenderer` enforces this boundary — never move PyMuPDF calls off-thread.
 - **Atomic file writes**: Template configs and settings use `tempfile` + `os.replace()` to prevent corruption on crash.
 - **Dual-tier caching**: Preview renders cached in memory (LRU) and on disk (PNG).
 - **Cross-platform scrolling**: Mousewheel handlers branch by `sys.platform` — Windows (`delta/120`), macOS (`delta`), Linux (`Button-4`/`Button-5`).
 - **Backward-compatible persistence**: `from_json()` filters unknown keys so newer configs load in older versions.
 - **Field mapping**: `PDFField.excel_column` stores the explicit Excel column name per field. `TemplateConfig.field_excel_columns` persists these as `{field_name: col_name}`. Generation checks `field.excel_column` first, then falls back to auto-match by field name (case-insensitive). Tab 2 is the UI for viewing and editing these mappings.
 - **Tab lifecycle**: Tab 2 starts disabled; enabled by `analyze_pdf_fields()` after successful analysis. `_refresh_tab2_mappings()` is the single rebuild point — called after analysis, after Excel load, and after template load.
+- **Tab 2 in-place updates**: `self._mapping_rows` (list of dicts, one per field) tracks widget references for `_refresh_tab2_mappings()` in-place updates. Rebuild only when field names or count change; otherwise update comboboxes/labels in-place to avoid widget churn.
 - **Data directory resilience**: `_resolve_data_dir()` tries `~/Documents/BulkPDFGenerator` first; falls back to `%LOCALAPPDATA%/BulkPDFGenerator` if `makedirs` fails (common on school networks with GPO-redirected Documents folders). Both `settings_file` and `templates_directory` derive from this resolved path.
 - **Build version**: `_get_build_info()` returns a 3-tuple `(commit, date, version_tag)` — `BUILD_VERSION` is baked at build time via `git describe --tags --abbrev=0`. Result cached on `self._build_info` in `__init__` to avoid duplicate subprocess calls.
 - **Update check**: `check_for_update(current_version)` is a module-level pure function (no GUI dependency) hitting the GitHub Releases API. Called from `_run_update_check()` on a daemon thread; result dispatched to `_show_update_result()` via `root.after()` — consistent with the existing thread-safety pattern.
@@ -120,8 +123,10 @@ Excel serial date range validation: only serials 1–2958465 are converted (1900
 
 - **Python**: Use `venv/bin/python` — system `python`/`python3` doesn't have project deps. Install pytest once: `venv/bin/pip install pytest`.
 - **Run tests**: `venv/bin/python -m pytest tests/ -v`
+- **Performance tests**: `tests/test_performance.py` uses `inspect.getsource()` to verify structural patterns (anti-patterns absent from source) rather than flaky timing assertions. 17 tests covering threading, debounce, batch updates, throttling, dialog geometry.
 - **Main class**: `BulkPDFGenerator` (not `BulkPDFApp` or similar)
 - **About tab method**: `setup_tab_about()` (not `setup_tab4_about`)
+- **Generation worker method**: `run_generation_tab3()` (not `generate_pdfs_worker` or similar)
 - **Mocking**: patch at the module level — e.g. `patch.object(_generate_version.os.path, 'abspath', ...)` not `patch('os.path.abspath')`
 
 ## Developer

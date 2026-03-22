@@ -532,6 +532,7 @@ graph LR
         Main["pdf_generator.py\n(Main Application)"]
         Theme["theme.py\n(Theme & Styling)"]
         MD["markdown_renderer.py\n(Markdown Renderer)"]
+        Renderer["preview_renderer.py\n(Threaded Preview)"]
     end
 
     subgraph core ["Core Engines"]
@@ -556,12 +557,14 @@ graph LR
     Main --> Theme
     Main --> MD
     Main --> Analyzer
-    Main --> Preview
+    Main --> Renderer
+    Renderer --> Preview
     Main --> Filler
     Main --> Models
     Analyzer --> PyMuPDF
     Preview --> PyMuPDF
     Preview --> Pillow
+    Renderer --> Pillow
     Main --> pypdf
     Main --> pandas
     Main --> openpyxl
@@ -578,6 +581,7 @@ graph LR
 | Module | Lines | Responsibility |
 |--------|------:|----------------|
 | `pdf_generator.py` | ~2,700 | Main application — tabbed GUI, dialogs, Excel I/O, PDF generation pipeline, template management |
+| `preview_renderer.py` | ~325 | Threaded field preview — wraps `visual_preview.py` with background PIL rendering, 150ms debounce, stale-result guard, and dual-pass quality (BILINEAR → LANCZOS) |
 | `models.py` | ~190 | Data models (`PDFField`, `TemplateConfig`, `AppSettings`) with JSON serialization and atomic file writes |
 | `pdf_analyzer.py` | ~200 | PDF field extraction using PyMuPDF — detects combed fields via regex pattern matching on field names and PDF field dictionary flags |
 | `visual_preview.py` | ~200 | PDF page rendering with red-rectangle field highlighting; dual-tier cache (memory LRU + disk PNG) for instant page switching |
@@ -589,6 +593,7 @@ graph LR
 ### Key design decisions
 
 - **Thread safety** — PDF generation runs on a background thread with a deep-copied snapshot of all shared state; UI updates via `root.after()` callbacks. The background thread never touches tkinter widgets.
+- **Threaded field preview** — `PreviewRenderer` runs PIL overlay and resize work off the main thread, keeping the UI responsive on all platforms. PyMuPDF (`fitz.Document`) is NOT thread-safe and always stays on the main thread; only pure PIL operations cross the thread boundary. A monotonic `_request_id` counter prevents stale renders from overwriting newer results during rapid field selection.
 - **Atomic file writes** — Template configs and settings use `tempfile` + `os.replace()` to prevent corruption if the app crashes mid-save. The temp file is always created in the same directory to ensure a same-filesystem atomic rename.
 - **Dual-tier caching** — Preview renders are cached in memory (LRU, 5 entries, ~60 MB cap) and on disk (PNG files). Memory cache gives instant re-renders; disk cache survives app restarts.
 - **Platform-aware scrolling** — Mousewheel events branch by platform (Windows `delta/120`, macOS `delta`, Linux `Button-4`/`Button-5`). Scroll bindings are per-widget (`<Enter>`/`<Leave>`) to prevent conflicts between multiple scrollable areas.
