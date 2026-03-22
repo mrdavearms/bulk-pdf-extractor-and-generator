@@ -168,6 +168,7 @@ def _resolve_data_dir() -> str:
 from models import PDFField, TemplateConfig, AppSettings
 from pdf_analyzer import PDFAnalyzer, auto_name_template
 from visual_preview import VisualPreviewGenerator
+from preview_renderer import PreviewRenderer
 from combed_filler import CombedFieldFiller
 from theme import (
     COLORS, SPACING, SYSTEM_FONTS, font,
@@ -212,10 +213,10 @@ class ScrollableFrame(ttk.Frame):
         self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.scrollable_frame = ttk.Frame(self.canvas)
 
-        self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        )
+        # Debounced <Configure>: multiple events during widget rebuilds
+        # collapse into a single scrollregion update (critical for macOS Aqua)
+        self._config_pending = False
+        self.scrollable_frame.bind("<Configure>", self._on_configure)
 
         self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
@@ -228,6 +229,17 @@ class ScrollableFrame(ttk.Frame):
         self.canvas.bind("<Leave>", self._unbind_mousewheel)
         self.scrollable_frame.bind("<Enter>", self._bind_mousewheel)
         self.scrollable_frame.bind("<Leave>", self._unbind_mousewheel)
+
+    def _on_configure(self, event):
+        """Debounced configure handler — coalesces multiple events."""
+        if not self._config_pending:
+            self._config_pending = True
+            self.canvas.after_idle(self._update_scrollregion)
+
+    def _update_scrollregion(self):
+        """Single scrollregion update after all configure events settle."""
+        self._config_pending = False
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _bind_mousewheel(self, event=None):
         """Bind mousewheel events to this specific canvas (not bind_all)."""
@@ -357,23 +369,21 @@ class SchoolSetupDialog(tk.Toplevel):
         # Bind Enter key
         self.bind('<Return>', lambda e: self.on_save())
 
-        # Auto-size and centre on parent
-        self.update_idletasks()
-        width = self.winfo_reqwidth()
-        height = self.winfo_reqheight()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (width // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (height // 2)
-        self.geometry(f"{width}x{height}+{x}+{y}")
-
-        self.lift()
-        self.attributes('-topmost', True)
-        self.after(100, lambda: self.attributes('-topmost', False))
-        # Defer grab_set so the window is fully realised by AppKit (macOS crash fix).
-        # Re-focus the name entry after grab — grab_set resets focus on macOS Tahoe.
-        def _grab_and_focus():
+        # Defer geometry calculation + grab to avoid flushing AppKit layout queue.
+        # Consolidated into a single after() to avoid timer ordering issues.
+        def _position_and_show():
+            self.update_idletasks()
+            width = self.winfo_reqwidth()
+            height = self.winfo_reqheight()
+            x = parent.winfo_x() + (parent.winfo_width() // 2) - (width // 2)
+            y = parent.winfo_y() + (parent.winfo_height() // 2) - (height // 2)
+            self.geometry(f"{width}x{height}+{x}+{y}")
+            self.lift()
+            self.attributes('-topmost', True)
+            self.after(100, lambda: self.attributes('-topmost', False))
             self.grab_set()
             name_entry.focus_set()
-        self.after(50, _grab_and_focus)
+        self.after(10, _position_and_show)
 
     def on_save(self):
         name = self.name_var.get().strip()
@@ -483,24 +493,20 @@ class TemplateNameDialog(tk.Toplevel):
             bootstyle='primary',
         ).pack(side=tk.RIGHT)
 
-        # Auto-size to content and center on parent
-        self.update_idletasks()
-        width = self.winfo_reqwidth()
-        height = self.winfo_reqheight()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (width // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (height // 2)
-        self.geometry(f"{width}x{height}+{x}+{y}")
-
-        # Force to front
-        self.lift()
-        self.attributes('-topmost', True)
-        self.after(100, lambda: self.attributes('-topmost', False))
-        # Defer grab_set so the window is fully realised by AppKit (macOS crash fix).
-        # Re-focus the name entry after grab — grab_set resets focus on macOS Tahoe.
-        def _grab_and_focus():
+        # Defer geometry + grab to avoid flushing AppKit layout queue
+        def _position_and_show():
+            self.update_idletasks()
+            width = self.winfo_reqwidth()
+            height = self.winfo_reqheight()
+            x = parent.winfo_x() + (parent.winfo_width() // 2) - (width // 2)
+            y = parent.winfo_y() + (parent.winfo_height() // 2) - (height // 2)
+            self.geometry(f"{width}x{height}+{x}+{y}")
+            self.lift()
+            self.attributes('-topmost', True)
+            self.after(100, lambda: self.attributes('-topmost', False))
             self.grab_set()
             name_entry.focus_set()
-        self.after(50, _grab_and_focus)
+        self.after(10, _position_and_show)
 
     def on_save(self):
         self.result = self.name_var.get().strip()
@@ -578,14 +584,25 @@ class FieldTypeAuditDialog(tk.Toplevel):
         scrollbar = ttk.Scrollbar(list_outer, orient=tk.VERTICAL, command=canvas.yview)
         self.inner_frame = tk.Frame(canvas, bg=C['bg_surface'], autostyle=False)
 
-        self.inner_frame.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox('all')))
+        # Debounced <Configure> (same pattern as ScrollableFrame)
+        self._config_pending = False
+        def _on_configure(event):
+            if not self._config_pending:
+                self._config_pending = True
+                canvas.after_idle(_update_scrollregion)
+        def _update_scrollregion():
+            self._config_pending = False
+            canvas.configure(scrollregion=canvas.bbox('all'))
+        self.inner_frame.bind('<Configure>', _on_configure)
+
         canvas.create_window((0, 0), window=self.inner_frame, anchor=tk.NW)
         canvas.configure(yscrollcommand=scrollbar.set)
 
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Mousewheel scrolling (platform-aware)
+        # Mousewheel scrolling — bind on canvas only with Enter/Leave scoping
+        # (replaces per-widget binding which created ~250 bindings)
         def _on_mousewheel(event):
             if sys.platform == 'darwin':
                 canvas.yview_scroll(int(-1 * event.delta), 'units')
@@ -595,26 +612,29 @@ class FieldTypeAuditDialog(tk.Toplevel):
             else:
                 canvas.yview_scroll(int(-1 * (event.delta / 120)), 'units')
 
-        def _bind_scroll(widget):
-            """Bind mousewheel events to a widget (cross-platform)."""
-            widget.bind('<MouseWheel>', _on_mousewheel)
+        def _bind_scroll(event=None):
+            canvas.bind('<MouseWheel>', _on_mousewheel)
             if sys.platform == 'linux':
-                widget.bind('<Button-4>', _on_mousewheel)
-                widget.bind('<Button-5>', _on_mousewheel)
+                canvas.bind('<Button-4>', _on_mousewheel)
+                canvas.bind('<Button-5>', _on_mousewheel)
 
-        _bind_scroll(canvas)
-        _bind_scroll(self.inner_frame)
+        def _unbind_scroll(event=None):
+            canvas.unbind('<MouseWheel>')
+            if sys.platform == 'linux':
+                canvas.unbind('<Button-4>')
+                canvas.unbind('<Button-5>')
+
+        canvas.bind('<Enter>', _bind_scroll)
+        canvas.bind('<Leave>', _unbind_scroll)
 
         # Header row
         hdr = tk.Frame(self.inner_frame, bg=C['bg_surface'], autostyle=False)
         hdr.pack(fill=tk.X, padx=5, pady=(5, 2))
-        _bind_scroll(hdr)
         for hdr_text, hdr_w in [("Field Name", 26), ("Field Type", 14), ("Data Type", 16), ("Length", 8)]:
             lbl = tk.Label(hdr, text=hdr_text, font=(ff, 10, 'bold'),
                            fg=C['text_primary'], bg=C['bg_surface'], width=hdr_w,
                            anchor=tk.W, autostyle=False)
             lbl.pack(side=tk.LEFT)
-            _bind_scroll(lbl)
 
         # Field rows
         self.combo_vars = []       # Data type combobox StringVars
@@ -625,14 +645,12 @@ class FieldTypeAuditDialog(tk.Toplevel):
             bg = C['bg_surface'] if i % 2 == 0 else C['bg_elevated']
             row = tk.Frame(self.inner_frame, bg=bg, autostyle=False)
             row.pack(fill=tk.X, padx=5, pady=1)
-            _bind_scroll(row)
 
             # Column 1: Field Name
             lbl_name = tk.Label(row, text=field.field_name, font=(ff, 10),
                                 fg=C['text_primary'], bg=bg, width=26,
                                 anchor=tk.W, autostyle=False)
             lbl_name.pack(side=tk.LEFT)
-            _bind_scroll(lbl_name)
 
             # Column 2: Field Type (editable for Text types, read-only for others)
             if field.field_type in self._EDITABLE_FIELD_TYPES:
@@ -641,7 +659,6 @@ class FieldTypeAuditDialog(tk.Toplevel):
                                             values=self.FIELD_TYPE_OPTIONS,
                                             state='readonly', width=14)
                 ftype_combo.pack(side=tk.LEFT, padx=(2, 0))
-                _bind_scroll(ftype_combo)
                 # Bind change handler (closure over index)
                 ftype_combo.bind('<<ComboboxSelected>>',
                                  lambda e, idx=i: self._on_field_type_changed(idx))
@@ -651,7 +668,6 @@ class FieldTypeAuditDialog(tk.Toplevel):
                                      fg=C['text_secondary'], bg=bg, width=14,
                                      anchor=tk.W, autostyle=False)
                 lbl_ftype.pack(side=tk.LEFT, padx=(2, 0))
-                _bind_scroll(lbl_ftype)
             self.ftype_vars.append(ftype_var)
 
             # Column 3: Data Type
@@ -666,7 +682,6 @@ class FieldTypeAuditDialog(tk.Toplevel):
                                  values=self.DATA_TYPE_OPTIONS,
                                  state='readonly', width=16)
             combo.pack(side=tk.LEFT, padx=(5, 0))
-            _bind_scroll(combo)
             self.combo_vars.append(dtype_var)
 
             # Column 4: Length (enabled only for Text-Combed)
@@ -687,25 +702,22 @@ class FieldTypeAuditDialog(tk.Toplevel):
                    command=self.on_apply,
                    bootstyle='primary').pack(side=tk.RIGHT)
 
-        # Size and center — use most of the parent height so buttons
-        # remain visible even with many fields (the list scrolls).
-        self.update_idletasks()
-        dialog_w = max(740, self.winfo_reqwidth())
-        parent_h = parent.winfo_height()
-        dialog_h = min(int(parent_h * 0.85), max(500, 200 + len(fields) * 28))
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (dialog_w // 2)
-        y = parent.winfo_y() + (parent_h // 2) - (dialog_h // 2)
-        self.geometry(f"{dialog_w}x{dialog_h}+{x}+{y}")
-
-        self.lift()
-        self.attributes('-topmost', True)
-        self.after(100, lambda: self.attributes('-topmost', False))
-        # Defer grab_set so the window is fully realised by AppKit (macOS crash fix).
-        # Re-focus the dialog after grab — grab_set resets focus on macOS Tahoe.
-        def _grab_and_focus():
+        # Defer geometry + grab to avoid flushing AppKit layout queue
+        _fields_count = len(fields)
+        def _position_and_show():
+            self.update_idletasks()
+            dialog_w = max(740, self.winfo_reqwidth())
+            parent_h = parent.winfo_height()
+            dialog_h = min(int(parent_h * 0.85), max(500, 200 + _fields_count * 28))
+            x = parent.winfo_x() + (parent.winfo_width() // 2) - (dialog_w // 2)
+            y = parent.winfo_y() + (parent_h // 2) - (dialog_h // 2)
+            self.geometry(f"{dialog_w}x{dialog_h}+{x}+{y}")
+            self.lift()
+            self.attributes('-topmost', True)
+            self.after(100, lambda: self.attributes('-topmost', False))
             self.grab_set()
             self.focus_set()
-        self.after(50, _grab_and_focus)
+        self.after(10, _position_and_show)
 
     def _on_field_type_changed(self, idx):
         """Enable/disable Length entry when field type changes."""
@@ -850,6 +862,9 @@ class BulkPDFGenerator:
 
     def _close_preview_generator(self):
         """Safely close the preview generator if open."""
+        # Shut down threaded renderer first (cancels pending work)
+        if hasattr(self, '_preview_renderer') and self._preview_renderer:
+            self._preview_renderer.shutdown()
         if hasattr(self, 'preview_generator') and self.preview_generator:
             try:
                 self.preview_generator.__exit__(None, None, None)
@@ -1439,6 +1454,7 @@ class BulkPDFGenerator:
 
         self.preview_image = None
         self.preview_generator = None
+        self._preview_renderer: Optional[PreviewRenderer] = None
 
         # Action buttons row
         action_frame = tk.Frame(container, bg=COLORS['bg_base'])
@@ -1582,6 +1598,14 @@ class BulkPDFGenerator:
             cache_dir = os.path.join(self.settings.templates_directory, '.preview_cache')
             self.preview_generator = VisualPreviewGenerator(pdf_path, cache_dir)
             self.preview_generator.__enter__()  # Open the PDF
+
+            # Initialize threaded preview renderer
+            def _on_preview_complete(photo):
+                self.preview_image = photo
+            self._preview_renderer = PreviewRenderer(
+                self.preview_generator, self.root,
+                self.preview_canvas, _on_preview_complete,
+            )
 
             # Update UI
             self.display_analyzed_fields()
@@ -1754,14 +1778,19 @@ class BulkPDFGenerator:
         combo.bind('<FocusOut>', lambda e: combo.after(100, _safe_destroy))
 
     def _zoom_preview(self, delta, fit=False):
-        """Adjust preview zoom level and re-render."""
+        """Adjust preview zoom level and re-render (non-blocking)."""
         if fit:
             self.zoom_level = 1.0
         else:
             self.zoom_level = max(0.5, min(4.0, self.zoom_level + delta))
 
         self.zoom_label.config(text=f"{int(self.zoom_level * 100)}%")
-        self._render_preview_at_zoom()
+
+        # Use threaded renderer for zoom (reuses cached raw image)
+        if self._preview_renderer:
+            self._preview_renderer.request_zoom(self.zoom_level)
+        else:
+            self._render_preview_at_zoom()
 
     def _render_preview_at_zoom(self):
         """Re-render the stored raw preview image at the current zoom level."""
@@ -1804,8 +1833,14 @@ class BulkPDFGenerator:
             print(f"Zoom render error: {e}")
 
     def on_field_selected(self, event):
-        """Handle field selection in Tab 1 - show visual preview."""
+        """Handle field selection in Tab 1 - show visual preview.
+
+        Rendering is non-blocking: dispatched to PreviewRenderer which
+        runs PIL work on a background thread and delivers results via
+        root.after().
+        """
         if (not self.analyzed_fields
+                or not self._preview_renderer
                 or not self.preview_generator
                 or not self.preview_generator.doc):
             return
@@ -1814,37 +1849,20 @@ class BulkPDFGenerator:
         if not selection:
             return
 
-        # Get selected item index
         item = selection[0]
         item_index = self.fields_tree.index(item)
 
         if item_index >= len(self.analyzed_fields):
             return
 
-        # Get the selected field
         field = self.analyzed_fields[item_index]
 
-        try:
-            # Generate preview at higher DPI for zoom quality
-            preview_img = self.preview_generator.generate_field_preview(field, dpi=200)
+        # Reset zoom for new field
+        self.zoom_level = 1.0
+        self.zoom_label.config(text="100%")
 
-            # Store raw image for zoom
-            self._preview_raw_img = preview_img
-            self.zoom_level = 1.0
-            self.zoom_label.config(text="100%")
-
-            # Render at current zoom (handles canvas drawing)
-            self._render_preview_at_zoom()
-
-        except Exception as e:
-            print(f"Preview error: {e}")
-            self.preview_canvas.delete("all")
-            self.preview_canvas.create_text(
-                300, 150,
-                text=f"Preview unavailable\n{str(e)}",
-                fill=COLORS['error'],
-                font=font(12),
-            )
+        # Non-blocking: renderer handles threading + debounce
+        self._preview_renderer.request_preview(field, self.zoom_level, dpi=200)
 
     def export_mapping_file(self):
         """Export field mapping to Excel file with formatted worksheets.
@@ -2301,89 +2319,144 @@ class BulkPDFGenerator:
             self._set_mapping_buttons(enabled=False)
             return
 
-        # Case 3: Both available — build the mapping rows
-        self._clear_mapping_rows()
-        self._tab2_combos.clear()
-
+        # Case 3: Both available — build or update the mapping rows
         col_list = sorted(self.df.columns.tolist())
         column_options = ["-- not mapped --"] + col_list
         col_set = set(self.df.columns.tolist())
 
-        for field in self.analyzed_fields:
-            row = tk.Frame(self._tab2_mapping_frame, bg=C['bg_surface'])
-            row.pack(fill=tk.X, pady=2)
+        # Check if we can update in-place (same fields in same order)
+        current_field_names = [f.field_name for f in self.analyzed_fields]
+        can_update_inplace = (
+            hasattr(self, '_mapping_rows')
+            and self._mapping_rows
+            and len(self._mapping_rows) == len(self.analyzed_fields)
+            and [r['field_name'] for r in self._mapping_rows] == current_field_names
+        )
 
-            # PDF field name label
-            tk.Label(
-                row,
-                text=field.field_name,
-                font=font(10),
-                fg=C['text_primary'],
-                bg=C['bg_surface'],
-                width=28,
-                anchor='w',
-            ).pack(side=tk.LEFT)
+        if can_update_inplace:
+            # In-place update: just update combobox values and status labels
+            for i, field in enumerate(self.analyzed_fields):
+                row_data = self._mapping_rows[i]
+                combo = row_data['combo']
+                status_lbl = row_data['status_lbl']
+                hint_lbl = row_data['hint_lbl']
 
-            # Determine initial combobox value
-            if field.excel_column and field.excel_column in col_set:
-                initial = field.excel_column
-            else:
-                # Saved column no longer in file — clear it
-                field.excel_column = None
-                initial = "-- not mapped --"
+                # Update combobox options
+                combo['values'] = column_options
 
-            combo = ttk.Combobox(
-                row,
-                values=column_options,
-                state="readonly",
-                width=32,
-            )
-            combo.set(initial)
-            combo.pack(side=tk.LEFT, padx=(8, 0))
+                # Determine current value
+                if field.excel_column and field.excel_column in col_set:
+                    combo.set(field.excel_column)
+                else:
+                    field.excel_column = None
+                    combo.set("-- not mapped --")
 
-            # Status icon label
-            mapped = (initial != "-- not mapped --")
-            status_lbl = tk.Label(
-                row,
-                text="✓" if mapped else "–",
-                font=font(10),
-                fg=C['success'] if mapped else C['text_tertiary'],
-                bg=C['bg_surface'],
-                width=4,
-                anchor='w',
-            )
-            status_lbl.pack(side=tk.LEFT, padx=(8, 0))
+                # Update status and hint
+                mapped = (field.excel_column is not None)
+                status_lbl.config(
+                    text="✓" if mapped else "–",
+                    fg=C['success'] if mapped else C['text_tertiary'],
+                )
+                if mapped:
+                    was_auto = getattr(field, '_auto_mapped', False)
+                    hint_lbl.config(
+                        text="auto-matched" if was_auto else "manual",
+                        fg=C['success'] if was_auto else C['info'],
+                    )
+                elif CRYPTIC_FIELD_RE.match(field.field_name):
+                    hint_lbl.config(text="⚠ cryptic name — check visual preview", fg=C['warning'])
+                else:
+                    hint_lbl.config(text="⚠ will be blank", fg=C['warning'])
 
-            # Diagnostic hint label
-            if mapped:
-                was_auto = getattr(field, '_auto_mapped', False)
-                hint_text = "auto-matched" if was_auto else "manual"
-                hint_colour = C['success'] if was_auto else C['info']
-            elif CRYPTIC_FIELD_RE.match(field.field_name):
-                hint_text = "⚠ cryptic name — check visual preview"
-                hint_colour = C['warning']
-            else:
-                hint_text = "⚠ will be blank"
-                hint_colour = C['warning']
+                self._tab2_combos[field.field_name] = (combo, status_lbl)
+        else:
+            # Full rebuild (field count or names changed)
+            self._clear_mapping_rows()
+            self._tab2_combos.clear()
+            self._mapping_rows = []
 
-            tk.Label(
-                row,
-                text=hint_text,
-                font=font(9),
-                fg=hint_colour,
-                bg=C['bg_surface'],
-                width=30,
-                anchor='w',
-            ).pack(side=tk.LEFT, padx=(8, 0))
+            for field in self.analyzed_fields:
+                row = tk.Frame(self._tab2_mapping_frame, bg=C['bg_surface'])
+                row.pack(fill=tk.X, pady=2)
 
-            self._tab2_combos[field.field_name] = (combo, status_lbl)
+                # PDF field name label
+                tk.Label(
+                    row,
+                    text=field.field_name,
+                    font=font(10),
+                    fg=C['text_primary'],
+                    bg=C['bg_surface'],
+                    width=28,
+                    anchor='w',
+                ).pack(side=tk.LEFT)
 
-            # Bind selection event (use default arg to capture loop variable)
-            combo.bind(
-                '<<ComboboxSelected>>',
-                lambda e, fn=field.field_name, cb=combo, sl=status_lbl:
-                    self._on_mapping_changed(fn, cb, sl),
-            )
+                # Determine initial combobox value
+                if field.excel_column and field.excel_column in col_set:
+                    initial = field.excel_column
+                else:
+                    field.excel_column = None
+                    initial = "-- not mapped --"
+
+                combo = ttk.Combobox(
+                    row,
+                    values=column_options,
+                    state="readonly",
+                    width=32,
+                )
+                combo.set(initial)
+                combo.pack(side=tk.LEFT, padx=(8, 0))
+
+                # Status icon label
+                mapped = (initial != "-- not mapped --")
+                status_lbl = tk.Label(
+                    row,
+                    text="✓" if mapped else "–",
+                    font=font(10),
+                    fg=C['success'] if mapped else C['text_tertiary'],
+                    bg=C['bg_surface'],
+                    width=4,
+                    anchor='w',
+                )
+                status_lbl.pack(side=tk.LEFT, padx=(8, 0))
+
+                # Diagnostic hint label
+                if mapped:
+                    was_auto = getattr(field, '_auto_mapped', False)
+                    hint_text = "auto-matched" if was_auto else "manual"
+                    hint_colour = C['success'] if was_auto else C['info']
+                elif CRYPTIC_FIELD_RE.match(field.field_name):
+                    hint_text = "⚠ cryptic name — check visual preview"
+                    hint_colour = C['warning']
+                else:
+                    hint_text = "⚠ will be blank"
+                    hint_colour = C['warning']
+
+                hint_lbl = tk.Label(
+                    row,
+                    text=hint_text,
+                    font=font(9),
+                    fg=hint_colour,
+                    bg=C['bg_surface'],
+                    width=30,
+                    anchor='w',
+                )
+                hint_lbl.pack(side=tk.LEFT, padx=(8, 0))
+
+                self._tab2_combos[field.field_name] = (combo, status_lbl)
+                self._mapping_rows.append({
+                    'field_name': field.field_name,
+                    'row': row,
+                    'combo': combo,
+                    'status_lbl': status_lbl,
+                    'hint_lbl': hint_lbl,
+                })
+
+                # Bind selection event (use default arg to capture loop variable)
+                combo.bind(
+                    '<<ComboboxSelected>>',
+                    lambda e, fn=field.field_name, cb=combo, sl=status_lbl:
+                        self._on_mapping_changed(fn, cb, sl),
+                )
 
         self._update_mapping_status()
         self._set_mapping_buttons(enabled=True)
@@ -2430,6 +2503,8 @@ class BulkPDFGenerator:
             return
         for widget in self._tab2_mapping_frame.winfo_children():
             widget.destroy()
+        if hasattr(self, '_mapping_rows'):
+            self._mapping_rows = []
 
     def _set_mapping_buttons(self, enabled: bool):
         """Enable or disable the Auto-Map and Clear All buttons."""
@@ -2854,8 +2929,8 @@ class BulkPDFGenerator:
             self.validate_data_tab3()
             self.show_preview_tab3()
 
-            # Select all by default
-            self.select_all_tab3()
+            # Select all by default (deferred so treeview renders first)
+            self.root.after_idle(self.select_all_tab3)
 
             # Enable generate button
             self.generate_btn_tab3.config(state=tk.NORMAL)
@@ -3028,23 +3103,37 @@ class BulkPDFGenerator:
             self.update_selection_count_tab3()
 
     def select_all_tab3(self):
-        """Select all in Tab 3."""
+        """Select all in Tab 3 (batched to avoid per-row redraws)."""
+        # Suppress redraws: detach treeview from layout during bulk update
+        tree = self.tree_tab3
+        parent = tree.master
+        pack_info = tree.pack_info()
+        tree.pack_forget()
+
         for item_id in self.selected_rows:
             self.selected_rows[item_id]['selected'] = True
-            current_values = list(self.tree_tab3.item(item_id, 'values'))
+            current_values = list(tree.item(item_id, 'values'))
             current_values[0] = 'Yes'
-            self.tree_tab3.item(item_id, values=current_values)
+            tree.item(item_id, values=current_values)
 
+        # Reattach — single composite redraw
+        tree.pack(**pack_info)
         self.update_selection_count_tab3()
 
     def deselect_all_tab3(self):
-        """Deselect all in Tab 3."""
+        """Deselect all in Tab 3 (batched to avoid per-row redraws)."""
+        tree = self.tree_tab3
+        parent = tree.master
+        pack_info = tree.pack_info()
+        tree.pack_forget()
+
         for item_id in self.selected_rows:
             self.selected_rows[item_id]['selected'] = False
-            current_values = list(self.tree_tab3.item(item_id, 'values'))
+            current_values = list(tree.item(item_id, 'values'))
             current_values[0] = ''
-            self.tree_tab3.item(item_id, values=current_values)
+            tree.item(item_id, values=current_values)
 
+        tree.pack(**pack_info)
         self.update_selection_count_tab3()
 
     def update_selection_count_tab3(self):
@@ -3127,6 +3216,8 @@ class BulkPDFGenerator:
                 return "".join(c for c in str(val) if c.isalnum() or c in ' -_').strip()
 
             critical = [f for f in ctx['analyzed_fields'] if f.is_critical]
+            import time as _time
+            _last_progress_time = _time.monotonic()
 
             for i, idx in enumerate(ctx['selected_indices']):
                 row = ctx['df'].iloc[idx]
@@ -3170,9 +3261,15 @@ class BulkPDFGenerator:
                     row_label = '_'.join(name_parts) if name_parts else f'Row_{idx+1}'
                     status_text = f"Error: {row_label} - {str(e)}"
 
-                # Update progress (UI calls are safe via root.after)
+                # Throttled progress: update every 10th record or 200ms
                 progress = ((i + 1) / total) * 100
-                self.root.after(0, self.update_progress_tab3, progress, status_text, i+1, total)
+                _now = _time.monotonic()
+                if i % 10 == 0 or (_now - _last_progress_time) >= 0.2:
+                    _last_progress_time = _now
+                    self.root.after(0, self.update_progress_tab3, progress, status_text, i+1, total)
+
+            # Always dispatch final 100% progress state
+            self.root.after(0, self.update_progress_tab3, 100, "Complete", total, total)
 
             # Final message
             final_message = f"Complete! {success_count} PDFs created"

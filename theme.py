@@ -320,11 +320,18 @@ def setup_treeview_tags(tree: ttk.Treeview):
 
 
 def bind_treeview_hover(tree: ttk.Treeview):
-    """Add hover highlighting to a Treeview widget."""
-    hovered = {'item': None}
+    """Add hover highlighting to a Treeview widget.
 
-    def on_motion(event):
-        item = tree.identify_row(event.y)
+    Throttled to fire at most every 50ms — on macOS trackpads, <Motion>
+    fires at 60Hz which floods the Tcl event loop with identify_row() calls.
+    """
+    hovered = {'item': None}
+    _throttle_id = [None]  # mutable container for nonlocal-like access
+
+    def _process_motion(y):
+        """Actually process the hover — called from throttle timer."""
+        _throttle_id[0] = None
+        item = tree.identify_row(y)
         if item != hovered['item']:
             if hovered['item']:
                 tags = list(tree.item(hovered['item'], 'tags'))
@@ -337,7 +344,17 @@ def bind_treeview_hover(tree: ttk.Treeview):
                 tree.item(item, tags=tags)
             hovered['item'] = item
 
+    def on_motion(event):
+        # Throttle: skip if a timer is already pending
+        if _throttle_id[0] is not None:
+            return
+        _throttle_id[0] = tree.after(50, _process_motion, event.y)
+
     def on_leave(event):
+        # Cancel pending throttle timer
+        if _throttle_id[0] is not None:
+            tree.after_cancel(_throttle_id[0])
+            _throttle_id[0] = None
         if hovered['item']:
             tags = list(tree.item(hovered['item'], 'tags'))
             if 'hover' in tags:
