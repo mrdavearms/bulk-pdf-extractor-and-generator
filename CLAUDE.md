@@ -89,7 +89,7 @@ This triggers `.github/workflows/release.yml` which:
 
 The README download badge auto-updates via shields.io — no manual step needed.
 
-Releases are created as **drafts** — after the build completes, review the release on GitHub and click **Publish** when ready. Release notes are read from `RELEASE_NOTES.md` in the repo root. If that file is empty, notes are auto-generated from conventional commit messages since the last tag.
+Releases are **published automatically** as soon as the build completes — no manual step needed. Release notes are read from `RELEASE_NOTES.md` in the repo root. If that file is empty, notes are auto-generated from conventional commit messages since the last tag.
 
 Pre-release tags (`v2.8-beta`, `v2.8-rc1`, etc.) are automatically flagged as pre-releases on GitHub and excluded from the "Latest" badge on the README.
 
