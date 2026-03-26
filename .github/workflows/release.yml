@@ -57,7 +57,7 @@ jobs:
           Write-Host "Built: Bulk.PDF.Generator.exe ($([math]::Round($size, 1)) MB)"
         shell: pwsh
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-exe
           path: dist/Bulk.PDF.Generator.exe
@@ -132,7 +132,7 @@ jobs:
           SIZE=$(du -h "dist/Bulk.PDF.Generator.macOS.dmg" | cut -f1)
           echo "Built: Bulk.PDF.Generator.macOS.dmg ($SIZE)"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos-app
           path: dist/Bulk.PDF.Generator.macOS.dmg
