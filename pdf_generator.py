@@ -160,8 +160,13 @@ def _resolve_data_dir() -> str:
             os.environ.get('LOCALAPPDATA', os.path.expanduser('~')),
             'BulkPDFGenerator'
         )
-        os.makedirs(fallback, exist_ok=True)
-        return fallback
+        try:
+            os.makedirs(fallback, exist_ok=True)
+            return fallback
+        except OSError:
+            # Last resort: use a temp directory so the app can still launch
+            import tempfile
+            return tempfile.mkdtemp(prefix='BulkPDFGenerator_')
 
 
 # Import our new modules
@@ -1515,6 +1520,36 @@ class BulkPDFGenerator:
             self.pdf_template_path.set(self.current_template.pdf_path)
             self.template_name_var.set(self.current_template.template_name)
 
+            # If analyzed_fields is empty, silently re-analyze the PDF so that
+            # data types, mappings, and combed logic are all functional.
+            pdf_path = self.current_template.pdf_path
+            if not self.analyzed_fields and pdf_path and os.path.exists(pdf_path):
+                with PDFAnalyzer(pdf_path) as analyzer:
+                    self.analyzed_fields = analyzer.analyze_fields()
+
+                # Restore field type overrides from the template
+                if self.current_template.field_type_overrides:
+                    for field in self.analyzed_fields:
+                        override = self.current_template.field_type_overrides.get(field.field_name)
+                        if override:
+                            field.field_type = override.get('field_type', field.field_type)
+                            if override.get('length') is not None:
+                                field.length = override['length']
+                                field.is_combed = (field.field_type == 'Text-Combed')
+
+                # Initialize preview generator for the loaded PDF
+                self._close_preview_generator()
+                cache_dir = os.path.join(self.settings.templates_directory, '.preview_cache')
+                self.preview_generator = VisualPreviewGenerator(pdf_path, cache_dir)
+                self.preview_generator.__enter__()
+
+                def _on_preview_complete(photo):
+                    self.preview_image = photo
+                self._preview_renderer = PreviewRenderer(
+                    self.preview_generator, self.root,
+                    self.preview_canvas, _on_preview_complete,
+                )
+
             # Restore saved data types to analyzed fields if they exist
             saved_types = self.current_template.field_data_types or {}
             if saved_types and self.analyzed_fields:
@@ -1539,6 +1574,9 @@ class BulkPDFGenerator:
                     if field.field_name in saved_critical:
                         field.is_critical = True
 
+            # Enable Tab 2 and refresh mappings
+            if self.analyzed_fields:
+                self.notebook.tab(2, state='normal')
             self._refresh_tab2_mappings()
 
             # Show template-specific banner message if mappings were restored
@@ -2531,7 +2569,7 @@ class BulkPDFGenerator:
 
     def _auto_map_fields(self):
         """Apply smart-guess mappings to all fields, overwriting existing mappings."""
-        if not self.df or not self.analyzed_fields:
+        if self.df is None or not self.analyzed_fields:
             return
         column_lower = {col.lower(): col for col in self.df.columns}
         for field in self.analyzed_fields:
@@ -2902,15 +2940,15 @@ class BulkPDFGenerator:
                 except UnicodeDecodeError:
                     self.df = pd.read_csv(excel_path, encoding='latin-1')
             else:
-                xl = pd.ExcelFile(excel_path)
-                sheet_names = xl.sheet_names
-                if len(sheet_names) == 1:
-                    chosen_sheet = sheet_names[0]
-                else:
-                    chosen_sheet = self._pick_excel_sheet(sheet_names)
-                    if chosen_sheet is None:
-                        return  # User cancelled the dialog
-                self.df = xl.parse(chosen_sheet, dtype=str)
+                with pd.ExcelFile(excel_path) as xl:
+                    sheet_names = xl.sheet_names
+                    if len(sheet_names) == 1:
+                        chosen_sheet = sheet_names[0]
+                    else:
+                        chosen_sheet = self._pick_excel_sheet(sheet_names)
+                        if chosen_sheet is None:
+                            return  # User cancelled the dialog
+                    self.df = xl.parse(chosen_sheet, dtype=str)
 
             # Clean column names (strip whitespace, lowercase for matching)
             self.df.columns = [str(col).strip() for col in self.df.columns]
@@ -3399,11 +3437,22 @@ class BulkPDFGenerator:
         # Date type: handle pandas-stringified datetimes e.g. "2024-05-01 00:00:00"
         # (occurs when dtype=str is used on read_excel — Timestamps become strings)
         if data_type == "date" and isinstance(val, str):
-            for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+            for fmt in ('%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
                 try:
                     return datetime.strptime(val.strip(), fmt).strftime('%d/%m/%Y')
                 except ValueError:
                     pass
+            # Handle numeric serial strings produced by dtype=str
+            # (e.g. "45000" or "45000.0" instead of a formatted date)
+            try:
+                serial = int(float(val.strip()))
+                if 1 <= serial <= 2958465:
+                    from datetime import timedelta
+                    excel_epoch = datetime(1899, 12, 30)
+                    date_obj = excel_epoch + timedelta(days=serial)
+                    return date_obj.strftime('%d/%m/%Y')
+            except (ValueError, TypeError):
+                pass
 
         # Date type: convert Excel serial numbers to DD/MM/YYYY
         if data_type == "date" and isinstance(val, (int, float)):

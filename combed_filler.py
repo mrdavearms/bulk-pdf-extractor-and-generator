@@ -54,17 +54,20 @@ class CombedFieldFiller:
         # Clean and prepare text
         text = str(text_value).strip()
 
+        # Use combed_fields count as the canonical capacity
+        capacity = len(field.combed_fields) if field.combed_fields else (field.length or 0)
+
         # Truncate if too long
-        if len(text) > field.length:
-            text = text[:field.length]
+        if capacity and len(text) > capacity:
+            text = text[:capacity]
 
         # Determine alignment
-        if self.align == 'right' and len(text) < field.length:
+        if self.align == 'right' and capacity and len(text) < capacity:
             # Right-align by padding left
-            text = text.rjust(field.length)
-        elif self.padding and len(text) < field.length:
+            text = text.rjust(capacity)
+        elif self.padding and capacity and len(text) < capacity:
             # Pad with spaces to fill all boxes
-            text = text.ljust(field.length)
+            text = text.ljust(capacity)
 
         # Create field mapping
         field_values = {}
@@ -76,7 +79,7 @@ class CombedFieldFiller:
                 field_values[field_name] = char
 
         # Fill remaining boxes with empty string (or spaces if padding)
-        for idx in range(len(text), field.length):
+        for idx in range(len(text), capacity):
             if idx < len(field.combed_fields):
                 field_name = field.combed_fields[idx]
                 field_values[field_name] = ' ' if self.padding else ''
@@ -157,10 +160,11 @@ class CombedFieldFiller:
             # Not a combed field - no overflow possible
             return result
 
-        if len(text) > field.length:
+        capacity = len(field.combed_fields) if field.combed_fields else (field.length or 0)
+        if capacity and len(text) > capacity:
             result['is_valid'] = False
             result['will_truncate'] = True
-            result['truncated_text'] = text[:field.length]
+            result['truncated_text'] = text[:capacity]
 
         return result
 

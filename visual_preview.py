@@ -4,6 +4,7 @@ Visual Field Preview Module for Bulk PDF Generator v2.0
 Handles PDF page rendering and field highlighting for visual preview.
 """
 
+import hashlib
 import os
 import tempfile
 from collections import OrderedDict
@@ -158,8 +159,9 @@ class VisualPreviewGenerator:
             self._cached_pages.move_to_end(cache_key)
             return self._cached_pages[cache_key]
 
-        # Check disk cache
-        cache_filename = f"page_{page_num}_dpi_{dpi}.png"
+        # Check disk cache (include PDF identity to prevent stale cross-PDF hits)
+        pdf_hash = hashlib.md5(self.pdf_path.encode()).hexdigest()[:8]
+        cache_filename = f"{pdf_hash}_page_{page_num}_dpi_{dpi}.png"
         cache_path = os.path.join(self.cache_dir, cache_filename)
 
         if os.path.exists(cache_path):
@@ -192,7 +194,7 @@ class VisualPreviewGenerator:
         # Clear disk cache (only app-generated files, with error handling)
         if os.path.exists(self.cache_dir):
             for file in os.listdir(self.cache_dir):
-                if file.startswith('page_') and file.endswith('.png'):
+                if file.endswith('.png') and '_page_' in file:
                     try:
                         os.remove(os.path.join(self.cache_dir, file))
                     except OSError:

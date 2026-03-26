@@ -118,6 +118,8 @@ class TemplateConfig:
             raise ValueError(f"Template file is not valid JSON: {filepath}") from e
         except (TypeError, KeyError) as e:
             raise ValueError(f"Template file has missing or invalid fields: {filepath}") from e
+        except OSError as e:
+            raise ValueError(f"Cannot read template file: {filepath}") from e
 
     def save_to_file(self, filepath: str):
         """Save to JSON file atomically to prevent corruption on crash."""
@@ -128,7 +130,14 @@ class TemplateConfig:
                                          encoding='utf-8') as tmp:
             tmp.write(self.to_json())
             tmp_path = tmp.name
-        os.replace(tmp_path, filepath)
+        try:
+            os.replace(tmp_path, filepath)
+        except OSError:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
 
 @dataclass
@@ -171,7 +180,7 @@ class AppSettings:
     def from_file(cls, filepath: str) -> 'AppSettings':
         """Load from JSON file."""
         try:
-            with open(filepath, 'r') as f:
+            with open(filepath, 'r', encoding='utf-8') as f:
                 return cls.from_json(f.read())
         except (FileNotFoundError, PermissionError, OSError,
                 json.JSONDecodeError, TypeError, KeyError):
@@ -186,7 +195,14 @@ class AppSettings:
                                          encoding='utf-8') as tmp:
             tmp.write(self.to_json())
             tmp_path = tmp.name
-        os.replace(tmp_path, filepath)
+        try:
+            os.replace(tmp_path, filepath)
+        except OSError:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
     @classmethod
     def get_defaults(cls) -> 'AppSettings':

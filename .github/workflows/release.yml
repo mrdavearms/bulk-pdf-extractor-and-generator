@@ -45,20 +45,22 @@ jobs:
       - name: Build .exe
         run: python -m PyInstaller BulkPDFGenerator.spec --clean --noconfirm
 
-      - name: Verify build output
+      - name: Verify build output and rename
         run: |
           if (!(Test-Path "dist/Bulk PDF Generator.exe")) {
             Write-Error "Build failed — .exe not found"
             exit 1
           }
-          $size = (Get-Item "dist/Bulk PDF Generator.exe").Length / 1MB
-          Write-Host "Built: Bulk PDF Generator.exe ($([math]::Round($size, 1)) MB)"
+          # Rename to dotted form so GitHub Release download URLs match
+          Rename-Item "dist/Bulk PDF Generator.exe" "Bulk.PDF.Generator.exe"
+          $size = (Get-Item "dist/Bulk.PDF.Generator.exe").Length / 1MB
+          Write-Host "Built: Bulk.PDF.Generator.exe ($([math]::Round($size, 1)) MB)"
         shell: pwsh
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows-exe
-          path: dist/Bulk PDF Generator.exe
+          path: dist/Bulk.PDF.Generator.exe
           retention-days: 1
 
   # ── macOS .app build ────────────────────────────────────────
@@ -239,5 +241,5 @@ jobs:
 
             </details>
           files: |
-            artifacts/Bulk PDF Generator.exe
+            artifacts/Bulk.PDF.Generator.exe
             artifacts/Bulk.PDF.Generator.macOS.dmg
