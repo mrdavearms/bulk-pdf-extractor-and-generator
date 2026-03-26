@@ -158,30 +158,33 @@ jobs:
           path: artifacts/
 
       # ── Build release notes ──────────────────────────────────
-      # Priority: RELEASE_NOTES.md → auto-generated from commits.
-      # The permanent scaffold (download links, security warnings)
-      # lives below in the body template and NEVER changes.
+      # Auto-generated from conventional commits. RELEASE_NOTES.md
+      # is an optional override for when you want custom wording.
       - name: Build release notes
         id: notes
         run: |
-          # Strip HTML comments and blank lines from RELEASE_NOTES.md
+          NOTES=""
+
+          # Check for manual override in RELEASE_NOTES.md
           if [ -f RELEASE_NOTES.md ]; then
             NOTES=$(sed '/^<!--/,/-->$/d' RELEASE_NOTES.md | sed '/^$/N;/^\n$/d' | sed -e '/^[[:space:]]*$/d')
           fi
 
-          # Fallback: auto-generate from conventional commits since last tag
+          # Primary path: auto-generate from conventional commits
           if [ -z "$NOTES" ]; then
             PREV_TAG=$(git tag --sort=-v:refname | grep -v "^${{ github.ref_name }}$" | head -1)
             if [ -n "$PREV_TAG" ]; then
-              echo "No RELEASE_NOTES.md content — generating from commits since $PREV_TAG"
               NOTES=$(git log "$PREV_TAG".."${{ github.ref_name }}" --pretty=format:"- %s" \
                 | grep -v "^- docs:" \
                 | grep -v "^- chore:" \
+                | grep -v "^- ci:" \
+                | grep -v "^- merge:" \
                 | sed 's/^- feat:/- **New:**/' \
                 | sed 's/^- fix:/- **Fixed:**/' \
                 | sed 's/^- build:/- **Build:**/' \
                 | sed 's/^- perf:/- **Performance:**/' \
-                | sed 's/^- test:/- **Test:**/')
+                | sed 's/^- test:/- **Test:**/' \
+                | sed 's/^- refactor:/- **Improved:**/')
             fi
           fi
 
@@ -243,3 +246,27 @@ jobs:
           files: |
             artifacts/Bulk.PDF.Generator.exe
             artifacts/Bulk.PDF.Generator.macOS.dmg
+
+      # ── Clear RELEASE_NOTES.md so it's ready for the next release ──
+      - name: Clear release notes
+        run: |
+          cat > RELEASE_NOTES.md << 'TEMPLATE'
+          <!-- Release notes for the next tagged release.
+               The GitHub Actions workflow reads this file and injects it into the
+               release page. Write in plain English for teachers — no jargon.
+
+               If this file is empty (just this comment), release notes are
+               auto-generated from conventional commit messages. You only need
+               to write here if you want custom wording for a release.
+
+               Format: Markdown bullet list. Bold the headline, em-dash, then explain.
+               Example:
+                 - **New feature name** — What it does and why teachers care.
+                 - **Fixed: bug description** — What was broken and how it's fixed.
+          -->
+          TEMPLATE
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add RELEASE_NOTES.md
+          git diff --cached --quiet || git commit -m "ci: clear release notes after ${{ github.ref_name }} publish"
+          git push origin HEAD:main
