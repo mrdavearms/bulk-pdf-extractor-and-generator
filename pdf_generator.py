@@ -3253,78 +3253,81 @@ class BulkPDFGenerator:
             # dominates wall-clock time on batches of 50+ students. (C3)
             reader = PdfReader(ctx['pdf_path'])
             ctx['_reader'] = reader
+            try:
+                total = len(ctx['selected_indices'])
+                success_count = 0
+                error_count = 0
 
-            total = len(ctx['selected_indices'])
-            success_count = 0
-            error_count = 0
+                # Helper: sanitise a value for use in filenames
+                def _safe(val):
+                    return "".join(c for c in str(val) if c.isalnum() or c in ' -_').strip()
 
-            # Helper: sanitise a value for use in filenames
-            def _safe(val):
-                return "".join(c for c in str(val) if c.isalnum() or c in ' -_').strip()
+                critical = [f for f in ctx['analyzed_fields'] if f.is_critical]
+                import time as _time
+                _last_progress_time = _time.monotonic()
 
-            critical = [f for f in ctx['analyzed_fields'] if f.is_critical]
-            import time as _time
-            _last_progress_time = _time.monotonic()
+                for i, idx in enumerate(ctx['selected_indices']):
+                    row = ctx['df'].iloc[idx]
+                    row_dict = {str(col).lower(): val for col, val in row.items()}
+                    name_parts = []
+                    for cf in critical[:3]:
+                        col_key = (cf.excel_column or cf.field_name).lower()
+                        val = str(row_dict.get(col_key, '')).strip()
+                        if val and val.lower() != 'nan':
+                            name_parts.append(_safe(val))
+                    if not name_parts:
+                        name_parts = [f"Row_{idx+1}"]
 
-            for i, idx in enumerate(ctx['selected_indices']):
-                row = ctx['df'].iloc[idx]
-                row_dict = {str(col).lower(): val for col, val in row.items()}
-                name_parts = []
-                for cf in critical[:3]:
-                    col_key = (cf.excel_column or cf.field_name).lower()
-                    val = str(row_dict.get(col_key, '')).strip()
-                    if val and val.lower() != 'nan':
-                        name_parts.append(_safe(val))
-                if not name_parts:
-                    name_parts = [f"Row_{idx+1}"]
+                    # Template name + optional school info
+                    safe_template = _safe(ctx.get('template_name', 'Form'))
+                    suffix_parts = [safe_template]
+                    safe_school = _safe(ctx['school_name'])
+                    safe_year = _safe(ctx['school_year'])
+                    if safe_school:
+                        suffix_parts.append(safe_school)
+                    if safe_year:
+                        suffix_parts.append(safe_year)
 
-                # Template name + optional school info
-                safe_template = _safe(ctx.get('template_name', 'Form'))
-                suffix_parts = [safe_template]
-                safe_school = _safe(ctx['school_name'])
-                safe_year = _safe(ctx['school_year'])
-                if safe_school:
-                    suffix_parts.append(safe_school)
-                if safe_year:
-                    suffix_parts.append(safe_year)
+                    filename = f"{'_'.join(name_parts)}_{' '.join(suffix_parts)}.pdf"
+                    output_path = os.path.join(output_folder, filename)
 
-                filename = f"{'_'.join(name_parts)}_{' '.join(suffix_parts)}.pdf"
-                output_path = os.path.join(output_folder, filename)
+                    # Avoid overwriting existing files (e.g. duplicate names, re-runs)
+                    if os.path.exists(output_path):
+                        base, ext = os.path.splitext(output_path)
+                        counter = 1
+                        while os.path.exists(f"{base} ({counter}){ext}"):
+                            counter += 1
+                        output_path = f"{base} ({counter}){ext}"
 
-                # Avoid overwriting existing files (e.g. duplicate names, re-runs)
-                if os.path.exists(output_path):
-                    base, ext = os.path.splitext(output_path)
-                    counter = 1
-                    while os.path.exists(f"{base} ({counter}){ext}"):
-                        counter += 1
-                    output_path = f"{base} ({counter}){ext}"
+                    try:
+                        self._generate_single_pdf(ctx, row, output_path)
+                        success_count += 1
+                        status_text = f"Created: {filename}"
+                    except Exception as e:
+                        error_count += 1
+                        row_label = '_'.join(name_parts) if name_parts else f'Row_{idx+1}'
+                        status_text = f"Error: {row_label} - {str(e)}"
 
-                try:
-                    self._generate_single_pdf(ctx, row, output_path)
-                    success_count += 1
-                    status_text = f"Created: {filename}"
-                except Exception as e:
-                    error_count += 1
-                    row_label = '_'.join(name_parts) if name_parts else f'Row_{idx+1}'
-                    status_text = f"Error: {row_label} - {str(e)}"
+                    # Throttled progress: update every 10th record or 200ms
+                    progress = ((i + 1) / total) * 100
+                    _now = _time.monotonic()
+                    if i % 10 == 0 or (_now - _last_progress_time) >= 0.2:
+                        _last_progress_time = _now
+                        self.root.after(0, self.update_progress_tab3, progress, status_text, i+1, total)
 
-                # Throttled progress: update every 10th record or 200ms
-                progress = ((i + 1) / total) * 100
-                _now = _time.monotonic()
-                if i % 10 == 0 or (_now - _last_progress_time) >= 0.2:
-                    _last_progress_time = _now
-                    self.root.after(0, self.update_progress_tab3, progress, status_text, i+1, total)
+                # Always dispatch final 100% progress state
+                self.root.after(0, self.update_progress_tab3, 100, "Complete", total, total)
 
-            # Always dispatch final 100% progress state
-            self.root.after(0, self.update_progress_tab3, 100, "Complete", total, total)
+                # Final message
+                final_message = f"Complete! {success_count} PDFs created"
+                if error_count > 0:
+                    final_message += f", {error_count} errors"
+                final_message += f"\n\nOutput folder: {output_folder}"
 
-            # Final message
-            final_message = f"Complete! {success_count} PDFs created"
-            if error_count > 0:
-                final_message += f", {error_count} errors"
-            final_message += f"\n\nOutput folder: {output_folder}"
+                self.root.after(0, self.generation_complete_tab3, final_message, output_folder)
 
-            self.root.after(0, self.generation_complete_tab3, final_message, output_folder)
+            finally:
+                reader.close()
 
         except Exception as e:
             err_msg = str(e)  # Capture before 'e' goes out of scope (PEP 3110)
