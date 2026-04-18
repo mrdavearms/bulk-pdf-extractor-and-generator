@@ -3179,38 +3179,51 @@ class BulkPDFGenerator:
 
             self.update_selection_count_tab3()
 
-    def select_all_tab3(self):
-        """Select all in Tab 3 (batched to avoid per-row redraws)."""
-        # Suppress redraws: detach treeview from layout during bulk update
-        tree = self.tree_tab3
-        parent = tree.master
-        pack_info = tree.pack_info()
+    def _bulk_update_treeview(self, tree, apply_fn):
+        """Detach tree during a bulk item mutation to avoid per-row redraws.
+
+        Falls back to a plain in-place update if pack_info() raises TclError
+        (treeview managed by grid/place, or unmapped). (C7)
+        """
+        try:
+            pack_info = tree.pack_info()
+        except tk.TclError:
+            # Not pack-managed — skip the detach optimisation, just mutate.
+            apply_fn()
+            return
+
         tree.pack_forget()
+        try:
+            apply_fn()
+        finally:
+            tree.pack(**pack_info)
 
-        for item_id in self.selected_rows:
-            self.selected_rows[item_id]['selected'] = True
-            current_values = list(tree.item(item_id, 'values'))
-            current_values[0] = 'Yes'
-            tree.item(item_id, values=current_values)
+    def select_all_tab3(self):
+        """Select all in Tab 3 (batched if pack-managed, else plain loop)."""
+        tree = self.tree_tab3
 
-        # Reattach — single composite redraw
-        tree.pack(**pack_info)
+        def _apply():
+            for item_id in self.selected_rows:
+                self.selected_rows[item_id]['selected'] = True
+                current_values = list(tree.item(item_id, 'values'))
+                current_values[0] = 'Yes'
+                tree.item(item_id, values=current_values)
+
+        self._bulk_update_treeview(tree, _apply)
         self.update_selection_count_tab3()
 
     def deselect_all_tab3(self):
-        """Deselect all in Tab 3 (batched to avoid per-row redraws)."""
+        """Deselect all in Tab 3 (batched if pack-managed, else plain loop)."""
         tree = self.tree_tab3
-        parent = tree.master
-        pack_info = tree.pack_info()
-        tree.pack_forget()
 
-        for item_id in self.selected_rows:
-            self.selected_rows[item_id]['selected'] = False
-            current_values = list(tree.item(item_id, 'values'))
-            current_values[0] = ''
-            tree.item(item_id, values=current_values)
+        def _apply():
+            for item_id in self.selected_rows:
+                self.selected_rows[item_id]['selected'] = False
+                current_values = list(tree.item(item_id, 'values'))
+                current_values[0] = ''
+                tree.item(item_id, values=current_values)
 
-        tree.pack(**pack_info)
+        self._bulk_update_treeview(tree, _apply)
         self.update_selection_count_tab3()
 
     def update_selection_count_tab3(self):
