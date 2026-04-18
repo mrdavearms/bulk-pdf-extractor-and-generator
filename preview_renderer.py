@@ -216,9 +216,6 @@ class PreviewRenderer:
         except Exception:
             return
 
-        if self._shutdown or my_id != self._request_id:
-            return
-
         # Hand back to main thread: it captures canvas dims (Tcl is not
         # thread-safe) and spawns the resize worker. Quality (LANCZOS)
         # pass is chained from within _do_resize. (C4)
