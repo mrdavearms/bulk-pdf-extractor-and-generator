@@ -4,6 +4,7 @@ These tests live at the data boundary: what the user put in the spreadsheet
 must be what ends up in the PDF. No silent coercion, no lost leading zeros,
 no lost dates.
 """
+import os
 import sys
 import tempfile
 import unittest
@@ -39,6 +40,7 @@ class TestCsvLeadingZeroPreservation(unittest.TestCase):
             f.write('00123,Smith\n')
             f.write('00045,Jones\n')
             path = f.name
+        self.addCleanup(os.unlink, path)
 
         # Without dtype=str — leading zeros would be lost (inferred as int64)
         df_numeric = pd.read_csv(path, encoding='utf-8-sig')
@@ -70,3 +72,6 @@ class TestFallbackPathDateConversion(unittest.TestCase):
                           f"format_value_tab3 must receive a data_type arg "
                           f"so Excel-serial dates convert in the fallback "
                           f"path: {call}")
+        self.assertIn('inferred_type', source,
+                      "fallback path must use a variable for data_type "
+                      "(e.g. inferred_type), not a hardcoded literal string")

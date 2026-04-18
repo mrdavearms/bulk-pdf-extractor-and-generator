@@ -3391,8 +3391,7 @@ class BulkPDFGenerator:
                 # Try to find matching Excel column
                 if pdf_field_lower in row_dict_lower:
                     inferred_type = "date" if any(
-                        token in pdf_field_lower
-                        for token in ("date", "dob", "birth")
+                        token in pdf_field_lower for token in _DATE_KEYWORDS
                     ) else "text"
                     val = self.format_value_tab3(row_dict_lower[pdf_field_lower], data_type=inferred_type)
                     field_values[pdf_field] = val
