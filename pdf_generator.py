@@ -3248,6 +3248,12 @@ class BulkPDFGenerator:
                 output_folder = os.path.join(excel_dir, "Completed Applications")
             os.makedirs(output_folder, exist_ok=True)
 
+            # Open the PDF template ONCE for the whole batch — opening per-student
+            # re-parses the cross-ref table and object stream every iteration, which
+            # dominates wall-clock time on batches of 50+ students. (C3)
+            reader = PdfReader(ctx['pdf_path'])
+            ctx['_reader'] = reader
+
             total = len(ctx['selected_indices'])
             success_count = 0
             error_count = 0
@@ -3330,13 +3336,22 @@ class BulkPDFGenerator:
 
         THREAD SAFETY: This method runs on the generation worker thread.
         It must only access local variables and the immutable *ctx* snapshot
-        dict — never read or write any ``self.*`` attribute directly.
-        All UI updates must be dispatched via ``self.root.after()``.
+        dict — never read or write any ``self.*`` attribute directly, with
+        one documented exception: ``self.logger`` is safe to call from any
+        thread (logging.Logger and RotatingFileHandler both acquire internal
+        locks). All UI updates must be dispatched via ``self.root.after()``.
+
+        The PdfReader is opened once per batch in ``run_generation_tab3`` and
+        handed in via ``ctx['_reader']`` — re-opening per student was the
+        dominant cost on large batches (C3).
         """
-        reader = PdfReader(ctx['pdf_path'])
+        reader = ctx['_reader']
         writer = PdfWriter()
 
-        # Clone the PDF
+        # Clone the PDF from the shared reader. Safe on pypdf 3.x+ — the
+        # reader's internal page cache is populated read-only after first
+        # access, so writer.append() does not mutate the reader. Requires the
+        # pypdf>=3.0 pin in requirements.txt.
         writer.append(reader)
 
         # Create a dictionary of field values to fill
@@ -3352,10 +3367,6 @@ class BulkPDFGenerator:
 
             # Build lookup of raw values keyed by lowercase column name
             row_raw_lower = {str(col).lower(): val for col, val in row_data.items()}
-
-            # Build lookup of field data types
-            field_types_lookup = {f.field_name.lower(): f.data_type
-                                  for f in ctx['analyzed_fields']}
 
             # Process each analyzed field
             for field in ctx['analyzed_fields']:
