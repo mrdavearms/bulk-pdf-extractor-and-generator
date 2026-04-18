@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   # ── Windows .exe build ──────────────────────────────────────
@@ -248,8 +249,16 @@ jobs:
             artifacts/Bulk.PDF.Generator.macOS.dmg
 
       # ── Clear RELEASE_NOTES.md so it's ready for the next release ──
-      - name: Clear release notes
+      # Direct push to main is blocked by branch protection (status check required).
+      # Instead: commit to a short-lived branch, open a PR, and auto-merge it.
+      # The test workflow runs on the PR; auto-merge fires when it passes.
+      - name: Clear release notes via PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          BRANCH="ci/clear-notes-${{ github.ref_name }}"
+          git checkout -b "$BRANCH"
+
           cat > RELEASE_NOTES.md << 'TEMPLATE'
           <!-- Release notes for the next tagged release.
                The GitHub Actions workflow reads this file and injects it into the
@@ -265,8 +274,19 @@ jobs:
                  - **Fixed: bug description** — What was broken and how it's fixed.
           -->
           TEMPLATE
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add RELEASE_NOTES.md
-          git diff --cached --quiet || git commit -m "ci: clear release notes after ${{ github.ref_name }} publish"
-          git push origin HEAD:main
+          git diff --cached --quiet && echo "Nothing to clear, skipping PR." && exit 0
+
+          git commit -m "ci: clear release notes after ${{ github.ref_name }} publish"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --title "ci: clear release notes after ${{ github.ref_name }}" \
+            --body "Automated post-release cleanup. Auto-merges once the test check passes." \
+            --base main \
+            --head "$BRANCH"
+
+          gh pr merge "$BRANCH" --auto --squash
