@@ -785,8 +785,10 @@ def _setup_app_logging(data_dir: str) -> logging.Logger:
     from logging.handlers import RotatingFileHandler
     log_path = os.path.join(data_dir, 'app.log')
     logger = logging.getLogger('bulk_pdf_generator')
-    # Idempotent — avoid duplicate handlers on hot-reload / re-init
-    if logger.handlers:
+    # Idempotent — skip if a real file handler is already attached.
+    # A NullHandler (installed on OSError) is intentionally not treated
+    # as "done" so a second call can succeed if the data dir becomes writable.
+    if any(isinstance(h, RotatingFileHandler) for h in logger.handlers):
         return logger
     logger.setLevel(logging.INFO)
     try:
