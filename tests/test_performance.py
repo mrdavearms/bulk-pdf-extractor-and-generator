@@ -232,5 +232,30 @@ class TestFieldTypeAuditDialogFixes(unittest.TestCase):
                       "FieldTypeAuditDialog must debounce <Configure> events")
 
 
+class TestCanvasDimsCapturedOnMainThread(unittest.TestCase):
+    """_resize_and_deliver runs off-thread; winfo_* calls must NOT appear in it (C4)."""
+
+    def test_resize_and_deliver_has_no_winfo_calls(self):
+        from preview_renderer import PreviewRenderer
+        import inspect
+        source = inspect.getsource(PreviewRenderer._resize_and_deliver)
+        self.assertNotIn(
+            'winfo_width', source,
+            "_resize_and_deliver runs on a worker thread — Tcl is not thread-"
+            "safe. Canvas dims must be captured on the main thread and passed "
+            "in as args."
+        )
+        self.assertNotIn('winfo_height', source)
+
+    def test_resize_and_deliver_receives_canvas_dims(self):
+        from preview_renderer import PreviewRenderer
+        import inspect
+        sig = inspect.signature(PreviewRenderer._resize_and_deliver)
+        self.assertIn('canvas_w', sig.parameters,
+                      "_resize_and_deliver must accept canvas_w as an argument "
+                      "(captured on the main thread before the worker spawns).")
+        self.assertIn('canvas_h', sig.parameters)
+
+
 if __name__ == '__main__':
     unittest.main()
