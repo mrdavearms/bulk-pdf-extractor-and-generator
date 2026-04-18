@@ -818,6 +818,22 @@ bulk-pdf-extractor-and-generator/
 
 ## Release Notes
 
+### v2.11 — April 2026
+
+**Reliability, performance, and stability fixes** — full codebase audit pass.
+
+- **Fixed: student IDs with leading zeros corrupted in CSV files** — IDs like "0123456" were silently becoming "123456". Now preserved correctly.
+- **Fixed: date columns not converting in all paths** — DOB and expiry date fields stored as Excel serial numbers now convert to DD/MM/YYYY in all cases, not only after a full template analysis.
+- **Fixed: generation errors shown only as a final count** — The completion dialog now lists which rows failed and why (up to 20 shown). All errors are also written to `app.log` in your data folder.
+- **Fixed: preview crashes on some screen configurations** — Canvas dimensions are now read on the main thread instead of a background thread.
+- **Fixed: Select All / Deselect All could silently stop responding** — Guarded against an edge case in some theme configurations.
+- **Fixed: several bugs from prior audit** — Including "Failed to load data" after analysing, saved templates not restoring settings, Excel file staying locked after load, combed fields crashing on certain PDFs, settings corruption with non-ASCII school names, and preview cache showing wrong PDF.
+- **10–50× faster batch generation** — PDF template is now parsed once per batch, not once per student.
+- **Preview disk cache capped at 200MB** — Oldest cached images are trimmed automatically on startup.
+- **New app.log** — Rotating log file in your data folder captures full error detail for diagnostics.
+
+---
+
 ### v2.7.3 — March 2026
 
 - **Fixed: crash on macOS when opening dialogs** — The app could crash immediately when the School Setup, Template Name, Field Type Audit, or Sheet Picker dialog appeared on newer versions of macOS. This was caused by a timing issue between Tk and macOS window management. Dialogs now open reliably on all macOS versions.
