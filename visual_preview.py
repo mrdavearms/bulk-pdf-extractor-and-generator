@@ -34,6 +34,7 @@ class VisualPreviewGenerator:
         self.doc = fitz.open(self.pdf_path)
         # Ensure cache directory exists
         os.makedirs(self.cache_dir, exist_ok=True)
+        _prune_disk_cache(self.cache_dir)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -222,3 +223,47 @@ def format_cache_size(size_bytes: int) -> str:
         return f"{size_bytes / 1024:.1f} KB"
     else:
         return f"{size_bytes / (1024 * 1024):.1f} MB"
+
+
+_DISK_CACHE_MAX_BYTES = 200 * 1024 * 1024  # 200MB
+
+
+def _prune_disk_cache(cache_dir: str, max_bytes: int = _DISK_CACHE_MAX_BYTES) -> None:
+    """Evict oldest cache PNGs until total size ≤ max_bytes.
+
+    Only touches files matching the cache naming pattern ('_page_' in name
+    and '.png' extension) — leaves any user files in the cache dir alone.
+    Safe against transient OSErrors (skips locked files).
+    """
+    if not os.path.isdir(cache_dir):
+        return
+
+    entries = []
+    total = 0
+    try:
+        for name in os.listdir(cache_dir):
+            if not (name.endswith('.png') and '_page_' in name):
+                continue
+            path = os.path.join(cache_dir, name)
+            try:
+                stat = os.stat(path)
+            except OSError:
+                continue
+            entries.append((stat.st_mtime, stat.st_size, path))
+            total += stat.st_size
+    except OSError:
+        return
+
+    if total <= max_bytes:
+        return
+
+    # Oldest-first
+    entries.sort(key=lambda e: e[0])
+    for _, size, path in entries:
+        if total <= max_bytes:
+            break
+        try:
+            os.remove(path)
+            total -= size
+        except OSError:
+            pass
