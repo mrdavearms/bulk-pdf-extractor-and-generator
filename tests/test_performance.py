@@ -122,24 +122,37 @@ class TestSelectAllBatching(unittest.TestCase):
     """select_all_tab3 must batch updates to avoid per-row redraws."""
 
     def test_select_all_uses_pack_forget(self):
-        """Treeview must be detached during bulk updates."""
+        """Treeview must be detached during bulk updates.
+
+        The pack_forget / re-pack logic may live in the method itself or in a
+        _bulk_update_treeview helper that select_all_tab3 delegates to.
+        """
         from pdf_generator import BulkPDFGenerator
         import inspect
-        source = inspect.getsource(BulkPDFGenerator.select_all_tab3)
-        self.assertIn('pack_forget', source,
-                      "select_all_tab3 must detach treeview during bulk update")
-        # Must re-pack after the loop
-        # Count occurrences — should have pack_forget AND pack (re-attach)
-        self.assertGreater(source.count('pack'), 1,
-                           "select_all_tab3 must re-pack treeview after bulk update")
+        sources = [inspect.getsource(BulkPDFGenerator.select_all_tab3)]
+        if hasattr(BulkPDFGenerator, '_bulk_update_treeview'):
+            sources.append(inspect.getsource(
+                BulkPDFGenerator._bulk_update_treeview))
+        combined = '\n'.join(sources)
+        self.assertIn('pack_forget', combined,
+                      "select_all_tab3 (or a helper it delegates to) must detach "
+                      "treeview during bulk update")
+        self.assertGreater(combined.count('pack'), 1,
+                           "select_all_tab3 (or a helper) must re-pack treeview "
+                           "after bulk update")
 
     def test_deselect_all_uses_pack_forget(self):
         """deselect_all must also batch."""
         from pdf_generator import BulkPDFGenerator
         import inspect
-        source = inspect.getsource(BulkPDFGenerator.deselect_all_tab3)
-        self.assertIn('pack_forget', source,
-                      "deselect_all_tab3 must detach treeview during bulk update")
+        sources = [inspect.getsource(BulkPDFGenerator.deselect_all_tab3)]
+        if hasattr(BulkPDFGenerator, '_bulk_update_treeview'):
+            sources.append(inspect.getsource(
+                BulkPDFGenerator._bulk_update_treeview))
+        combined = '\n'.join(sources)
+        self.assertIn('pack_forget', combined,
+                      "deselect_all_tab3 (or a helper it delegates to) must detach "
+                      "treeview during bulk update")
 
 
 class TestTab2InPlaceUpdate(unittest.TestCase):
@@ -230,6 +243,71 @@ class TestFieldTypeAuditDialogFixes(unittest.TestCase):
         source = inspect.getsource(FieldTypeAuditDialog.__init__)
         self.assertIn('_config_pending', source,
                       "FieldTypeAuditDialog must debounce <Configure> events")
+
+
+class TestCanvasDimsCapturedOnMainThread(unittest.TestCase):
+    """_resize_and_deliver runs off-thread; winfo_* calls must NOT appear in it (C4)."""
+
+    def test_resize_and_deliver_has_no_winfo_calls(self):
+        from preview_renderer import PreviewRenderer
+        import inspect
+        source = inspect.getsource(PreviewRenderer._resize_and_deliver)
+        self.assertNotIn(
+            'winfo_width', source,
+            "_resize_and_deliver runs on a worker thread — Tcl is not thread-"
+            "safe. Canvas dims must be captured on the main thread and passed "
+            "in as args."
+        )
+        self.assertNotIn('winfo_height', source)
+
+    def test_resize_and_deliver_receives_canvas_dims(self):
+        from preview_renderer import PreviewRenderer
+        import inspect
+        sig = inspect.signature(PreviewRenderer._resize_and_deliver)
+        self.assertIn('canvas_w', sig.parameters,
+                      "_resize_and_deliver must accept canvas_w as an argument "
+                      "(captured on the main thread before the worker spawns).")
+        self.assertIn('canvas_h', sig.parameters)
+
+
+class TestSelectAllResilientToGeometryManager(unittest.TestCase):
+    """select_all_tab3 / deselect_all_tab3 must not crash if treeview uses
+    grid or place instead of pack (C7)."""
+
+    def test_select_all_guards_pack_info(self):
+        """select_all_tab3 (directly or via a helper) must guard pack_info()
+        against TclError raised by non-pack geometry managers."""
+        from pdf_generator import BulkPDFGenerator
+        import inspect
+        # Check both the method itself AND the _bulk_update_treeview helper
+        # (refactor target) — the TclError guard may live in either.
+        sources = [inspect.getsource(BulkPDFGenerator.select_all_tab3)]
+        if hasattr(BulkPDFGenerator, '_bulk_update_treeview'):
+            sources.append(inspect.getsource(
+                BulkPDFGenerator._bulk_update_treeview))
+        combined = '\n'.join(sources)
+        self.assertIn(
+            'TclError', combined,
+            "select_all_tab3 (or a helper it delegates to) must wrap "
+            "pack_info()/pack_forget() in try/except tk.TclError so a "
+            "grid/place-managed or unmapped treeview doesn't crash a "
+            "tkinter callback into silent failure."
+        )
+
+    def test_deselect_all_guards_pack_info(self):
+        from pdf_generator import BulkPDFGenerator
+        import inspect
+        sources = [inspect.getsource(BulkPDFGenerator.deselect_all_tab3)]
+        if hasattr(BulkPDFGenerator, '_bulk_update_treeview'):
+            sources.append(inspect.getsource(
+                BulkPDFGenerator._bulk_update_treeview))
+        combined = '\n'.join(sources)
+        self.assertIn(
+            'TclError', combined,
+            "deselect_all_tab3 (or a helper it delegates to) must wrap "
+            "pack_info()/pack_forget() in try/except tk.TclError — "
+            "same reason as select_all_tab3."
+        )
 
 
 if __name__ == '__main__':

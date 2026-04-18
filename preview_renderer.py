@@ -76,6 +76,19 @@ class PreviewRenderer:
             pass
         return ImageFont.load_default()
 
+    def _capture_canvas_dims(self) -> tuple[int, int]:
+        """Read canvas dimensions on the current (main) thread.
+
+        MUST be called from the main thread only — Tcl is not thread-safe.
+        """
+        w = self._canvas.winfo_width()
+        h = self._canvas.winfo_height()
+        if w <= 1:
+            w = 600
+        if h <= 1:
+            h = 300
+        return w, h
+
     def request_preview(self, field: PDFField, zoom_level: float, dpi: int = 200):
         """Request a debounced preview render. Non-blocking, returns immediately.
 
@@ -203,44 +216,48 @@ class PreviewRenderer:
         except Exception:
             return
 
+        # Hand back to main thread: it captures canvas dims (Tcl is not
+        # thread-safe) and spawns the resize worker. Quality (LANCZOS)
+        # pass is chained from within _do_resize. (C4)
         if self._shutdown or my_id != self._request_id:
             return
-
-        # Fast pass: BILINEAR resize
-        self._resize_and_deliver(preview_img, zoom_level, my_id, use_lanczos=False)
-
-        # Schedule quality pass (LANCZOS) after 300ms settle
-        if not self._shutdown and my_id == self._request_id:
-            self._root.after(
-                0,
-                self._schedule_quality_pass, preview_img, zoom_level, my_id,
-            )
-
-    def _schedule_quality_pass(
-        self, raw_img: Image.Image, zoom_level: float, my_id: int
-    ):
-        """Main thread: schedule a LANCZOS re-render after 300ms."""
-        if self._shutdown or my_id != self._request_id:
-            return
-        self._quality_timer = self._root.after(
-            300,
-            self._do_resize, raw_img, zoom_level, my_id, True,
+        self._root.after(
+            0, self._do_resize, preview_img, zoom_level, my_id, False,
         )
 
     def _do_resize(
         self, raw_img: Image.Image, zoom_level: float, my_id: int, use_lanczos: bool
     ):
-        """Main thread entry: spawn a resize worker thread."""
+        """Main thread entry: capture canvas dims, spawn resize worker.
+
+        Called for both the initial fast (BILINEAR) pass and the settle
+        quality (LANCZOS) pass. The quality pass is self-scheduled from
+        here when use_lanczos is False, so there is no longer a separate
+        _schedule_quality_pass method. (C4)
+        """
         self._quality_timer = None
         if self._shutdown or my_id != self._request_id:
             return
 
+        # Capture Tcl-dependent canvas dims on the main thread — NEVER in
+        # the worker, because Tcl is not thread-safe. (C4)
+        canvas_w, canvas_h = self._capture_canvas_dims()
+
         t = threading.Thread(
             target=self._resize_and_deliver,
-            args=(raw_img, zoom_level, my_id, use_lanczos),
+            args=(raw_img, zoom_level, my_id, use_lanczos, canvas_w, canvas_h),
             daemon=True,
         )
         t.start()
+
+        # Chain the LANCZOS quality pass 300ms after the fast pass fires.
+        # Only the fast pass schedules the quality pass (prevents infinite
+        # chaining when the quality pass itself calls _do_resize).
+        if not use_lanczos and not self._shutdown and my_id == self._request_id:
+            self._quality_timer = self._root.after(
+                300,
+                self._do_resize, raw_img, zoom_level, my_id, True,
+            )
 
     def _resize_and_deliver(
         self,
@@ -248,21 +265,20 @@ class PreviewRenderer:
         zoom_level: float,
         my_id: int,
         use_lanczos: bool,
+        canvas_w: int,
+        canvas_h: int,
     ):
-        """Worker thread: resize image and deliver to main thread."""
+        """Worker thread: resize image (pure PIL) and deliver to main thread.
+
+        Canvas dimensions are passed in — this method MUST NOT call any
+        Tcl (winfo_*) functions because Tcl is not thread-safe. (C4)
+        """
         if self._shutdown or my_id != self._request_id:
             return
 
         try:
-            canvas_width = self._canvas.winfo_width()
-            canvas_height = self._canvas.winfo_height()
-            if canvas_width <= 1:
-                canvas_width = 600
-            if canvas_height <= 1:
-                canvas_height = 300
-
             img_w, img_h = raw_img.size
-            base_scale = min(canvas_width / img_w, canvas_height / img_h) * 0.95
+            base_scale = min(canvas_w / img_w, canvas_h / img_h) * 0.95
             scale = base_scale * zoom_level
 
             new_w = max(1, int(img_w * scale))

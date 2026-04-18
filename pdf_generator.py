@@ -12,6 +12,7 @@ Features:
 - Batch PDF generation from Excel data
 """
 
+import logging
 import os
 import sys
 import webbrowser
@@ -774,6 +775,38 @@ class FieldTypeAuditDialog(tk.Toplevel):
         self.destroy()
 
 
+def _setup_app_logging(data_dir: str) -> logging.Logger:
+    """Configure a rotating file logger for production diagnostics.
+
+    Logs go to {data_dir}/app.log with a 1MB cap and 3 rotated backups.
+    Tkinter callbacks swallow tracebacks silently in a windowed .exe;
+    this is the only way a teacher's bug report can include context.
+    """
+    from logging.handlers import RotatingFileHandler
+    log_path = os.path.join(data_dir, 'app.log')
+    logger = logging.getLogger('bulk_pdf_generator')
+    # Idempotent — skip if a real file handler is already attached.
+    # A NullHandler (installed on OSError) is intentionally not treated
+    # as "done" so a second call can succeed if the data dir becomes writable.
+    if any(isinstance(h, RotatingFileHandler) for h in logger.handlers):
+        return logger
+    logger.setLevel(logging.INFO)
+    try:
+        handler = RotatingFileHandler(
+            log_path, maxBytes=1_000_000, backupCount=3, encoding='utf-8'
+        )
+        handler.setFormatter(logging.Formatter(
+            '%(asctime)s %(levelname)s %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S',
+        ))
+        logger.addHandler(handler)
+    except OSError:
+        # Data dir unwritable — fall back to null handler so log calls
+        # don't raise, but we lose diagnostics. Non-fatal.
+        logger.addHandler(logging.NullHandler())
+    return logger
+
+
 class BulkPDFGenerator:
     """Main application class with tabbed interface."""
 
@@ -802,6 +835,9 @@ class BulkPDFGenerator:
 
         # Ensure templates directory exists
         os.makedirs(self.settings.templates_directory, exist_ok=True)
+
+        self.logger = _setup_app_logging(_data_dir)
+        self.logger.info("BulkPDFGenerator started (build %s)", _version_tag)
 
         # Current state
         self.current_template: Optional[TemplateConfig] = None
@@ -2935,10 +2971,13 @@ class BulkPDFGenerator:
 
             # Load Excel data (case-insensitive extension check)
             if excel_path.lower().endswith('.csv'):
+                # dtype=str mirrors the Excel path — preserves leading zeros on
+                # student IDs and prevents pandas from silently re-formatting
+                # Excel-serial-style date columns.
                 try:
-                    self.df = pd.read_csv(excel_path, encoding='utf-8-sig')
+                    self.df = pd.read_csv(excel_path, dtype=str, encoding='utf-8-sig')
                 except UnicodeDecodeError:
-                    self.df = pd.read_csv(excel_path, encoding='latin-1')
+                    self.df = pd.read_csv(excel_path, dtype=str, encoding='latin-1')
             else:
                 with pd.ExcelFile(excel_path) as xl:
                     sheet_names = xl.sheet_names
@@ -3140,38 +3179,51 @@ class BulkPDFGenerator:
 
             self.update_selection_count_tab3()
 
-    def select_all_tab3(self):
-        """Select all in Tab 3 (batched to avoid per-row redraws)."""
-        # Suppress redraws: detach treeview from layout during bulk update
-        tree = self.tree_tab3
-        parent = tree.master
-        pack_info = tree.pack_info()
+    def _bulk_update_treeview(self, tree, apply_fn):
+        """Detach tree during a bulk item mutation to avoid per-row redraws.
+
+        Falls back to a plain in-place update if pack_info() raises TclError
+        (treeview managed by grid/place, or unmapped). (C7)
+        """
+        try:
+            pack_info = tree.pack_info()
+        except tk.TclError:
+            # Not pack-managed — skip the detach optimisation, just mutate.
+            apply_fn()
+            return
+
         tree.pack_forget()
+        try:
+            apply_fn()
+        finally:
+            tree.pack(**pack_info)
 
-        for item_id in self.selected_rows:
-            self.selected_rows[item_id]['selected'] = True
-            current_values = list(tree.item(item_id, 'values'))
-            current_values[0] = 'Yes'
-            tree.item(item_id, values=current_values)
+    def select_all_tab3(self):
+        """Select all in Tab 3 (batched if pack-managed, else plain loop)."""
+        tree = self.tree_tab3
 
-        # Reattach — single composite redraw
-        tree.pack(**pack_info)
+        def _apply():
+            for item_id in self.selected_rows:
+                self.selected_rows[item_id]['selected'] = True
+                current_values = list(tree.item(item_id, 'values'))
+                current_values[0] = 'Yes'
+                tree.item(item_id, values=current_values)
+
+        self._bulk_update_treeview(tree, _apply)
         self.update_selection_count_tab3()
 
     def deselect_all_tab3(self):
-        """Deselect all in Tab 3 (batched to avoid per-row redraws)."""
+        """Deselect all in Tab 3 (batched if pack-managed, else plain loop)."""
         tree = self.tree_tab3
-        parent = tree.master
-        pack_info = tree.pack_info()
-        tree.pack_forget()
 
-        for item_id in self.selected_rows:
-            self.selected_rows[item_id]['selected'] = False
-            current_values = list(tree.item(item_id, 'values'))
-            current_values[0] = ''
-            tree.item(item_id, values=current_values)
+        def _apply():
+            for item_id in self.selected_rows:
+                self.selected_rows[item_id]['selected'] = False
+                current_values = list(tree.item(item_id, 'values'))
+                current_values[0] = ''
+                tree.item(item_id, values=current_values)
 
-        tree.pack(**pack_info)
+        self._bulk_update_treeview(tree, _apply)
         self.update_selection_count_tab3()
 
     def update_selection_count_tab3(self):
@@ -3245,77 +3297,93 @@ class BulkPDFGenerator:
                 output_folder = os.path.join(excel_dir, "Completed Applications")
             os.makedirs(output_folder, exist_ok=True)
 
-            total = len(ctx['selected_indices'])
-            success_count = 0
-            error_count = 0
+            # Open the PDF template ONCE for the whole batch — opening per-student
+            # re-parses the cross-ref table and object stream every iteration, which
+            # dominates wall-clock time on batches of 50+ students. (C3)
+            reader = PdfReader(ctx['pdf_path'])
+            ctx['_reader'] = reader
+            try:
+                total = len(ctx['selected_indices'])
+                success_count = 0
+                error_count = 0
+                error_details = []
 
-            # Helper: sanitise a value for use in filenames
-            def _safe(val):
-                return "".join(c for c in str(val) if c.isalnum() or c in ' -_').strip()
+                # Helper: sanitise a value for use in filenames
+                def _safe(val):
+                    return "".join(c for c in str(val) if c.isalnum() or c in ' -_').strip()
 
-            critical = [f for f in ctx['analyzed_fields'] if f.is_critical]
-            import time as _time
-            _last_progress_time = _time.monotonic()
+                critical = [f for f in ctx['analyzed_fields'] if f.is_critical]
+                import time as _time
+                _last_progress_time = _time.monotonic()
 
-            for i, idx in enumerate(ctx['selected_indices']):
-                row = ctx['df'].iloc[idx]
-                row_dict = {str(col).lower(): val for col, val in row.items()}
-                name_parts = []
-                for cf in critical[:3]:
-                    col_key = (cf.excel_column or cf.field_name).lower()
-                    val = str(row_dict.get(col_key, '')).strip()
-                    if val and val.lower() != 'nan':
-                        name_parts.append(_safe(val))
-                if not name_parts:
-                    name_parts = [f"Row_{idx+1}"]
+                for i, idx in enumerate(ctx['selected_indices']):
+                    row = ctx['df'].iloc[idx]
+                    row_dict = {str(col).lower(): val for col, val in row.items()}
+                    name_parts = []
+                    for cf in critical[:3]:
+                        col_key = (cf.excel_column or cf.field_name).lower()
+                        val = str(row_dict.get(col_key, '')).strip()
+                        if val and val.lower() != 'nan':
+                            name_parts.append(_safe(val))
+                    if not name_parts:
+                        name_parts = [f"Row_{idx+1}"]
 
-                # Template name + optional school info
-                safe_template = _safe(ctx.get('template_name', 'Form'))
-                suffix_parts = [safe_template]
-                safe_school = _safe(ctx['school_name'])
-                safe_year = _safe(ctx['school_year'])
-                if safe_school:
-                    suffix_parts.append(safe_school)
-                if safe_year:
-                    suffix_parts.append(safe_year)
+                    # Template name + optional school info
+                    safe_template = _safe(ctx.get('template_name', 'Form'))
+                    suffix_parts = [safe_template]
+                    safe_school = _safe(ctx['school_name'])
+                    safe_year = _safe(ctx['school_year'])
+                    if safe_school:
+                        suffix_parts.append(safe_school)
+                    if safe_year:
+                        suffix_parts.append(safe_year)
 
-                filename = f"{'_'.join(name_parts)}_{' '.join(suffix_parts)}.pdf"
-                output_path = os.path.join(output_folder, filename)
+                    filename = f"{'_'.join(name_parts)}_{' '.join(suffix_parts)}.pdf"
+                    output_path = os.path.join(output_folder, filename)
 
-                # Avoid overwriting existing files (e.g. duplicate names, re-runs)
-                if os.path.exists(output_path):
-                    base, ext = os.path.splitext(output_path)
-                    counter = 1
-                    while os.path.exists(f"{base} ({counter}){ext}"):
-                        counter += 1
-                    output_path = f"{base} ({counter}){ext}"
+                    # Avoid overwriting existing files (e.g. duplicate names, re-runs)
+                    if os.path.exists(output_path):
+                        base, ext = os.path.splitext(output_path)
+                        counter = 1
+                        while os.path.exists(f"{base} ({counter}){ext}"):
+                            counter += 1
+                        output_path = f"{base} ({counter}){ext}"
 
-                try:
-                    self._generate_single_pdf(ctx, row, output_path)
-                    success_count += 1
-                    status_text = f"Created: {filename}"
-                except Exception as e:
-                    error_count += 1
-                    row_label = '_'.join(name_parts) if name_parts else f'Row_{idx+1}'
-                    status_text = f"Error: {row_label} - {str(e)}"
+                    try:
+                        self._generate_single_pdf(ctx, row, output_path)
+                        success_count += 1
+                        status_text = f"Created: {filename}"
+                    except Exception as e:
+                        error_count += 1
+                        row_label = '_'.join(name_parts) if name_parts else f'Row_{idx+1}'
+                        err_str = str(e)
+                        error_details.append(f"{row_label}: {err_str}")
+                        self.logger.exception("Generation failed for %s", row_label)
+                        status_text = f"Error: {row_label} - {err_str}"
 
-                # Throttled progress: update every 10th record or 200ms
-                progress = ((i + 1) / total) * 100
-                _now = _time.monotonic()
-                if i % 10 == 0 or (_now - _last_progress_time) >= 0.2:
-                    _last_progress_time = _now
-                    self.root.after(0, self.update_progress_tab3, progress, status_text, i+1, total)
+                    # Throttled progress: update every 10th record or 200ms
+                    progress = ((i + 1) / total) * 100
+                    _now = _time.monotonic()
+                    if i % 10 == 0 or (_now - _last_progress_time) >= 0.2:
+                        _last_progress_time = _now
+                        self.root.after(0, self.update_progress_tab3, progress, status_text, i+1, total)
 
-            # Always dispatch final 100% progress state
-            self.root.after(0, self.update_progress_tab3, 100, "Complete", total, total)
+                # Always dispatch final 100% progress state
+                self.root.after(0, self.update_progress_tab3, 100, "Complete", total, total)
 
-            # Final message
-            final_message = f"Complete! {success_count} PDFs created"
-            if error_count > 0:
-                final_message += f", {error_count} errors"
-            final_message += f"\n\nOutput folder: {output_folder}"
+                # Final message
+                final_message = f"Complete! {success_count} PDFs created"
+                if error_count > 0:
+                    final_message += f", {error_count} errors"
+                final_message += f"\n\nOutput folder: {output_folder}"
 
-            self.root.after(0, self.generation_complete_tab3, final_message, output_folder)
+                self.root.after(
+                    0, self.generation_complete_tab3,
+                    final_message, output_folder, error_details,
+                )
+
+            finally:
+                reader.close()
 
         except Exception as e:
             err_msg = str(e)  # Capture before 'e' goes out of scope (PEP 3110)
@@ -3327,13 +3395,22 @@ class BulkPDFGenerator:
 
         THREAD SAFETY: This method runs on the generation worker thread.
         It must only access local variables and the immutable *ctx* snapshot
-        dict — never read or write any ``self.*`` attribute directly.
-        All UI updates must be dispatched via ``self.root.after()``.
+        dict — never read or write any ``self.*`` attribute directly, with
+        one documented exception: ``self.logger`` is safe to call from any
+        thread (logging.Logger and RotatingFileHandler both acquire internal
+        locks). All UI updates must be dispatched via ``self.root.after()``.
+
+        The PdfReader is opened once per batch in ``run_generation_tab3`` and
+        handed in via ``ctx['_reader']`` — re-opening per student was the
+        dominant cost on large batches (C3).
         """
-        reader = PdfReader(ctx['pdf_path'])
+        reader = ctx['_reader']
         writer = PdfWriter()
 
-        # Clone the PDF
+        # Clone the PDF from the shared reader. Safe on pypdf 3.x+ — the
+        # reader's internal page cache is populated read-only after first
+        # access, so writer.append() does not mutate the reader. Requires the
+        # pypdf>=3.0 pin in requirements.txt.
         writer.append(reader)
 
         # Create a dictionary of field values to fill
@@ -3349,10 +3426,6 @@ class BulkPDFGenerator:
 
             # Build lookup of raw values keyed by lowercase column name
             row_raw_lower = {str(col).lower(): val for col, val in row_data.items()}
-
-            # Build lookup of field data types
-            field_types_lookup = {f.field_name.lower(): f.data_type
-                                  for f in ctx['analyzed_fields']}
 
             # Process each analyzed field
             for field in ctx['analyzed_fields']:
@@ -3377,7 +3450,9 @@ class BulkPDFGenerator:
                 field_values.update(filled_values)
 
         else:
-            # Fallback to original auto-matching (no combed field support)
+            # Fallback to original auto-matching (no combed field support).
+            # Infer data_type from field name so Excel-serial dates still convert
+            # when the user hasn't run the field audit dialog (no analyzed_fields).
             row_dict_lower = {str(col).lower(): val for col, val in row_data.items()}
 
             for pdf_field in ctx['pdf_fields']:
@@ -3385,7 +3460,10 @@ class BulkPDFGenerator:
 
                 # Try to find matching Excel column
                 if pdf_field_lower in row_dict_lower:
-                    val = self.format_value_tab3(row_dict_lower[pdf_field_lower])
+                    inferred_type = "date" if any(
+                        token in pdf_field_lower for token in _DATE_KEYWORDS
+                    ) else "text"
+                    val = self.format_value_tab3(row_dict_lower[pdf_field_lower], data_type=inferred_type)
                     field_values[pdf_field] = val
 
         # Split values into regular fields and single-field comb fields.
@@ -3484,11 +3562,21 @@ class BulkPDFGenerator:
         self.progress_var_tab3.set(progress)
         self.progress_label_tab3.config(text=f"[{current}/{total}] {status}")
 
-    def generation_complete_tab3(self, message, output_folder):
+    def generation_complete_tab3(self, message, output_folder, error_details=None):
         """Handle generation completion for Tab 3."""
         self.progress_label_tab3.config(text="Generation complete!")
         self.update_status("Generation complete!", 'success')
         self.update_selection_count_tab3()  # Re-enable button with correct state
+
+        if error_details:
+            # Cap at 20 rows to keep the dialog manageable; full list is in app.log
+            preview = "\n".join(error_details[:20])
+            if len(error_details) > 20:
+                preview += f"\n… and {len(error_details) - 20} more (see app.log)"
+            messagebox.showwarning(
+                f"{len(error_details)} rows failed",
+                f"The following rows could not be generated:\n\n{preview}",
+            )
 
         # Ask to open folder
         result = messagebox.askyesno(

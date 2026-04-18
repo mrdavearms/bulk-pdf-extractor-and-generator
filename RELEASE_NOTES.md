@@ -36,3 +36,21 @@ This release fixes a number of issues discovered during a full codebase audit. M
 - **Fixed: Windows download link on GitHub Releases** — The download link for the Windows .exe in previous releases could return a 404 error. This is now fixed.
 
 - **Improved: template file and settings resilience** — Saved templates and settings files are now more resilient to file system errors on network drives. Temporary files are cleaned up properly if a save is interrupted.
+
+### Performance
+
+- **10–50× faster batch generation** — The PDF template is now read once per run instead of once per student. Generating 200 PDFs used to re-parse the template 200 times. Now it parses it once.
+
+### Additional bug fixes (critical audit)
+
+- **Fixed: student IDs with leading zeros corrupted in CSV files** — When loading a CSV spreadsheet, student IDs like "0123456" were silently converted to "123456". CSV files now load with full string preservation, matching the behaviour of Excel files.
+
+- **Fixed: date columns not converting in all generation paths** — Date fields (e.g. DOB, expiry dates) stored as Excel serial numbers only converted to DD/MM/YYYY format when a template had been fully analysed first. They now convert correctly in all cases.
+
+- **Fixed: generation errors shown only after all PDFs produced** — If some rows failed (e.g. a missing field value caused an error), the app would silently continue and only report the final count. The completion dialog now lists which rows failed and why (up to 20 shown), and all errors are saved to `app.log` in your data folder.
+
+- **Fixed: preview could crash on some screen resolutions** — The field preview was querying screen dimensions from a background thread, which is not safe in tkinter. This could cause silent crashes on certain screen configurations. Fixed by moving the screen size query to the main thread.
+
+- **Fixed: Select All / Deselect All buttons could silently stop working** — On some ttkbootstrap theme configurations, the buttons could hit an internal error and stop responding without any message. They now handle this gracefully.
+
+- **Improved: preview disk cache capped at 200MB** — The app now automatically trims the oldest cached preview images on startup to stay within a 200MB budget. This prevents quota alerts on school networks with redirected Documents folders.
