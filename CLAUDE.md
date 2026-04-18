@@ -23,9 +23,10 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 
 | | |
 |---|---|
-| **Primary (origin)** | `https://github.com/mrdavearms/bulk-pdf-extractor-and-generator.git` |
-| **Backup (gitlab)** | `https://gitlab.com/davearmswork/bulk-pdf-extractor-and-generator.git` |
+| **Origin** | `https://github.com/mrdavearms/bulk-pdf-extractor-and-generator.git` |
 | **CI/CD** | GitHub Actions (`.github/workflows/release.yml`) |
+
+> GitLab remote is legacy and no longer actively maintained. Do not push to or sync with GitLab.
 
 ## Source Files
 
@@ -92,10 +93,6 @@ The README download badge auto-updates via shields.io — no manual step needed.
 Releases are **fully automatic** — published as soon as the build completes, no manual step needed. Release notes are auto-generated from conventional commit messages since the last tag (`fix:` → **Fixed:**, `feat:` → **New:**, `perf:` → **Performance:**, etc.). `RELEASE_NOTES.md` is an optional override for custom wording; it is auto-cleared after each release so stale notes never carry forward.
 
 Pre-release tags (`v2.8-beta`, `v2.8-rc1`, etc.) are automatically flagged as pre-releases on GitHub and excluded from the "Latest" badge on the README.
-
-### Legacy local release (fallback)
-
-`release.sh` still exists for local builds if needed. It builds the Windows `.exe` locally, creates a GitLab Release, and uploads the binary. Use the GitHub Actions workflow instead for normal releases.
 
 ## Cross-Platform Build
 
