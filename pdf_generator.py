@@ -2935,10 +2935,13 @@ class BulkPDFGenerator:
 
             # Load Excel data (case-insensitive extension check)
             if excel_path.lower().endswith('.csv'):
+                # dtype=str mirrors the Excel path — preserves leading zeros on
+                # student IDs and prevents pandas from silently re-formatting
+                # Excel-serial-style date columns.
                 try:
-                    self.df = pd.read_csv(excel_path, encoding='utf-8-sig')
+                    self.df = pd.read_csv(excel_path, dtype=str, encoding='utf-8-sig')
                 except UnicodeDecodeError:
-                    self.df = pd.read_csv(excel_path, encoding='latin-1')
+                    self.df = pd.read_csv(excel_path, dtype=str, encoding='latin-1')
             else:
                 with pd.ExcelFile(excel_path) as xl:
                     sheet_names = xl.sheet_names
@@ -3377,7 +3380,9 @@ class BulkPDFGenerator:
                 field_values.update(filled_values)
 
         else:
-            # Fallback to original auto-matching (no combed field support)
+            # Fallback to original auto-matching (no combed field support).
+            # Infer data_type from field name so Excel-serial dates still convert
+            # when the user hasn't run the field audit dialog (no analyzed_fields).
             row_dict_lower = {str(col).lower(): val for col, val in row_data.items()}
 
             for pdf_field in ctx['pdf_fields']:
@@ -3385,7 +3390,11 @@ class BulkPDFGenerator:
 
                 # Try to find matching Excel column
                 if pdf_field_lower in row_dict_lower:
-                    val = self.format_value_tab3(row_dict_lower[pdf_field_lower])
+                    inferred_type = "date" if any(
+                        token in pdf_field_lower
+                        for token in ("date", "dob", "birth")
+                    ) else "text"
+                    val = self.format_value_tab3(row_dict_lower[pdf_field_lower], data_type=inferred_type)
                     field_values[pdf_field] = val
 
         # Split values into regular fields and single-field comb fields.
