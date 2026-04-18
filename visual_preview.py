@@ -14,6 +14,7 @@ import fitz  # PyMuPDF
 from models import PDFField
 
 _MAX_CACHED_PAGES = 5  # Cap memory cache (~60 MB at 200 DPI)
+_DISK_CACHE_MAX_BYTES = 200 * 1024 * 1024  # 200MB
 
 
 class VisualPreviewGenerator:
@@ -223,9 +224,6 @@ def format_cache_size(size_bytes: int) -> str:
         return f"{size_bytes / 1024:.1f} KB"
     else:
         return f"{size_bytes / (1024 * 1024):.1f} MB"
-
-
-_DISK_CACHE_MAX_BYTES = 200 * 1024 * 1024  # 200MB
 
 
 def _prune_disk_cache(cache_dir: str, max_bytes: int = _DISK_CACHE_MAX_BYTES) -> None:
