@@ -12,6 +12,7 @@ Features:
 - Batch PDF generation from Excel data
 """
 
+import logging
 import os
 import sys
 import webbrowser
@@ -774,6 +775,36 @@ class FieldTypeAuditDialog(tk.Toplevel):
         self.destroy()
 
 
+def _setup_app_logging(data_dir: str) -> logging.Logger:
+    """Configure a rotating file logger for production diagnostics.
+
+    Logs go to {data_dir}/app.log with a 1MB cap and 3 rotated backups.
+    Tkinter callbacks swallow tracebacks silently in a windowed .exe;
+    this is the only way a teacher's bug report can include context.
+    """
+    from logging.handlers import RotatingFileHandler
+    log_path = os.path.join(data_dir, 'app.log')
+    logger = logging.getLogger('bulk_pdf_generator')
+    # Idempotent — avoid duplicate handlers on hot-reload / re-init
+    if logger.handlers:
+        return logger
+    logger.setLevel(logging.INFO)
+    try:
+        handler = RotatingFileHandler(
+            log_path, maxBytes=1_000_000, backupCount=3, encoding='utf-8'
+        )
+        handler.setFormatter(logging.Formatter(
+            '%(asctime)s %(levelname)s %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S',
+        ))
+        logger.addHandler(handler)
+    except OSError:
+        # Data dir unwritable — fall back to null handler so log calls
+        # don't raise, but we lose diagnostics. Non-fatal.
+        logger.addHandler(logging.NullHandler())
+    return logger
+
+
 class BulkPDFGenerator:
     """Main application class with tabbed interface."""
 
@@ -802,6 +833,9 @@ class BulkPDFGenerator:
 
         # Ensure templates directory exists
         os.makedirs(self.settings.templates_directory, exist_ok=True)
+
+        self.logger = _setup_app_logging(_data_dir)
+        self.logger.info("BulkPDFGenerator started (build %s)", _version_tag)
 
         # Current state
         self.current_template: Optional[TemplateConfig] = None
@@ -3257,6 +3291,7 @@ class BulkPDFGenerator:
                 total = len(ctx['selected_indices'])
                 success_count = 0
                 error_count = 0
+                error_details = []
 
                 # Helper: sanitise a value for use in filenames
                 def _safe(val):
@@ -3306,7 +3341,10 @@ class BulkPDFGenerator:
                     except Exception as e:
                         error_count += 1
                         row_label = '_'.join(name_parts) if name_parts else f'Row_{idx+1}'
-                        status_text = f"Error: {row_label} - {str(e)}"
+                        err_str = str(e)
+                        error_details.append(f"{row_label}: {err_str}")
+                        self.logger.exception("Generation failed for %s", row_label)
+                        status_text = f"Error: {row_label} - {err_str}"
 
                     # Throttled progress: update every 10th record or 200ms
                     progress = ((i + 1) / total) * 100
@@ -3324,7 +3362,10 @@ class BulkPDFGenerator:
                     final_message += f", {error_count} errors"
                 final_message += f"\n\nOutput folder: {output_folder}"
 
-                self.root.after(0, self.generation_complete_tab3, final_message, output_folder)
+                self.root.after(
+                    0, self.generation_complete_tab3,
+                    final_message, output_folder, error_details,
+                )
 
             finally:
                 reader.close()
@@ -3506,11 +3547,21 @@ class BulkPDFGenerator:
         self.progress_var_tab3.set(progress)
         self.progress_label_tab3.config(text=f"[{current}/{total}] {status}")
 
-    def generation_complete_tab3(self, message, output_folder):
+    def generation_complete_tab3(self, message, output_folder, error_details=None):
         """Handle generation completion for Tab 3."""
         self.progress_label_tab3.config(text="Generation complete!")
         self.update_status("Generation complete!", 'success')
         self.update_selection_count_tab3()  # Re-enable button with correct state
+
+        if error_details:
+            # Cap at 20 rows to keep the dialog manageable; full list is in app.log
+            preview = "\n".join(error_details[:20])
+            if len(error_details) > 20:
+                preview += f"\n… and {len(error_details) - 20} more (see app.log)"
+            messagebox.showwarning(
+                f"{len(error_details)} rows failed",
+                f"The following rows could not be generated:\n\n{preview}",
+            )
 
         # Ask to open folder
         result = messagebox.askyesno(
