@@ -26,7 +26,7 @@ All modules are pure Python with no circular imports. The main module imports al
 
 ### `pdf_generator.py` -- Main Application
 
-**~3230 lines.** Contains the `BulkPDFGenerator` class plus supporting dialog classes.
+**~3650 lines.** Contains the `BulkPDFGenerator` class plus supporting dialog classes.
 
 **Responsibilities:**
 - tkinter root window, notebook (tabs), and all widget layout
@@ -108,14 +108,14 @@ Renders PDF pages as PIL Images and draws field highlight overlays.
 **Two-tier caching:**
 
 1. **Memory cache** -- `OrderedDict` with LRU eviction, capped at 5 entries (~60MB at 200 DPI). Most-recently-used pages stay in memory for instant re-rendering.
-2. **Disk cache** -- PNG files in `.preview_cache/` directory. Survives app restarts. Page images are named `page_{N}_dpi_{D}.png`.
+2. **Disk cache** -- PNG files in `.preview_cache/` directory. Survives app restarts. Page images are named `{pdf_hash}_page_{N}_dpi_{D}.png`. The `{pdf_hash}` prefix (an 8-char MD5 of the PDF path) prevents stale cross-PDF cache hits when two templates happen to share a page number/DPI combination.
 
 **Cache flow:**
 ```
 Request page 3 at 150 DPI
   → Check memory cache (OrderedDict key "3_150")
     → HIT: return cached Image (move to end for LRU)
-    → MISS: check disk cache (page_3_dpi_150.png)
+    → MISS: check disk cache ({pdf_hash}_page_3_dpi_150.png)
       → HIT: load from disk, img.load() to release file handle, store in memory
       → MISS: render via fitz, save to disk, store in memory
 ```
@@ -124,7 +124,41 @@ Request page 3 at 150 DPI
 
 **Font path reliability:** Platform font loading uses absolute paths (`%WINDIR%\Fonts\segoeui.ttf` on Windows, `/System/Library/Fonts/Helvetica.ttc` on macOS) with fallback to `ImageFont.load_default()` if the system font is unavailable.
 
-**Cache cleanup:** `clear_cache()` only deletes files matching `page_*.png` to avoid accidentally removing unrelated files. Each deletion is wrapped in `try/except OSError` to handle locked files gracefully.
+**Cache cleanup:** `clear_cache()` only deletes files containing `_page_` in the name with a `.png` extension, so any user files in the cache directory are left alone. Each deletion is wrapped in `try/except OSError` to handle locked files gracefully.
+
+**Disk cache size cap (v2.11):** `_prune_disk_cache()` enforces a 200 MB ceiling. It runs on `__enter__` (when a `VisualPreviewGenerator` opens a PDF) and evicts oldest entries first by mtime until the cumulative size is back under the cap. Non-cache files in the directory are ignored. Without this cap the cache could grow unbounded for users who analysed many large PDFs.
+
+---
+
+### `preview_renderer.py` -- Threaded Preview Renderer
+
+Wraps `VisualPreviewGenerator` with debouncing, a stale-result guard, and background PIL work, so the UI stays responsive when a teacher clicks rapidly through fields.
+
+**Thread boundary (CRITICAL — v2.11):** `fitz.Document` is **not** thread-safe and must only be touched on the main thread. `PreviewRenderer` enforces this by:
+1. Calling `_get_page_image()` (which uses `fitz`) only from the main-thread debounce callback `_on_debounce_fire()`.
+2. Capturing canvas dimensions via `_capture_canvas_dims()` on the main thread *before* spawning the resize worker — Tcl (`canvas.winfo_*`) is also not thread-safe, so passing the captured ints into the worker is the only safe pattern.
+3. Restricting worker threads to pure PIL operations (`Image.copy()`, `ImageDraw`, `Image.resize()`).
+
+**Render pipeline:**
+```
+request_preview(field, zoom)
+  → debounce timer (150ms)              [main thread]
+  → _on_debounce_fire                   [main thread — fitz access OK]
+    → _get_page_image (PyMuPDF)
+    → spawn _worker_render thread
+  → _worker_render                      [worker — PIL only]
+    → copy + draw overlays
+    → root.after(0, _do_resize)
+  → _do_resize                          [main thread — capture canvas dims]
+    → spawn _resize_and_deliver thread
+  → _resize_and_deliver                 [worker — PIL.resize only]
+    → root.after(0, _deliver)
+  → _deliver                            [main thread — Tk PhotoImage, canvas update]
+```
+
+**Stale-result guard:** every request increments `_request_id`. Worker threads check `my_id != self._request_id` at every hand-off and bail out silently if a newer request has superseded them. This prevents an old, slow render from overwriting a fresh one.
+
+**Two-pass quality:** the first render uses `Image.Resampling.BILINEAR` (fast). 300 ms after the fast pass, a chained `_do_resize(use_lanczos=True)` re-renders with `Image.Resampling.LANCZOS` for crisp final output. Only the fast pass schedules the quality pass, so chaining cannot recurse.
 
 ---
 
@@ -285,7 +319,7 @@ Two tiers to balance speed and memory:
 | Tier | Storage | Capacity | Eviction | Persistence |
 |------|---------|----------|----------|-------------|
 | Memory | `OrderedDict` | 5 entries (~60MB) | LRU (oldest evicted) | Session only |
-| Disk | PNG files in `.preview_cache/` | Unlimited | Manual (clear_cache) | Across sessions |
+| Disk | PNG files in `.preview_cache/` | 200 MB | Auto-prune oldest by mtime on `__enter__`; manual via `clear_cache` | Across sessions |
 
 **Why two tiers?** Rendering a PDF page at 200 DPI via PyMuPDF takes 500-800ms. The memory cache makes repeated clicks on the same page instant (~50ms). The disk cache means previously rendered pages load quickly even after app restart.
 

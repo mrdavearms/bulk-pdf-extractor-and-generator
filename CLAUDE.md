@@ -32,7 +32,7 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 
 | File | Purpose |
 |------|---------|
-| `pdf_generator.py` | Main application (~3230 lines) — GUI, dialogs, generation pipeline |
+| `pdf_generator.py` | Main application (~3650 lines) — GUI, dialogs, generation pipeline |
 | `models.py` | Data models: `PDFField`, `TemplateConfig`, `AppSettings` |
 | `pdf_analyzer.py` | PDF field extraction engine (PyMuPDF) |
 | `visual_preview.py` | PDF page rendering + field highlighting, dual-tier cache |
@@ -120,7 +120,7 @@ Excel serial date range validation: only serials 1–2958465 are converted (1900
 
 - **Python**: Use `venv/bin/python` — system `python`/`python3` doesn't have project deps. Install pytest once: `venv/bin/pip install pytest`.
 - **Run tests**: `venv/bin/python -m pytest tests/ -v`
-- **Performance tests**: `tests/test_performance.py` uses `inspect.getsource()` to verify structural patterns (anti-patterns absent from source) rather than flaky timing assertions. 17 tests covering threading, debounce, batch updates, throttling, dialog geometry.
+- **Performance tests**: `tests/test_performance.py` uses `inspect.getsource()` to verify structural patterns (anti-patterns absent from source) rather than flaky timing assertions. 21 tests covering threading, debounce, batch updates, throttling, dialog geometry.
 - **Main class**: `BulkPDFGenerator` (not `BulkPDFApp` or similar)
 - **About tab method**: `setup_tab_about()` (not `setup_tab4_about`)
 - **Generation worker method**: `run_generation_tab3()` (not `generate_pdfs_worker` or similar)
