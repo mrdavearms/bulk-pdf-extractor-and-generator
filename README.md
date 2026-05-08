@@ -818,6 +818,15 @@ bulk-pdf-extractor-and-generator/
 
 ## Release Notes
 
+### v2.11.1 — May 2026
+
+**Small reliability fix.** Patch release — no new features, no changes to how you use the app. Safe to upgrade at any time.
+
+- **Fixed: template PDF stayed "in use" by the app on Windows after Load Data** — On the **Generate PDFs** tab, after clicking **Load Data**, Windows could keep treating your template PDF as "open by another program". You may have noticed this if you tried to open the same template in Adobe Acrobat (got a "file in use" warning), rename or move the template in File Explorer (blocked), run a second copy of the app on the same template, or email/upload the template while the app was still open. The file is now released back to Windows as soon as the app finishes reading the form fields. macOS users were not affected.
+- **Behind the scenes** — internal architecture documentation has been brought up to date with the threading and caching improvements that landed in v2.11. No user-facing change.
+
+---
+
 ### v2.11 — April 2026
 
 **Reliability, performance, and stability fixes** — full codebase audit pass.
