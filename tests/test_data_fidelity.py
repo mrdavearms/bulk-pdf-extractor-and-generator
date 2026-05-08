@@ -54,6 +54,47 @@ class TestCsvLeadingZeroPreservation(unittest.TestCase):
         self.assertEqual(df_str.iloc[1]['Student ID'], '00045')
 
 
+class TestPdfReaderClosedInLoadData(unittest.TestCase):
+    """load_data_tab3 must close the PdfReader so Windows releases the file lock.
+
+    Without this, the template PDF stays "in use" until the app exits, blocking
+    teachers from opening the same template in Adobe or renaming/moving the file.
+    Mirrors the v2.11 fix in run_generation_tab3 (C3 / 8d09e81).
+    """
+
+    def test_load_data_closes_reader_in_finally(self):
+        """The PdfReader opened in load_data_tab3 must be closed in a finally block."""
+        from pdf_generator import BulkPDFGenerator
+        import inspect
+        source = inspect.getsource(BulkPDFGenerator.load_data_tab3)
+
+        self.assertIn('PdfReader(', source,
+                      "load_data_tab3 should still open a PdfReader")
+        self.assertIn('reader.close()', source,
+                      "load_data_tab3 must explicitly close the PdfReader to "
+                      "release the Windows file lock — without this the "
+                      "template PDF stays in use until the app exits")
+
+        # Walk lines: after `reader = PdfReader(`, the next `try:` must be
+        # followed by a `finally:` that contains `reader.close()`. This guards
+        # against a future refactor that drops the close into the happy path.
+        lines = source.split('\n')
+        opened_at = next(
+            (i for i, ln in enumerate(lines) if 'PdfReader(' in ln and 'reader' in ln),
+            None,
+        )
+        self.assertIsNotNone(opened_at, "expected a `reader = PdfReader(...)` line")
+
+        tail = '\n'.join(lines[opened_at:])
+        try_idx = tail.find('try:')
+        finally_idx = tail.find('finally:')
+        close_idx = tail.find('reader.close()')
+        self.assertTrue(0 <= try_idx < finally_idx < close_idx,
+                        "PdfReader must be opened, then `try:` then `finally: "
+                        "reader.close()` — current order does not guarantee "
+                        "close on the early-return path")
+
+
 class TestFallbackPathDateConversion(unittest.TestCase):
     """Fallback auto-match path must pass data_type so date fields convert (C2)."""
 

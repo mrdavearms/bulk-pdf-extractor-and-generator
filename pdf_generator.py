@@ -2959,13 +2959,20 @@ class BulkPDFGenerator:
             return
 
         try:
-            # Load PDF and get field names
+            # Load PDF and get field names. Close the reader as soon as the
+            # field-name strings are hoisted out — pypdf 6.x keys are plain
+            # str but values are pypdf.generic objects that need the open
+            # file handle, so never store fields.values() past the close.
+            # Without this finally block the template PDF stays locked on
+            # Windows until the app exits or GC runs.
             reader = PdfReader(pdf_path)
-            self.pdf_fields = []  # Always reset before re-reading
-            fields = reader.get_fields()
-            if fields:
-                self.pdf_fields = list(fields.keys())
-            else:
+            try:
+                fields = reader.get_fields()
+                self.pdf_fields = list(fields.keys()) if fields else []
+            finally:
+                reader.close()
+
+            if not self.pdf_fields:
                 messagebox.showerror("Error", "The PDF template has no fillable form fields.")
                 return
 
