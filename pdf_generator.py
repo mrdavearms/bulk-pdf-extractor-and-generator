@@ -861,6 +861,11 @@ class BulkPDFGenerator:
         self.selected_rows = {}
         self.output_dir_path = tk.StringVar()  # Optional custom output directory
 
+        # Set True in on_closing so a running generation worker stops cleanly
+        # instead of writing more files / calling root.after() on a destroyed
+        # window. Bool read/write is atomic under the GIL — safe cross-thread.
+        self._closing = False
+
         # Register cleanup on close
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
@@ -915,6 +920,9 @@ class BulkPDFGenerator:
 
     def on_closing(self):
         """Clean up resources before closing."""
+        # Signal the generation worker (if any) to stop before we tear down
+        # the window, so it doesn't write more PDFs or touch a destroyed root.
+        self._closing = True
         self._close_preview_generator()
         self.root.destroy()
 
@@ -1592,6 +1600,10 @@ class BulkPDFGenerator:
                 for field in self.analyzed_fields:
                     if field.field_name in saved_types:
                         field.data_type = saved_types[field.field_name]
+            # Always populate the table when we have fields — even for legacy or
+            # hand-edited templates that carry no saved data types (otherwise the
+            # Analysis Results table stays blank after a load + re-analysis).
+            if self.analyzed_fields:
                 self.display_analyzed_fields()
 
             # Restore saved field→Excel column mappings
@@ -1903,8 +1915,10 @@ class BulkPDFGenerator:
                 self.preview_canvas.config(scrollregion=(0, 0, canvas_width, canvas_height))
                 self.preview_canvas.create_image(canvas_width // 2, canvas_height // 2,
                                                  image=self.preview_image, anchor=tk.CENTER)
-        except Exception as e:
-            print(f"Zoom render error: {e}")
+        except Exception:
+            # Windowed .exe has no console, so a print() would be lost.
+            # Route to the rotating log file like all other diagnostics.
+            self.logger.exception("Zoom render failed")
 
     def on_field_selected(self, event):
         """Handle field selection in Tab 1 - show visual preview.
@@ -3324,7 +3338,17 @@ class BulkPDFGenerator:
                 _last_progress_time = _time.monotonic()
 
                 for i, idx in enumerate(ctx['selected_indices']):
-                    row = ctx['df'].iloc[idx]
+                    # Stop promptly if the window is closing. Returning here runs
+                    # the enclosing `finally: reader.close()`, so the template PDF
+                    # is released cleanly and no further files are written.
+                    if self._closing:
+                        return
+                    # idx is the DataFrame index *label* captured via iterrows()
+                    # in show_preview_tab3, so look up by label (.loc), not by
+                    # position (.iloc). These coincide for the default 0,1,2…
+                    # index but .loc stays correct if the index is ever
+                    # non-default — preventing a silent wrong-row fill.
+                    row = ctx['df'].loc[idx]
                     row_dict = {str(col).lower(): val for col, val in row.items()}
                     name_parts = []
                     for cf in critical[:3]:
@@ -3556,6 +3580,15 @@ class BulkPDFGenerator:
         # Number type: strip trailing .0 from whole numbers
         if data_type == "number" and isinstance(val, float) and val == int(val):
             return str(int(val))
+
+        # Number type (string path): data files load with dtype=str, so whole
+        # numbers arrive as strings like "45.0". Strip only a trailing .0/.00 —
+        # leaving leading zeros (e.g. student IDs "00045") and genuine decimals
+        # ("3.50") untouched.
+        if data_type == "number" and isinstance(val, str):
+            s = val.strip()
+            if re.fullmatch(r'-?\d+\.0+', s):
+                return s.split('.', 1)[0]
 
         # Convert to string and clean
         str_val = str(val).strip()

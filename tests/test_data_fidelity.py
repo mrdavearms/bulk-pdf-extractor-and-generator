@@ -116,3 +116,65 @@ class TestFallbackPathDateConversion(unittest.TestCase):
         self.assertIn('inferred_type', source,
                       "fallback path must use a variable for data_type "
                       "(e.g. inferred_type), not a hardcoded literal string")
+
+
+class TestNumberTypeStringPath(unittest.TestCase):
+    """'Number' data type must strip a trailing .0 even when the value arrives
+    as a string — which is the normal case, since data loads with dtype=str."""
+
+    def setUp(self):
+        from pdf_generator import BulkPDFGenerator
+        self.fmt = BulkPDFGenerator.format_value_tab3
+
+    def test_string_whole_number_drops_trailing_dot_zero(self):
+        self.assertEqual(self.fmt('45.0', data_type='number'), '45')
+        self.assertEqual(self.fmt('45.00', data_type='number'), '45')
+
+    def test_plain_integer_string_unchanged(self):
+        self.assertEqual(self.fmt('45', data_type='number'), '45')
+
+    def test_genuine_decimal_preserved(self):
+        self.assertEqual(self.fmt('3.50', data_type='number'), '3.50')
+
+    def test_leading_zeros_preserved(self):
+        # A field can be typed Number yet hold an ID — don't reformat the digits.
+        self.assertEqual(self.fmt('00045.0', data_type='number'), '00045')
+
+    def test_negative_whole_number(self):
+        self.assertEqual(self.fmt('-7.0', data_type='number'), '-7')
+
+    def test_genuine_float_still_stripped(self):
+        # The pre-existing float path must keep working.
+        self.assertEqual(self.fmt(45.0, data_type='number'), '45')
+
+
+class TestGenerationRowLookupByLabel(unittest.TestCase):
+    """Item 4: generation must look up rows by index *label* (.loc), matching
+    the labels captured via iterrows() in show_preview_tab3 — not by position
+    (.iloc), which would fill the wrong row if the index is ever non-default."""
+
+    def test_uses_loc_not_iloc_for_row_lookup(self):
+        from pdf_generator import BulkPDFGenerator
+        import inspect
+        src = inspect.getsource(BulkPDFGenerator.run_generation_tab3)
+        self.assertIn("ctx['df'].loc[idx]", src,
+                      "row lookup must use label-based .loc[idx]")
+        self.assertNotIn("ctx['df'].iloc[idx]", src,
+                         "row lookup must NOT use position-based .iloc[idx] — "
+                         "idx is an iterrows() label, not a position")
+
+    def test_loc_and_iloc_diverge_on_nondefault_index(self):
+        """Documents *why* the fix matters: with a non-default index, .loc
+        (by label) and .iloc (by position) return different rows. The app
+        stores labels, so .loc is the correct one."""
+        df = pd.DataFrame({'Name': ['Alice', 'Bob', 'Carol']},
+                          index=[10, 11, 12])
+        captured_label = 12  # what iterrows() yields for the 3rd row
+        self.assertEqual(df.loc[captured_label]['Name'], 'Carol')   # correct
+        # Feeding that label to .iloc is out of positional range -> raises.
+        with self.assertRaises(IndexError):
+            _ = df.iloc[captured_label]
+
+
+if __name__ == '__main__':
+    unittest.main()
