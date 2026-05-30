@@ -126,7 +126,18 @@ class PDFAnalyzer:
             items.sort(key=lambda x: x[0])
 
             # Determine if this is a true combed field (multiple sequential items)
-            if len(items) > 1 and self._is_sequential(items):
+            treat_as_combed = len(items) > 1 and self._is_sequential(items)
+
+            # Guard the loose suffix patterns ('Field_N', 'FieldN' — tuple keys)
+            # against false grouping: real comb character-boxes sit on a single
+            # horizontal line, whereas genuinely separate sequential fields
+            # (e.g. Address_1 / Address_2 stacked on different lines) do not.
+            # Bracketed 'Field[N]' fields (str key) are the canonical comb
+            # naming and are always treated as comb — they skip this check.
+            if treat_as_combed and isinstance(base_key, tuple):
+                treat_as_combed = self._looks_like_comb_row(items)
+
+            if treat_as_combed:
                 # Combed field - group them
                 widget_0 = items[0][2]  # First widget for metadata
 
@@ -195,6 +206,40 @@ class PDFAnalyzer:
         start = indices[0]
         expected = list(range(start, start + len(indices)))
         return indices == expected
+
+    def _looks_like_comb_row(self, items: List[Tuple]) -> bool:
+        """Geometric sanity check for loose suffix-pattern comb groups.
+
+        True comb character-boxes share a baseline, so their widget
+        rectangles sit at approximately the same vertical position. Fields
+        like Address_1 / Address_2 are stacked on different lines and fail
+        this check, so they are kept as separate fields instead of being
+        merged into one character-by-character comb (which would truncate
+        each value to a single character — silent data loss).
+
+        If geometry can't be read for any reason, returns True so behaviour
+        falls back to the previous (permissive) grouping — no regression.
+
+        Args:
+            items: List of (index, name, widget, page_num) tuples.
+
+        Returns:
+            True if all widgets lie on roughly the same horizontal row.
+        """
+        try:
+            tops = [it[2].rect[1] for it in items]               # y0 of each box
+            heights = [abs(it[2].rect[3] - it[2].rect[1]) for it in items]
+        except (AttributeError, IndexError, TypeError):
+            return True
+
+        if not tops:
+            return True
+
+        # Tolerance scales with box height (handles minor baseline jitter)
+        # but never drops below a few points. Stacked lines differ by far more.
+        median_h = sorted(heights)[len(heights) // 2] if heights else 0
+        tolerance = max(4.0, median_h * 0.6)
+        return (max(tops) - min(tops)) <= tolerance
 
     def _get_widget_maxlen(self, widget) -> int:
         """
