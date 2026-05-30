@@ -94,6 +94,12 @@ Releases are **fully automatic** — published as soon as the build completes, n
 
 Pre-release tags (`v2.8-beta`, `v2.8-rc1`, etc.) are automatically flagged as pre-releases on GitHub and excluded from the "Latest" badge on the README.
 
+### Release page install instructions (LOAD-BEARING — do not delete)
+
+The teacher-facing **download links and Windows/macOS security-warning guidance** ("Run anyway", "Open Anyway", first-launch steps) live in the `body:` template of the **Create GitHub Release** step in `.github/workflows/release.yml`. They are injected into *every* release automatically — they are **not** part of `RELEASE_NOTES.md` and must never be hand-written per release.
+
+This block is guarded by `tests/test_release_template.py`, which fails CI (the Tests workflow runs on every push to `main`/`test`) if any required phrase is removed. If you reword the instructions, update that test's `REQUIRED_PHRASES` to match. **Never delete the install-instructions block** — teachers rely on it to get past the OS security prompts.
+
 ## Cross-Platform Build
 
 Both platforms are built automatically by GitHub Actions. For local builds:
