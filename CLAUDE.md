@@ -90,7 +90,9 @@ This triggers `.github/workflows/release.yml` which:
 
 The README download badge auto-updates via shields.io — no manual step needed.
 
-Releases are **fully automatic** — published as soon as the build completes, no manual step needed. Release notes are auto-generated from conventional commit messages since the last tag (`fix:` → **Fixed:**, `feat:` → **New:**, `perf:` → **Performance:**, etc.). `RELEASE_NOTES.md` is an optional override for custom wording; it is auto-cleared after each release so stale notes never carry forward.
+Releases are **fully automatic** — published as soon as the build completes, no manual step needed. Release notes are auto-generated from conventional commit messages since the last tag (`fix:` → **Fixed:**, `feat:` → **New:**, `perf:` → **Performance:**, etc.). `RELEASE_NOTES.md` is an optional override for custom wording.
+
+**Gotcha — the auto-clear of `RELEASE_NOTES.md` does NOT work reliably.** After each release the workflow opens a `ci: clear release notes…` PR set to auto-merge, but GitHub won't run the required `test` check on a bot-created PR, so the PR stays **BLOCKED forever**. After each release: manually reset `RELEASE_NOTES.md` to the comment-only template, commit (`ci:`), push test → main, and close the stuck PR.
 
 Pre-release tags (`v2.8-beta`, `v2.8-rc1`, etc.) are automatically flagged as pre-releases on GitHub and excluded from the "Latest" badge on the README.
 
@@ -99,6 +101,12 @@ Pre-release tags (`v2.8-beta`, `v2.8-rc1`, etc.) are automatically flagged as pr
 The teacher-facing **download links and Windows/macOS security-warning guidance** ("Run anyway", "Open Anyway", first-launch steps) live in the `body:` template of the **Create GitHub Release** step in `.github/workflows/release.yml`. They are injected into *every* release automatically — they are **not** part of `RELEASE_NOTES.md` and must never be hand-written per release.
 
 This block is guarded by `tests/test_release_template.py`, which fails CI (the Tests workflow runs on every push to `main`/`test`) if any required phrase is removed. If you reword the instructions, update that test's `REQUIRED_PHRASES` to match. **Never delete the install-instructions block** — teachers rely on it to get past the OS security prompts.
+
+### CI & repository facts
+
+- **Public repo → GitHub Actions are free** on standard runners (Linux/Windows/macOS) — builds and tests cost nothing.
+- **`test.yml`** (pytest) runs on every push to `main`/`test` and PRs to `main`. **`release.yml`** (binary build + release) runs **only on `v*` tag pushes** — branch pushes never build binaries.
+- **`main` is protected**: pushes require the `test` status check. Authorised direct pushes succeed via admin bypass and print `remote: Bypassed rule violations…` — this is expected, not an error.
 
 ## Cross-Platform Build
 
