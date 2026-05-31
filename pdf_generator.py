@@ -1298,9 +1298,30 @@ class BulkPDFGenerator:
         update_btn.config(command=lambda: self._run_update_check(update_btn))
         update_btn.pack()
 
+        # Inline result feedback — NO modal dialog. On macOS a messagebox can
+        # open behind the main window and silently freeze the app, so the
+        # outcome is reported in this label instead. The Download button is
+        # shown only when an update is actually available.
+        self._update_url = ''
+        self._update_status_lbl = tk.Label(
+            card, text='', font=(ff, 10),
+            fg=C['text_secondary'], bg=C['bg_surface'],
+            wraplength=360, justify=tk.CENTER,
+        )
+        self._update_status_lbl.pack(pady=(10, 0))
+
+        self._update_download_btn = ttk.Button(
+            card, text='Download Update', bootstyle='success', width=20,
+            command=self._open_update_url,
+        )
+        # Packed only when an update is available (see _show_update_result).
+
     def _run_update_check(self, button):
         """Start a background update check. Disables the button while running."""
         button.config(state='disabled', text='Checking…')
+        self._update_download_btn.pack_forget()
+        self._update_status_lbl.config(text='Checking for updates…',
+                                       fg=COLORS['text_secondary'])
 
         def _worker():
             _commit, _date, current_version = self._build_info
@@ -1310,44 +1331,45 @@ class BulkPDFGenerator:
         threading.Thread(target=_worker, daemon=True).start()
 
     def _show_update_result(self, result, button):
-        """Display update-check result. Re-enables the button when done.
+        """Report the update-check outcome INLINE — never via a modal pop-up.
 
-        Every messagebox is anchored to the main window via the parent
-        argument. Without it, on macOS the dialog can open BEHIND the main
-        window — invisible, yet modal — which silently freezes the whole app
-        until the unseen dialog is answered. Lifting the root first ensures
-        the dialog is drawn in front.
+        On macOS a Tk modal pop-up can open behind the main window (invisible
+        but still modal), silently freezing the app. So the result is shown in
+        a label beside the button; the Download button is revealed only when an
+        update is actually available. All widget updates run on the main
+        thread (dispatched via root.after in the worker).
         """
         button.config(state='normal', text='Check for Updates')
-
-        # Bring the app forward so the modal dialog is drawn on top of it.
-        self.root.lift()
-        self.root.focus_force()
-
+        C = COLORS
         status = result.get('status')
 
         if status == 'update_available':
-            latest = result['latest']
-            url = result['html_url']
-            go = messagebox.askyesno(
-                'Update Available',
-                f'Version {latest} is available.\n\nOpen the Releases page to download?',
-                icon='info',
-                parent=self.root,
+            self._update_url = result.get('html_url', '')
+            self._update_status_lbl.config(
+                text=f"Update available: {result.get('latest', '')}",
+                fg=C['success'],
             )
-            if go:
-                webbrowser.open(url)
+            self._update_download_btn.pack(pady=(8, 0))
 
         elif status == 'up_to_date':
-            messagebox.showinfo('Up to Date', "You're running the latest version.",
-                                parent=self.root)
+            self._update_download_btn.pack_forget()
+            self._update_status_lbl.config(
+                text="✓ You're on the latest version.",
+                fg=C['success'],
+            )
 
         else:
-            messagebox.showwarning(
-                'Update Check Failed',
-                f"Could not check for updates.\n\n{result.get('message', 'Unknown error')}",
-                parent=self.root,
+            self._update_download_btn.pack_forget()
+            self._update_status_lbl.config(
+                text="Couldn't check for updates — please check your internet "
+                     "connection and try again.",
+                fg=C['warning'],
             )
+
+    def _open_update_url(self):
+        """Open the releases page in the default browser (Download button)."""
+        if self._update_url:
+            webbrowser.open(self._update_url)
 
     def update_status(self, message, level='info'):
         """Update the status bar message."""

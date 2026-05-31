@@ -78,23 +78,27 @@ class TestCheckForUpdate(unittest.TestCase):
         self.assertEqual(result['status'], 'update_available')
 
 
-class TestUpdateDialogsHaveParent(unittest.TestCase):
-    """Every messagebox in _show_update_result must pass parent=self.root.
+class TestUpdateResultIsInline(unittest.TestCase):
+    """The update-check result must be reported INLINE, never via a modal dialog.
 
-    Without it, on macOS the dialog opens BEHIND the main window — invisible
-    but modal — silently freezing the app (confirmed live on v2.8). This guard
-    stops the parent= argument being dropped again.
+    On macOS a Tk messagebox can open behind the main window — invisible but
+    modal — silently freezing the app (confirmed live on v2.8 AND v2.12.1,
+    where a parent= argument was not enough). The outcome is shown in a status
+    label instead. This guard stops a messagebox creeping back into the flow.
     """
 
-    def test_all_update_messageboxes_pass_parent(self):
+    def test_show_update_result_uses_no_messagebox(self):
         import inspect
         src = inspect.getsource(pdf_generator.BulkPDFGenerator._show_update_result)
-        # Three dialogs: askyesno (update available), showinfo (up to date),
-        # showwarning (check failed) — each must anchor to the main window.
-        self.assertEqual(
-            src.count('parent=self.root'), 3,
-            "all three update dialogs must pass parent=self.root so they can't "
-            "hide behind the window on macOS",
+        self.assertNotIn(
+            'messagebox', src,
+            "_show_update_result must NOT use messagebox — a modal dialog can "
+            "hide behind the window and freeze the app on macOS. Report the "
+            "result inline via self._update_status_lbl instead.",
+        )
+        self.assertIn(
+            '_update_status_lbl', src,
+            "_show_update_result must update the inline status label",
         )
 
 
