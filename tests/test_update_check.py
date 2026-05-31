@@ -78,5 +78,25 @@ class TestCheckForUpdate(unittest.TestCase):
         self.assertEqual(result['status'], 'update_available')
 
 
+class TestUpdateDialogsHaveParent(unittest.TestCase):
+    """Every messagebox in _show_update_result must pass parent=self.root.
+
+    Without it, on macOS the dialog opens BEHIND the main window — invisible
+    but modal — silently freezing the app (confirmed live on v2.8). This guard
+    stops the parent= argument being dropped again.
+    """
+
+    def test_all_update_messageboxes_pass_parent(self):
+        import inspect
+        src = inspect.getsource(pdf_generator.BulkPDFGenerator._show_update_result)
+        # Three dialogs: askyesno (update available), showinfo (up to date),
+        # showwarning (check failed) — each must anchor to the main window.
+        self.assertEqual(
+            src.count('parent=self.root'), 3,
+            "all three update dialogs must pass parent=self.root so they can't "
+            "hide behind the window on macOS",
+        )
+
+
 if __name__ == '__main__':
     unittest.main()

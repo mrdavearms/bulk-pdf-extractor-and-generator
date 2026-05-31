@@ -1310,8 +1310,19 @@ class BulkPDFGenerator:
         threading.Thread(target=_worker, daemon=True).start()
 
     def _show_update_result(self, result, button):
-        """Display update-check result. Re-enables the button when done."""
+        """Display update-check result. Re-enables the button when done.
+
+        Every messagebox is anchored to the main window via the parent
+        argument. Without it, on macOS the dialog can open BEHIND the main
+        window — invisible, yet modal — which silently freezes the whole app
+        until the unseen dialog is answered. Lifting the root first ensures
+        the dialog is drawn in front.
+        """
         button.config(state='normal', text='Check for Updates')
+
+        # Bring the app forward so the modal dialog is drawn on top of it.
+        self.root.lift()
+        self.root.focus_force()
 
         status = result.get('status')
 
@@ -1321,18 +1332,21 @@ class BulkPDFGenerator:
             go = messagebox.askyesno(
                 'Update Available',
                 f'Version {latest} is available.\n\nOpen the Releases page to download?',
-                icon='info'
+                icon='info',
+                parent=self.root,
             )
             if go:
                 webbrowser.open(url)
 
         elif status == 'up_to_date':
-            messagebox.showinfo('Up to Date', "You're running the latest version.")
+            messagebox.showinfo('Up to Date', "You're running the latest version.",
+                                parent=self.root)
 
         else:
             messagebox.showwarning(
                 'Update Check Failed',
-                f"Could not check for updates.\n\n{result.get('message', 'Unknown error')}"
+                f"Could not check for updates.\n\n{result.get('message', 'Unknown error')}",
+                parent=self.root,
             )
 
     def update_status(self, message, level='info'):
