@@ -48,6 +48,7 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 
 - **Thread safety**: PDF generation runs on a background thread with `copy.deepcopy()` snapshot of all shared state. UI updates via `root.after()`.
 - **PyMuPDF thread safety (CRITICAL)**: `fitz.Document` is NOT thread-safe. `_get_page_image()` must ALWAYS run on the main thread. Only pure PIL operations (`Image.copy()`, `ImageDraw`, `Image.resize()`) are safe to run off-thread. `PreviewRenderer` enforces this boundary — never move PyMuPDF calls off-thread.
+- **macOS modal dialogs (CRITICAL)**: `tkinter.messagebox.*` can open BEHIND the main window on macOS — invisible but still modal — silently freezing the app. `parent=self.root` does NOT reliably fix it. For non-blocking notifications (e.g. update-check results), report inline via a status label/button, not a messagebox. Always verify a GUI dialog change live on macOS before releasing.
 - **Atomic file writes**: Template configs and settings use `tempfile` + `os.replace()` to prevent corruption on crash.
 - **Dual-tier caching**: Preview renders cached in memory (LRU) and on disk (PNG).
 - **Cross-platform scrolling**: Mousewheel handlers branch by `sys.platform` — Windows (`delta/120`), macOS (`delta`), Linux (`Button-4`/`Button-5`).
@@ -105,7 +106,7 @@ This block is guarded by `tests/test_release_template.py`, which fails CI (the T
 ### CI & repository facts
 
 - **Public repo → GitHub Actions are free** on standard runners (Linux/Windows/macOS) — builds and tests cost nothing.
-- **`test.yml`** (pytest) runs on every push to `main`/`test` and PRs to `main`. **`release.yml`** (binary build + release) runs **only on `v*` tag pushes** — branch pushes never build binaries.
+- **`test.yml`** (pytest) runs on every push to `main`/`test` and PRs to `main`, on **Linux + Windows + macOS** (the `test` job stays Linux to keep the branch-protection check name; a `test-cross-platform` matrix adds Windows/macOS). **`release.yml`** (binary build + release) runs **only on `v*` tag pushes** — branch pushes never build binaries.
 - **`main` is protected**: pushes require the `test` status check. Authorised direct pushes succeed via admin bypass and print `remote: Bypassed rule violations…` — this is expected, not an error.
 
 ## Cross-Platform Build
@@ -134,6 +135,8 @@ Excel serial date range validation: only serials 1–2958465 are converted (1900
 
 - **Python**: Use `venv/bin/python` — system `python`/`python3` doesn't have project deps. Install pytest once: `venv/bin/pip install pytest`.
 - **Run tests**: `venv/bin/python -m pytest tests/ -v`
+- **Run the app from source**: `venv/bin/python pdf_generator.py` (launches the GUI on macOS from the shell).
+- **Verify GUI logic without clicking**: instantiate `BulkPDFGenerator(tk.Tk())` with `root.withdraw()`, call the handler directly, and assert widget state (`w['text']`, `w.winfo_manager()` for packed/hidden). Proves behaviour and that no modal blocks.
 - **Performance tests**: `tests/test_performance.py` uses `inspect.getsource()` to verify structural patterns (anti-patterns absent from source) rather than flaky timing assertions. 21 tests covering threading, debounce, batch updates, throttling, dialog geometry.
 - **Main class**: `BulkPDFGenerator` (not `BulkPDFApp` or similar)
 - **About tab method**: `setup_tab_about()` (not `setup_tab4_about`)
