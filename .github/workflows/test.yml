@@ -7,8 +7,35 @@ on:
     branches: [main]
 
 jobs:
+  # Linux job keeps the name `test` so the branch-protection required
+  # status check on `main` continues to match.
   test:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run tests
+        run: python -m pytest tests/ -v
+
+  # Windows + macOS coverage — the app ships on both, so the suite must
+  # pass there too. Separate jobs (not a matrix) so the `test` check name
+  # above is preserved for branch protection.
+  test-cross-platform:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
 
