@@ -20,6 +20,11 @@ wheels/
 .installed.cfg
 *.egg
 
+# Environment secrets (never commit API keys / tokens)
+.env
+.env.*
+!.env.example
+
 # Virtual Environment
 venv/
 env/
