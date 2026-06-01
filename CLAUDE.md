@@ -137,6 +137,7 @@ Excel serial date range validation: only serials 1–2958465 are converted (1900
 - **Run tests**: `venv/bin/python -m pytest tests/ -v`
 - **Run the app from source**: `venv/bin/python pdf_generator.py` (launches the GUI on macOS from the shell).
 - **Verify GUI logic without clicking**: instantiate `BulkPDFGenerator(tk.Tk())` with `root.withdraw()`, call the handler directly, and assert widget state (`w['text']`, `w.winfo_manager()` for packed/hidden). Proves behaviour and that no modal blocks.
+- **Reviewing a session's work**: this repo is committed+pushed to `test` continuously, so by review time `HEAD == origin/test` and `/security-review` (or any diff-vs-upstream) sees an empty diff. Review against the session's starting commit instead: `git diff <base>..HEAD`.
 - **Performance tests**: `tests/test_performance.py` uses `inspect.getsource()` to verify structural patterns (anti-patterns absent from source) rather than flaky timing assertions. 21 tests covering threading, debounce, batch updates, throttling, dialog geometry.
 - **Main class**: `BulkPDFGenerator` (not `BulkPDFApp` or similar)
 - **About tab method**: `setup_tab_about()` (not `setup_tab4_about`)
