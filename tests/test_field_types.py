@@ -73,3 +73,12 @@ def test_choice_validates_against_options_case_insensitively():
     assert normalize_choice_value("nsw", ["VIC", "NSW"]) == ("NSW", True)
     assert normalize_choice_value(" VIC ", ["VIC", "NSW"]) == ("VIC", True)
     assert normalize_choice_value("Victoria", ["VIC", "NSW"]) == ("Victoria", False)
+
+
+def test_checkbox_empty_on_states_falls_back_to_yes():
+    assert normalize_button_value("yes", []) == NameObject("/Yes")
+    assert normalize_button_value("no", []) == NameObject("/Off")
+
+
+def test_choice_empty_options_returns_raw_unmatched():
+    assert normalize_choice_value("Anything", []) == ("Anything", False)

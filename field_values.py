@@ -27,9 +27,12 @@ def normalize_button_value(raw, on_states: List[str]) -> Optional[NameObject]:
     states = on_states or []
 
     if len(states) <= 1:
-        # Checkbox semantics (default on-state "Yes" if none was detected).
+        # Checkbox semantics. len==0 means analysis found no on-state (unusual —
+        # likely a parse miss); we fall back to the conventional "Yes" so a
+        # truthy cell still ticks. len==1 is the normal checkbox case.
+        state_name = (states[0] if states else "Yes").strip() or "Yes"
         if s in TRUTHY:
-            return NameObject("/" + (states[0] if states else "Yes"))
+            return NameObject("/" + state_name)
         if s in FALSEY:
             return NameObject("/Off")
         return None
@@ -37,7 +40,7 @@ def normalize_button_value(raw, on_states: List[str]) -> Optional[NameObject]:
     # Radio semantics: match the chosen option by export value.
     for state in states:
         if s == state.strip().lower():
-            return NameObject("/" + state)
+            return NameObject("/" + state.strip())
     return None
 
 
