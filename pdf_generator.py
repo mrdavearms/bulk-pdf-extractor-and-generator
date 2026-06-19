@@ -900,6 +900,10 @@ class BulkPDFGenerator:
 
         self.setup_ui()
 
+        # Non-intrusive once-per-day update check, deferred so the window paints
+        # first. Result surfaces as an inline banner (never a modal pop-up).
+        self.root.after(2000, self._maybe_auto_check_update)
+
 
     @property
     def critical_fields_list(self) -> list:
@@ -1076,9 +1080,32 @@ class BulkPDFGenerator:
         # Accent stripe divider
         tk.Frame(main_frame, bg=C['accent'], height=3, autostyle=False).pack(fill=tk.X)
 
+        # ── Update banner (hidden until a startup check finds a newer version) ──
+        # Inline and non-modal by design: on macOS a messagebox can open behind
+        # the main window and silently freeze the app, so update news is shown
+        # here, never via a pop-up. Revealed by _show_startup_update_result.
+        self._update_banner = tk.Frame(main_frame, bg=C['bg_surface'], autostyle=False)
+        self._update_banner_lbl = tk.Label(
+            self._update_banner, text="", font=(ff, 10, 'bold'),
+            fg=C['accent'], bg=C['bg_surface'], autostyle=False,
+        )
+        self._update_banner_lbl.pack(side=tk.LEFT, padx=(16, 8), pady=6)
+        ttk.Button(
+            self._update_banner, text="Download", bootstyle='success',
+            width=12, command=self._open_update_url,
+        ).pack(side=tk.LEFT, padx=4, pady=6)
+        _dismiss = tk.Label(
+            self._update_banner, text="✕", font=(ff, 11),
+            fg=C['text_secondary'], bg=C['bg_surface'], cursor="hand2",
+            autostyle=False,
+        )
+        _dismiss.pack(side=tk.RIGHT, padx=12)
+        _dismiss.bind("<Button-1>", lambda e: self._update_banner.pack_forget())
+
         # ── Content area ──
         content_frame = ttk.Frame(main_frame, padding=str(SPACING['page_padding']))
         content_frame.pack(fill=tk.BOTH, expand=True)
+        self._content_frame = content_frame  # banner packs above this when shown
 
         # Notebook (tabs)
         self.notebook = ttk.Notebook(content_frame)
@@ -1399,6 +1426,50 @@ class BulkPDFGenerator:
         """Open the releases page in the default browser (Download button)."""
         if self._update_url:
             webbrowser.open(self._update_url)
+
+    def _maybe_auto_check_update(self):
+        """Once-per-day background update check, surfaced as an inline banner.
+
+        Skips source/dev runs (no installed version). Records the attempt date
+        BEFORE the network call so an offline launch doesn't retry every time.
+        The result is dispatched to _show_startup_update_result via root.after.
+        Never shows a modal pop-up (macOS freeze rule).
+        """
+        if getattr(self, "_closing", False):
+            return
+        _commit, _date, current_version = self._build_info
+        if not current_version.startswith("v"):
+            return  # dev/source run — nothing to update
+        today = datetime.now().date().isoformat()
+        if not _should_check_for_update(self.settings.last_update_check, today):
+            return
+        self.settings.last_update_check = today
+        try:
+            self.settings.save_to_file(self.settings_file)
+        except OSError:
+            pass  # non-fatal; we'll just retry on the next eligible launch
+
+        def _worker():
+            result = check_for_update(current_version)
+            self.root.after(0, lambda: self._show_startup_update_result(result))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _show_startup_update_result(self, result):
+        """Reveal the update banner only when a newer version exists.
+
+        Runs on the main thread (dispatched via root.after). Silent on
+        up-to-date or error — a startup check must never interrupt the user.
+        """
+        if getattr(self, "_closing", False):
+            return
+        if result.get("status") != "update_available":
+            return
+        self._update_url = result.get("html_url", "")
+        latest = result.get("latest", "")
+        self._update_banner_lbl.config(
+            text=f"A new version ({latest}) is available.")
+        self._update_banner.pack(fill=tk.X, before=self._content_frame)
 
     def update_status(self, message, level='info'):
         """Update the status bar message."""
