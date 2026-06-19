@@ -176,6 +176,7 @@ from pdf_analyzer import PDFAnalyzer, auto_name_template
 from visual_preview import VisualPreviewGenerator
 from preview_renderer import PreviewRenderer
 from combed_filler import CombedFieldFiller
+from field_values import normalize_button_value, normalize_choice_value
 from theme import (
     COLORS, SPACING, SYSTEM_FONTS, font,
     apply_dark_theme, resolve_font_family, setup_treeview_tags,
@@ -3480,52 +3481,64 @@ class BulkPDFGenerator:
         # pypdf>=3.0 pin in requirements.txt.
         writer.append(reader)
 
-        # Create a dictionary of field values to fill
-        field_values = {}
+        field_values = {}      # text + valid choice values (plain strings)
+        button_values = {}     # checkbox/radio values (NameObject)
+        warnings_out = []      # per-field problems to report to the user
 
-        # Check if we have analyzed fields with combed field metadata
         if ctx['analyzed_fields']:
-            # Use combed field filler for smart filling
             combed_filler = CombedFieldFiller(settings={
                 'padding': ctx['combed_padding'],
-                'align': ctx['combed_align']
+                'align': ctx['combed_align'],
             })
-
-            # Build lookup of raw values keyed by lowercase column name
             row_raw_lower = {str(col).lower(): val for col, val in row_data.items()}
 
-            # Process each analyzed field
             for field in ctx['analyzed_fields']:
-                # Find matching Excel column:
-                # 1. Explicit mapping from Tab 2 (field.excel_column) takes priority
-                # 2. Fall back to auto-match by PDF field name (case-insensitive)
-                if field.excel_column:
-                    raw_val = row_raw_lower.get(field.excel_column.lower())
-                else:
-                    raw_val = row_raw_lower.get(field.field_name.lower())
-
+                key = (field.excel_column or field.field_name).lower()
+                raw_val = row_raw_lower.get(key)
                 if raw_val is None:
                     continue
 
-                # Format with type awareness
+                ftype = field.field_type
+
+                if ftype == 'Signature':
+                    if str(raw_val).strip():
+                        warnings_out.append(
+                            f"{field.field_name}: signature fields cannot be "
+                            f"auto-filled (skipped)")
+                    continue
+
+                if ftype in ('CheckBox', 'RadioButton'):
+                    name_val = normalize_button_value(raw_val, field.on_states)
+                    if name_val is None:
+                        if str(raw_val).strip().lower() not in ('', 'nan'):
+                            warnings_out.append(
+                                f"{field.field_name}: could not interpret "
+                                f"'{raw_val}' as a tick value (left unchanged)")
+                        continue
+                    button_values[field.field_name] = name_val
+                    continue
+
+                if ftype in ('ComboBox', 'ListBox'):
+                    value, matched = normalize_choice_value(raw_val, field.options)
+                    if not value:
+                        continue
+                    if not matched and field.options:
+                        warnings_out.append(
+                            f"{field.field_name}: '{value}' is not one of the "
+                            f"allowed options {field.options}")
+                    field_values[field.field_name] = value
+                    continue
+
+                # Text / combed text (unchanged behaviour)
                 value = self.format_value_tab3(raw_val, data_type=field.data_type)
                 if not value:
                     continue
-
-                # Fill field (handles both combed and regular)
-                filled_values = combed_filler.fill_field(field, value)
-                field_values.update(filled_values)
+                field_values.update(combed_filler.fill_field(field, value))
 
         else:
-            # Fallback to original auto-matching (no combed field support).
-            # Infer data_type from field name so Excel-serial dates still convert
-            # when the user hasn't run the field audit dialog (no analyzed_fields).
             row_dict_lower = {str(col).lower(): val for col, val in row_data.items()}
-
             for pdf_field in ctx['pdf_fields']:
                 pdf_field_lower = pdf_field.lower()
-
-                # Try to find matching Excel column
                 if pdf_field_lower in row_dict_lower:
                     inferred_type = "date" if any(
                         token in pdf_field_lower for token in _DATE_KEYWORDS
@@ -3533,10 +3546,7 @@ class BulkPDFGenerator:
                     val = self.format_value_tab3(row_dict_lower[pdf_field_lower], data_type=inferred_type)
                     field_values[pdf_field] = val
 
-        # Split values into regular fields and single-field comb fields.
-        # Comb fields need auto_regenerate=True so pypdf builds the
-        # per-character appearance stream; regular fields use False to
-        # avoid a spurious /NeedAppearances flag in some viewers.
+        # Split comb single-fields out of the text bucket (unchanged logic).
         comb_field_names = set()
         if ctx['analyzed_fields']:
             for f in ctx['analyzed_fields']:
@@ -3551,16 +3561,20 @@ class BulkPDFGenerator:
         for page in writer.pages:
             if regular_values:
                 writer.update_page_form_field_values(
-                    page, regular_values, auto_regenerate=False
-                )
+                    page, regular_values, auto_regenerate=False)
             if comb_values:
                 writer.update_page_form_field_values(
-                    page, comb_values, auto_regenerate=True
-                )
+                    page, comb_values, auto_regenerate=True)
+            if button_values:
+                # NameObject + auto_regenerate=True is the only combination that
+                # actually ticks a checkbox/radio (proven 2026-06-19).
+                writer.update_page_form_field_values(
+                    page, button_values, auto_regenerate=True)
 
-        # Save the filled PDF
         with open(output_path, 'wb') as f:
             writer.write(f)
+
+        return warnings_out
 
     @staticmethod
     def format_value_tab3(val, data_type: str = "text"):

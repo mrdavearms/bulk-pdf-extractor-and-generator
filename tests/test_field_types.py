@@ -6,6 +6,11 @@ from _form_fixture import build_mixed_form
 from pdf_analyzer import PDFAnalyzer
 from pypdf.generic import NameObject
 from field_values import normalize_button_value, normalize_choice_value
+import warnings
+import pandas as pd
+from pypdf import PdfReader
+import fitz
+from pdf_generator import BulkPDFGenerator
 
 
 def _make(**kw):
@@ -82,3 +87,48 @@ def test_checkbox_empty_on_states_falls_back_to_yes():
 
 def test_choice_empty_options_returns_raw_unmatched():
     assert normalize_choice_value("Anything", []) == ("Anything", False)
+
+
+def _generate(pdf_path, out_path, fields, row_values):
+    ctx = {
+        "analyzed_fields": fields,
+        "combed_padding": False,
+        "combed_align": "left",
+        "pdf_fields": [f.field_name for f in fields],
+        "_reader": PdfReader(pdf_path),
+    }
+    app = BulkPDFGenerator.__new__(BulkPDFGenerator)  # real method, no GUI
+    warnings_out = app._generate_single_pdf(ctx, pd.Series(row_values), out_path)
+    ctx["_reader"].close()
+    return warnings_out
+
+
+def test_checkbox_fills_with_natural_value(tmp_path):
+    pdf = str(tmp_path / "form.pdf"); out = str(tmp_path / "out.pdf")
+    build_mixed_form(pdf)
+    with PDFAnalyzer(pdf) as az:
+        fields = az.analyze_fields()
+    _generate(pdf, out, fields, {
+        "Student_Name": "Jane Smith", "Approved": "X",
+        "State": "NSW", "Subject": "English",
+    })
+    doc = fitz.open(out)
+    vals = {w.field_name: w.field_value for w in doc[0].widgets()}
+    doc.close()
+    assert vals["Approved"] == "Yes"        # ticked, not "Off"
+    assert vals["Student_Name"] == "Jane Smith"
+    assert vals["State"] == "NSW"
+    assert vals["Subject"] == "English"
+
+
+def test_invalid_choice_value_is_reported(tmp_path):
+    pdf = str(tmp_path / "form.pdf"); out = str(tmp_path / "out.pdf")
+    build_mixed_form(pdf)
+    with PDFAnalyzer(pdf) as az:
+        fields = az.analyze_fields()
+    warns = _generate(pdf, out, fields, {
+        "Student_Name": "X", "Approved": "no",
+        "State": "Victoria",  # not a valid option
+        "Subject": "Maths",
+    })
+    assert any("State" in w and "Victoria" in w for w in warns)
