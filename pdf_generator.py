@@ -540,6 +540,24 @@ def _guess_data_type(field_name: str) -> str:
     return 'text'
 
 
+def _field_type_detail(field) -> str:
+    """Human-readable field-type label for the audit dialog.
+
+    Appends the valid options for choice fields (dropdown/listbox) or a short
+    tick hint for checkbox/radio fields, so the user knows what spreadsheet
+    values will fill the field. Plain type name for everything else.
+    """
+    detail = field.field_type
+    if field.options:
+        shown = ", ".join(field.options[:4])
+        if len(field.options) > 4:
+            shown += "…"
+        detail += f"  ({shown})"
+    elif field.on_states:
+        detail += "  (tick: Yes/No, X, 1/0)"
+    return detail
+
+
 class FieldTypeAuditDialog(tk.Toplevel):
     """Dialog for reviewing and setting field types and data types."""
 
@@ -671,8 +689,8 @@ class FieldTypeAuditDialog(tk.Toplevel):
                                  lambda e, idx=i: self._on_field_type_changed(idx))
             else:
                 ftype_var = tk.StringVar(value=field.field_type)
-                lbl_ftype = tk.Label(row, text=field.field_type, font=(ff, 10),
-                                     fg=C['text_secondary'], bg=bg, width=14,
+                lbl_ftype = tk.Label(row, text=_field_type_detail(field), font=(ff, 10),
+                                     fg=C['text_secondary'], bg=bg, width=28,
                                      anchor=tk.W, autostyle=False)
                 lbl_ftype.pack(side=tk.LEFT, padx=(2, 0))
             self.ftype_vars.append(ftype_var)

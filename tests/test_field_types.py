@@ -9,7 +9,7 @@ from field_values import normalize_button_value, normalize_choice_value
 import pandas as pd
 from pypdf import PdfReader
 import fitz
-from pdf_generator import BulkPDFGenerator
+from pdf_generator import BulkPDFGenerator, _field_type_detail
 
 
 def _make(**kw):
@@ -153,3 +153,28 @@ def test_blank_and_nan_cells_leave_fields_untouched(tmp_path):
     assert vals["Approved"] in (None, "Off", False)
     assert "nan" not in str(vals["State"]).lower()
     assert vals["Student_Name"] == "Jane"
+
+
+def test_field_type_detail_shows_choice_options():
+    f = _make(field_type="ComboBox", options=["VIC", "NSW", "QLD", "WA"])
+    detail = _field_type_detail(f)
+    assert detail.startswith("ComboBox")
+    assert "VIC" in detail and "NSW" in detail
+
+
+def test_field_type_detail_truncates_many_options():
+    f = _make(field_type="ListBox", options=["a", "b", "c", "d", "e", "f"])
+    detail = _field_type_detail(f)
+    assert "…" in detail  # ellipsis when more than 4 options
+
+
+def test_field_type_detail_shows_tick_hint_for_checkbox():
+    f = _make(field_type="CheckBox", on_states=["Yes"])
+    detail = _field_type_detail(f)
+    assert detail.startswith("CheckBox")
+    assert "tick" in detail.lower()
+
+
+def test_field_type_detail_plain_for_text():
+    f = _make(field_type="Signature")
+    assert _field_type_detail(f) == "Signature"
