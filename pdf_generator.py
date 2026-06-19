@@ -3365,6 +3365,7 @@ class BulkPDFGenerator:
                 success_count = 0
                 error_count = 0
                 error_details = []
+                warning_details = []  # advisory notes for rows that DID generate
 
                 # Helper: sanitise a value for use in filenames
                 def _safe(val):
@@ -3422,7 +3423,7 @@ class BulkPDFGenerator:
                         success_count += 1
                         status_text = f"Created: {filename}"
                         for w in (row_warnings or []):
-                            error_details.append(f"{'_'.join(name_parts)}: {w}")
+                            warning_details.append(f"{'_'.join(name_parts)}: {w}")
                     except Exception as e:
                         error_count += 1
                         row_label = '_'.join(name_parts) if name_parts else f'Row_{idx+1}'
@@ -3449,7 +3450,7 @@ class BulkPDFGenerator:
 
                 self.root.after(
                     0, self.generation_complete_tab3,
-                    final_message, output_folder, error_details,
+                    final_message, output_folder, error_details, warning_details,
                 )
 
             finally:
@@ -3657,7 +3658,8 @@ class BulkPDFGenerator:
         self.progress_var_tab3.set(progress)
         self.progress_label_tab3.config(text=f"[{current}/{total}] {status}")
 
-    def generation_complete_tab3(self, message, output_folder, error_details=None):
+    def generation_complete_tab3(self, message, output_folder, error_details=None,
+                                 warning_details=None):
         """Handle generation completion for Tab 3."""
         self.progress_label_tab3.config(text="Generation complete!")
         self.update_status("Generation complete!", 'success')
@@ -3671,6 +3673,18 @@ class BulkPDFGenerator:
             messagebox.showwarning(
                 f"{len(error_details)} rows failed",
                 f"The following rows could not be generated:\n\n{preview}",
+            )
+
+        if warning_details:
+            # These rows WERE created; the notes flag values worth a quick check
+            # (e.g. a spreadsheet value that wasn't a valid dropdown option).
+            preview = "\n".join(warning_details[:20])
+            if len(warning_details) > 20:
+                preview += f"\n… and {len(warning_details) - 20} more (see app.log)"
+            messagebox.showwarning(
+                "Generated with notes",
+                "All files were created. Some values may need a quick check:\n\n"
+                + preview,
             )
 
         # Ask to open folder
