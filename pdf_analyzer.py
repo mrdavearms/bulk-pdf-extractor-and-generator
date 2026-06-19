@@ -171,6 +171,21 @@ class PDFAnalyzer:
                         except (AttributeError, TypeError, ValueError):
                             pass
 
+                    on_states = []
+                    options = []
+                    if ftype in ("CheckBox", "RadioButton"):
+                        try:
+                            states = widget.button_states() or {}
+                            normal = states.get("normal", []) or []
+                            on_states = [s for s in normal if s != "Off"]
+                        except (AttributeError, RuntimeError, TypeError):
+                            on_states = []
+                    elif ftype in ("ComboBox", "ListBox"):
+                        try:
+                            options = list(widget.choice_values or [])
+                        except (AttributeError, RuntimeError, TypeError):
+                            options = []
+
                     result.append(PDFField(
                         field_name=name,
                         field_type=ftype,
@@ -181,7 +196,9 @@ class PDFAnalyzer:
                         rect=tuple(widget.rect),
                         current_value=widget.field_value or "",
                         is_critical=False,
-                        excel_column=None
+                        excel_column=None,
+                        on_states=on_states,
+                        options=options,
                     ))
 
         return result

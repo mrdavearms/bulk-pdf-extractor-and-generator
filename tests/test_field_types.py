@@ -1,4 +1,9 @@
 from models import PDFField
+import os
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
+from _form_fixture import build_mixed_form
+from pdf_analyzer import PDFAnalyzer
 
 
 def _make(**kw):
@@ -21,3 +26,19 @@ def test_pdffield_roundtrips_button_and_choice_metadata():
     restored = PDFField.from_dict(f.to_dict())
     assert restored.on_states == ["Yes"]
     assert restored.options == ["VIC", "NSW"]
+
+
+def test_analysis_captures_button_and_choice_metadata(tmp_path):
+    pdf = str(tmp_path / "form.pdf")
+    build_mixed_form(pdf)
+    with PDFAnalyzer(pdf) as az:
+        fields = {f.field_name: f for f in az.analyze_fields()}
+
+    assert fields["Approved"].field_type == "CheckBox"
+    assert "Yes" in fields["Approved"].on_states
+
+    assert fields["State"].field_type == "ComboBox"
+    assert fields["State"].options == ["VIC", "NSW", "QLD", "WA"]
+
+    assert fields["Subject"].field_type == "ListBox"
+    assert fields["Subject"].options == ["Maths", "English", "Science"]
