@@ -3418,9 +3418,11 @@ class BulkPDFGenerator:
                         output_path = f"{base} ({counter}){ext}"
 
                     try:
-                        self._generate_single_pdf(ctx, row, output_path)
+                        row_warnings = self._generate_single_pdf(ctx, row, output_path)
                         success_count += 1
                         status_text = f"Created: {filename}"
+                        for w in (row_warnings or []):
+                            error_details.append(f"{'_'.join(name_parts)}: {w}")
                     except Exception as e:
                         error_count += 1
                         row_label = '_'.join(name_parts) if name_parts else f'Row_{idx+1}'
