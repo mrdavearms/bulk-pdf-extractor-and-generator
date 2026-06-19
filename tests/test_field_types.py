@@ -6,7 +6,6 @@ from _form_fixture import build_mixed_form
 from pdf_analyzer import PDFAnalyzer
 from pypdf.generic import NameObject
 from field_values import normalize_button_value, normalize_choice_value
-import warnings
 import pandas as pd
 from pypdf import PdfReader
 import fitz
@@ -132,3 +131,25 @@ def test_invalid_choice_value_is_reported(tmp_path):
         "Subject": "Maths",
     })
     assert any("State" in w and "Victoria" in w for w in warns)
+
+
+def test_blank_and_nan_cells_leave_fields_untouched(tmp_path):
+    pdf = str(tmp_path / "form.pdf"); out = str(tmp_path / "out.pdf")
+    build_mixed_form(pdf)
+    with PDFAnalyzer(pdf) as az:
+        fields = az.analyze_fields()
+    warns = _generate(pdf, out, fields, {
+        "Student_Name": "Jane",
+        "Approved": float("nan"),   # blank checkbox cell
+        "State": float("nan"),      # blank dropdown cell
+        "Subject": "",              # blank listbox cell
+    })
+    # Blank/NaN cells must not produce spurious "nan" warnings...
+    assert all("nan" not in w.lower() for w in warns)
+    doc = fitz.open(out)
+    vals = {w.field_name: w.field_value for w in doc[0].widgets()}
+    doc.close()
+    # ...and must not write literal "nan" into any field.
+    assert vals["Approved"] in (None, "Off", False)
+    assert "nan" not in str(vals["State"]).lower()
+    assert vals["Student_Name"] == "Jane"

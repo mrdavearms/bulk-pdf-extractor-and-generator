@@ -3508,24 +3508,27 @@ class BulkPDFGenerator:
                     continue
 
                 if ftype in ('CheckBox', 'RadioButton'):
+                    if str(raw_val).strip().lower() in ('', 'nan'):
+                        continue  # blank cell: leave the field at its existing state
                     name_val = normalize_button_value(raw_val, field.on_states)
                     if name_val is None:
-                        if str(raw_val).strip().lower() not in ('', 'nan'):
-                            warnings_out.append(
-                                f"{field.field_name}: could not interpret "
-                                f"'{raw_val}' as a tick value (left unchanged)")
+                        warnings_out.append(
+                            f"{field.field_name}: could not interpret "
+                            f"'{raw_val}' as a tick value (left unchanged)")
                         continue
                     button_values[field.field_name] = name_val
                     continue
 
                 if ftype in ('ComboBox', 'ListBox'):
+                    if str(raw_val).strip().lower() in ('', 'nan'):
+                        continue  # blank cell: leave the field empty
                     value, matched = normalize_choice_value(raw_val, field.options)
                     if not value:
                         continue
                     if not matched and field.options:
                         warnings_out.append(
                             f"{field.field_name}: '{value}' is not one of the "
-                            f"allowed options {field.options}")
+                            f"allowed options: {', '.join(field.options)}")
                     field_values[field.field_name] = value
                     continue
 
