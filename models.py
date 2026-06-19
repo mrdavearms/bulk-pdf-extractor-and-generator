@@ -162,6 +162,7 @@ class AppSettings:
     combed_field_align: str = "left"  # "left" or "right"
     school_name: str = ""
     school_year: str = ""
+    last_update_check: str = ""  # ISO date (YYYY-MM-DD) of last auto update check
 
     @property
     def school_configured(self) -> bool:
