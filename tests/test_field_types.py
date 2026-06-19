@@ -4,6 +4,8 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 from _form_fixture import build_mixed_form
 from pdf_analyzer import PDFAnalyzer
+from pypdf.generic import NameObject
+from field_values import normalize_button_value, normalize_choice_value
 
 
 def _make(**kw):
@@ -42,3 +44,32 @@ def test_analysis_captures_button_and_choice_metadata(tmp_path):
 
     assert fields["Subject"].field_type == "ListBox"
     assert fields["Subject"].options == ["Maths", "English", "Science"]
+
+
+def test_checkbox_truthy_maps_to_on_state_nameobject():
+    assert normalize_button_value("X", ["Yes"]) == NameObject("/Yes")
+    assert normalize_button_value("yes", ["Yes"]) == NameObject("/Yes")
+    assert normalize_button_value("TRUE", ["Yes"]) == NameObject("/Yes")
+    assert normalize_button_value("1", ["Yes"]) == NameObject("/Yes")
+
+
+def test_checkbox_falsey_maps_to_off():
+    assert normalize_button_value("No", ["Yes"]) == NameObject("/Off")
+    assert normalize_button_value("0", ["Yes"]) == NameObject("/Off")
+    assert normalize_button_value("", ["Yes"]) == NameObject("/Off")
+
+
+def test_checkbox_unrecognised_returns_none():
+    assert normalize_button_value("maybe", ["Yes"]) is None
+
+
+def test_radio_value_matches_one_of_several_states_case_insensitively():
+    assert normalize_button_value("male", ["Male", "Female"]) == NameObject("/Male")
+    assert normalize_button_value("FEMALE", ["Male", "Female"]) == NameObject("/Female")
+    assert normalize_button_value("other", ["Male", "Female"]) is None
+
+
+def test_choice_validates_against_options_case_insensitively():
+    assert normalize_choice_value("nsw", ["VIC", "NSW"]) == ("NSW", True)
+    assert normalize_choice_value(" VIC ", ["VIC", "NSW"]) == ("VIC", True)
+    assert normalize_choice_value("Victoria", ["VIC", "NSW"]) == ("Victoria", False)
