@@ -26,6 +26,14 @@ class PDFField:
     is_critical: bool = False  # Marked as critical field
     excel_column: Optional[str] = None  # Mapped Excel column name
     data_type: str = "text"  # "text", "number", or "date" (DD/MM/YYYY)
+    on_states: List[str] = None   # Checkbox/radio "on" appearance states, e.g. ["Yes"]
+    options: List[str] = None     # Choice (dropdown/listbox) valid option values
+
+    def __post_init__(self):
+        if self.on_states is None:
+            self.on_states = []
+        if self.options is None:
+            self.options = []
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -40,7 +48,9 @@ class PDFField:
             'current_value': self.current_value,
             'is_critical': self.is_critical,
             'excel_column': self.excel_column,
-            'data_type': self.data_type
+            'data_type': self.data_type,
+            'on_states': self.on_states,
+            'options': self.options,
         }
 
     @classmethod
@@ -57,7 +67,9 @@ class PDFField:
             current_value=data.get('current_value', ''),
             is_critical=data.get('is_critical', False),
             excel_column=data.get('excel_column'),
-            data_type=data.get('data_type', 'text')
+            data_type=data.get('data_type', 'text'),
+            on_states=data.get('on_states', []),
+            options=data.get('options', []),
         )
 
 
