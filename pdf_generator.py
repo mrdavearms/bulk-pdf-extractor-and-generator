@@ -143,6 +143,16 @@ def check_for_update(current_version: str) -> dict:
         }
 
 
+def _should_check_for_update(last_check_iso: str, today_iso: str) -> bool:
+    """Return True if an automatic update check is due today.
+
+    Checks at most once per calendar day. An empty value (never checked) or a
+    malformed stored value is treated as due, rather than silently disabling
+    checks forever. ``today_iso`` is the caller's current date as YYYY-MM-DD.
+    """
+    return (last_check_iso or "").strip() != today_iso
+
+
 def _resolve_data_dir() -> str:
     """Return the app data directory, creating it if needed.
 
