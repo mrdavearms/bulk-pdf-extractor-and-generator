@@ -38,6 +38,7 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 | `visual_preview.py` | PDF page rendering + field highlighting, dual-tier cache |
 | `preview_renderer.py` | Threaded preview renderer — wraps `visual_preview.py` with debouncing, stale-result guard, and background PIL work |
 | `combed_filler.py` | Character-by-character combed field filling |
+| `field_values.py` | Pure value→field-type translation for filling — checkbox/radio → pypdf `NameObject`, choice validation |
 | `theme.py` | Centralised theme (colours, fonts, spacing) |
 | `markdown_renderer.py` | Markdown → tkinter Text widget renderer |
 | `_generate_version.py` | Build-time script: bakes git commit, date, and version tag into `_version.py` |
@@ -54,6 +55,7 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 - **Cross-platform scrolling**: Mousewheel handlers branch by `sys.platform` — Windows (`delta/120`), macOS (`delta`), Linux (`Button-4`/`Button-5`).
 - **Backward-compatible persistence**: `from_json()` filters unknown keys so newer configs load in older versions.
 - **Field mapping**: `PDFField.excel_column` stores the explicit Excel column name per field. `TemplateConfig.field_excel_columns` persists these as `{field_name: col_name}`. Generation checks `field.excel_column` first, then falls back to auto-match by field name (case-insensitive). Tab 2 is the UI for viewing and editing these mappings.
+- **Non-text field filling (CRITICAL)**: checkboxes/radios fill ONLY when written as a pypdf `NameObject("/OnState")` with `auto_regenerate=True` — a plain string never ticks a box. `pdf_analyzer` captures `on_states` (`widget.button_states()`) and `options` (`widget.choice_values`); `field_values.py` maps cells to values (truthy→on-state, choice validated vs options). `_generate_single_pdf` returns a list of per-field warnings (surfaced separately from row failures); signature fields can't be auto-filled.
 - **Tab lifecycle**: Tab 2 starts disabled; enabled by `analyze_pdf_fields()` after successful analysis. `_refresh_tab2_mappings()` is the single rebuild point — called after analysis, after Excel load, and after template load.
 - **Tab 2 in-place updates**: `self._mapping_rows` (list of dicts, one per field) tracks widget references for `_refresh_tab2_mappings()` in-place updates. Rebuild only when field names or count change; otherwise update comboboxes/labels in-place to avoid widget churn.
 - **Data directory resilience**: `_resolve_data_dir()` tries `~/Documents/BulkPDFGenerator` first; falls back to `%LOCALAPPDATA%/BulkPDFGenerator` if `makedirs` fails (common on school networks with GPO-redirected Documents folders). Both `settings_file` and `templates_directory` derive from this resolved path.
@@ -137,6 +139,10 @@ Excel serial date range validation: only serials 1–2958465 are converted (1900
 - **Run tests**: `venv/bin/python -m pytest tests/ -v`
 - **Run the app from source**: `venv/bin/python pdf_generator.py` (launches the GUI on macOS from the shell).
 - **Verify GUI logic without clicking**: instantiate `BulkPDFGenerator(tk.Tk())` with `root.withdraw()`, call the handler directly, and assert widget state (`w['text']`, `w.winfo_manager()` for packed/hidden). Proves behaviour and that no modal blocks.
+- **Headless method tests**: call generation/dialog methods without the GUI via `BulkPDFGenerator.__new__(BulkPDFGenerator)` (skips `__init__`). `_generate_single_pdf` only needs the `ctx` snapshot + `format_value_tab3` (staticmethod) — no `self.*`.
+- **Don't instantiate Tk in automated tests** — headless CI (Linux) has no display. Guard GUI logic with `inspect.getsource` structural tests (see `test_performance.py`), e.g. assert the startup update path contains no `messagebox`.
+- **PyMuPDF can't author radio-button groups** in fixtures (`add_widget` → `bad xref`); unit-test radio logic via `field_values.normalize_button_value`, verify end-to-end on a real PDF.
+- **Gotcha — `test_data_fidelity.py` asserts `format_value_tab3(...)` and `data_type` sit on the SAME source line** (via `inspect.getsource`); don't split that call across lines.
 - **Reviewing a session's work**: this repo is committed+pushed to `test` continuously, so by review time `HEAD == origin/test` and `/security-review` (or any diff-vs-upstream) sees an empty diff. Review against the session's starting commit instead: `git diff <base>..HEAD`.
 - **Performance tests**: `tests/test_performance.py` uses `inspect.getsource()` to verify structural patterns (anti-patterns absent from source) rather than flaky timing assertions. 21 tests covering threading, debounce, batch updates, throttling, dialog geometry.
 - **Main class**: `BulkPDFGenerator` (not `BulkPDFApp` or similar)
