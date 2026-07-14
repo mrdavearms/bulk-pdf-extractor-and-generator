@@ -159,20 +159,24 @@ def test_radio_fixture_has_one_group_with_two_kids(tmp_path):
     pdf = str(tmp_path / "radio.pdf")
     build_radio_form(pdf)
 
+    # button_states() dereferences the widget's owning page; read everything
+    # BEFORE closing the doc, or the page weakref is dead → ReferenceError.
     doc = fitz.open(pdf)
-    widgets = list(doc.load_page(0).widgets())
-    doc.close()
-
-    # Two widgets, SAME field name — the shape that produced duplicate fields.
-    assert len(widgets) == 2
-    assert [w.field_name for w in widgets] == ["Gender", "Gender"]
-    assert all(w.field_type_string == "RadioButton" for w in widgets)
-
-    # Each kid reports ONLY its own on-state.
+    page = doc.load_page(0)
+    widgets = list(page.widgets())
+    names = [w.field_name for w in widgets]
+    types = [w.field_type_string for w in widgets]
     states = [
         [s for s in (w.button_states() or {}).get("normal", []) if s != "Off"]
         for w in widgets
     ]
+    doc.close()
+
+    # Two widgets, SAME field name — the shape that produced duplicate fields.
+    assert len(widgets) == 2
+    assert names == ["Gender", "Gender"]
+    assert all(t == "RadioButton" for t in types)
+    # Each kid reports ONLY its own on-state.
     assert states == [["Male"], ["Female"]]
 
 
@@ -281,7 +285,7 @@ Insert this method into `PDFAnalyzer`, directly above `_get_widget_maxlen`:
         """
         try:
             raw = widget.choice_values or []
-        except (AttributeError, RuntimeError, TypeError):
+        except (AttributeError, RuntimeError, TypeError, ReferenceError):
             return []
 
         options = []
@@ -298,12 +302,17 @@ Insert this method into `PDFAnalyzer`, directly above `_get_widget_maxlen`:
 
         A radio kid reports only its OWN export value here — the group's full
         set is assembled in _merge_widgets_by_name().
+
+        MUST be called while the widget's owning page is still referenced:
+        button_states() dereferences page→doc through a weakref, so a deferred
+        read after the collection loop has moved on raises ReferenceError. That
+        is why analyze_fields() reads on-states eagerly, inside the page loop.
         """
         try:
             states = widget.button_states() or {}
             normal = states.get("normal", []) or []
             return [str(s) for s in normal if s != "Off"]
-        except (AttributeError, RuntimeError, TypeError):
+        except (AttributeError, RuntimeError, TypeError, ReferenceError):
             return []
 ```
 
@@ -468,6 +477,35 @@ def test_numbered_checkbox_row_is_not_merged_into_a_comb(tmp_path):
     assert not any(f.is_combed for f in fields)
     assert sorted(f.field_name for f in fields) == ["Q1_1", "Q1_2", "Q1_3", "Q1_4"]
     assert all(f.field_type == "CheckBox" for f in fields)
+
+
+def test_checkbox_on_a_non_final_page_analyses(tmp_path):
+    """Pre-existing crash: analyze_fields collected every widget and read
+    button_states() lazily, after the owning page had been GC'd — raising
+    ReferenceError on ANY multi-page PDF with a checkbox/radio not on the last
+    page. That is the shape of a real VCAA exam form."""
+    import fitz
+
+    pdf = str(tmp_path / "multipage.pdf")
+    doc = fitz.open()
+    for pg in range(4):
+        page = doc.new_page(width=300, height=200)
+        if pg == 0:   # checkbox on the FIRST of four pages
+            w = fitz.Widget()
+            w.field_name = "Approved"
+            w.field_type = fitz.PDF_WIDGET_TYPE_CHECKBOX
+            w.rect = fitz.Rect(50, 50, 70, 70)
+            page.add_widget(w)
+    doc.save(pdf)
+    doc.close()
+
+    with PDFAnalyzer(pdf) as analyzer:
+        fields = analyzer.analyze_fields()   # must not raise ReferenceError
+
+    approved = [f for f in fields if f.field_name == "Approved"]
+    assert len(approved) == 1
+    assert approved[0].field_type == "CheckBox"
+    assert approved[0].page == 1
 ```
 
 - [ ] **Step 2: Run them and watch them fail**
@@ -494,6 +532,10 @@ Insert directly above `_detect_combed_fields`:
         Pooling the on-states here is what lets normalize_button_value() see
         len(on_states) > 1 and apply radio semantics.
 
+        Consumes the on_states/options ALREADY read (eagerly, while each page
+        was alive) by analyze_fields — it never touches the widget for button
+        or choice state itself, because by now the owning pages are gone.
+
         The first widget for a name supplies the representative geometry
         (page, rect) used by the visual preview.
         """
@@ -501,39 +543,82 @@ Insert directly above `_detect_combed_fields`:
         order = []
 
         for item in all_widgets:
-            widget = item['widget']
-            name = widget.field_name
+            name = item['name']
             if not name:
                 continue
-
-            ftype = widget.field_type_string or 'Text'
 
             record = merged.get(name)
             if record is None:
                 record = {
                     'name': name,
-                    'widget': widget,          # first widget = geometry source
+                    'widget': item['widget'],       # first widget = geometry source
                     'page_num': item['page_num'],
-                    'field_type': ftype,
+                    'field_type': item['field_type'],
                     'on_states': [],
                     'options': [],
                 }
                 merged[name] = record
                 order.append(name)
 
-            if ftype in ("CheckBox", "RadioButton"):
-                for state in self._read_on_states(widget):
+            if item['field_type'] in ("CheckBox", "RadioButton"):
+                for state in item['on_states']:
                     if state not in record['on_states']:
                         record['on_states'].append(state)
-            elif ftype in ("ComboBox", "ListBox") and not record['options']:
-                record['options'] = self._read_options(widget)
+            elif item['field_type'] in ("ComboBox", "ListBox") and not record['options']:
+                record['options'] = list(item['options'])
 
         return [merged[name] for name in order]
 ```
 
-- [ ] **Step 4: Feed records into `_detect_combed_fields` from `analyze_fields`**
+- [ ] **Step 4: Read field state eagerly in the collection loop, then merge**
 
-In `analyze_fields`, replace:
+This is also the fix for a **pre-existing crash**: `analyze_fields` collects every widget across all pages and only later reads `button_states()`. By then each page local has been overwritten and garbage-collected, so `button_states()` raises `ReferenceError` — the shipping app already fails to analyse *any* multi-page PDF that has a checkbox or radio anywhere but the last page (verified). Reading on-states inside the page loop, while the page is still referenced, fixes it. `choice_values` happens to be cached at widget creation and survives, but read it here too for symmetry.
+
+In `analyze_fields`, replace the collection loop (`pdf_analyzer.py:41-52`):
+
+```python
+        # Collect all widgets from all pages
+        all_widgets = []
+        for page_num in range(len(self.doc)):
+            page = self.doc.load_page(page_num)
+            widgets = page.widgets()
+            if widgets:
+                for widget in widgets:
+                    # Store widget with page number
+                    all_widgets.append({
+                        'widget': widget,
+                        'page_num': page_num + 1  # 1-indexed
+                    })
+```
+
+with:
+
+```python
+        # Collect all widgets from all pages. Read button/choice state HERE,
+        # while `page` is still alive — button_states() dereferences the owning
+        # page through a weakref, and a deferred read (after this loop moves on)
+        # raises ReferenceError. This is why multi-page forms with a checkbox or
+        # radio on any non-final page previously failed analysis outright.
+        all_widgets = []
+        for page_num in range(len(self.doc)):
+            page = self.doc.load_page(page_num)
+            widgets = page.widgets()
+            if widgets:
+                for widget in widgets:
+                    ftype = widget.field_type_string or 'Text'
+                    all_widgets.append({
+                        'name': widget.field_name,
+                        'widget': widget,
+                        'page_num': page_num + 1,   # 1-indexed
+                        'field_type': ftype,
+                        'on_states': (self._read_on_states(widget)
+                                      if ftype in ("CheckBox", "RadioButton") else []),
+                        'options': (self._read_options(widget)
+                                    if ftype in ("ComboBox", "ListBox") else []),
+                    })
+```
+
+Then replace the grouping call:
 
 ```python
         # Detect and group combed fields
@@ -708,16 +793,44 @@ with:
 
 Also update its docstring arg line to: `items: List of (index, name, record, page_num) tuples.`
 
-- [ ] **Step 7: Run the full suite**
+- [ ] **Step 7: Update `tests/test_combed_detection.py` — it feeds the OLD input shape**
+
+`_detect_combed_fields` now consumes *records* (`record['name']`, `record['field_type']`, `item[2]['widget']`), but the existing test helper `_widgets()` still emits the old `{'widget', 'page_num'}` dicts — so every test in that file would raise `KeyError: 'name'`. These tests drive `_detect_combed_fields` directly (bypassing `_merge_widgets_by_name`), so the helper must emit records itself.
+
+In `tests/test_combed_detection.py`, replace `_widgets` (lines 39-41):
+
+```python
+def _widgets(specs):
+    """specs: list of (name, rect) -> analyzer input dicts on page 1."""
+    return [{'widget': _FakeWidget(n, r), 'page_num': 1} for n, r in specs]
+```
+
+with:
+
+```python
+def _widgets(specs):
+    """specs: list of (name, rect) -> analyzer records on page 1.
+
+    _detect_combed_fields consumes the merged-record shape produced by
+    _merge_widgets_by_name; these tests build it directly. All specs are plain
+    Text fields, so on_states/options are empty."""
+    return [
+        {'name': n, 'widget': _FakeWidget(n, r), 'page_num': 1,
+         'field_type': 'Text', 'on_states': [], 'options': []}
+        for n, r in specs
+    ]
+```
+
+- [ ] **Step 8: Run the full suite**
 
 Run: `venv/bin/python -m pytest tests/ -v`
-Expected: the four new tests PASS. `tests/test_combed_detection.py` must still pass unchanged — if a comb test now fails, the type-gate is rejecting Text widgets and the `field_type` key is wrong; fix rather than weaken the test.
+Expected: the five new tests PASS, and all four `tests/test_combed_detection.py` tests still pass (now that `_widgets()` emits records). If a comb test fails with `KeyError`, the helper edit above was missed.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add pdf_analyzer.py tests/test_field_types.py
-git commit -m "fix: merge same-named widgets so radio groups pool their on-states"
+git add pdf_analyzer.py tests/test_field_types.py tests/test_combed_detection.py
+git commit -m "fix: merge same-named widgets; read field state eagerly (multi-page crash)"
 ```
 
 ---
@@ -1697,10 +1810,13 @@ Replace `combo.current(0)` (`pdf_generator.py:3067`) with:
         combo.current(default_idx)
 
         if sheet_names[default_idx].strip().lower() == preferred.strip().lower():
+            # after=combo keeps the hint BELOW the dropdown — the original
+            # combo.pack() runs after this block, so a bare pack() would put
+            # the label above the dropdown.
             tk.Label(inner,
                 text='"Data Entry" is the sheet this app created for your data.',
                 font=(ff, 9), fg=C['text_tertiary'], bg=C['bg_base'],
-            ).pack(anchor=tk.W, pady=(6, 0))
+            ).pack(anchor=tk.W, pady=(6, 0), after=combo)
 ```
 
 - [ ] **Step 7: Run the full suite**
@@ -1908,6 +2024,30 @@ At the end of `validate_data_tab3`, immediately **before** the final `self.valid
                 f"Only the first of each will be used — rename them so each "
                 f"heading is unique."
             )
+
+        # A field can be mapped (excel_column set, e.g. from a template or a
+        # previous export) to a column that isn't in THIS spreadsheet. Because
+        # auto-map is now non-destructive it won't silently re-point the field,
+        # so the value would just come out blank — say so. (The existing
+        # silent_blanks note above only covers excel_column is None.)
+        if self.analyzed_fields and self.df is not None:
+            col_names_lower = {str(col).lower() for col in self.df.columns}
+            mismatched = [
+                f for f in self.analyzed_fields
+                if f.excel_column
+                and f.excel_column.lower() not in col_names_lower
+                and f.field_type not in ('Signature', 'Button')
+            ]
+            if mismatched:
+                shown = ", ".join(
+                    f"{f.field_name} → {f.excel_column}" for f in mismatched[:5])
+                if len(mismatched) > 5:
+                    shown += f" (+{len(mismatched) - 5} more)"
+                notes.append(
+                    f"\n\n⚠ {len(mismatched)} field(s) are mapped to a column "
+                    f"that isn't in this spreadsheet — they will be blank:\n{shown}\n"
+                    f"Fix the mapping on Tab 2, or use a spreadsheet with those columns."
+                )
 
         if notes:
             self.validation_text_tab3.config(state=tk.NORMAL)
@@ -2173,7 +2313,10 @@ Add both methods directly above `generation_complete_tab3`:
 
     def _show_generation_error(self, msg: str):
         """Report a whole-batch failure inline (never a modal — see CLAUDE.md)."""
-        self.results_frame_tab3.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
+        # `before=` keeps the panel above the Generate button — a bare pack()
+        # would append it to the bottom of the tab, below the button.
+        self.results_frame_tab3.pack(fill=tk.X, pady=(0, SPACING['element_gap']),
+                                     before=self.generate_btn_tab3)
         self.results_summary_tab3.config(
             text="❌ Generation failed — no PDFs were created",
             fg=COLORS['error'],
@@ -2272,7 +2415,10 @@ Replace the whole method (`pdf_generator.py:3760-3807`):
         self.results_detail_tab3.config(state=tk.DISABLED)
 
         self.results_open_btn_tab3.pack(anchor=tk.W)
-        self.results_frame_tab3.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
+        # `before=` keeps the panel above the Generate button — a bare pack()
+        # would append it to the bottom of the tab, below the button.
+        self.results_frame_tab3.pack(fill=tk.X, pady=(0, SPACING['element_gap']),
+                                     before=self.generate_btn_tab3)
 
         if error_details:
             self.update_status(
@@ -2755,6 +2901,7 @@ These came out of the review but do not belong in this sweep. Each is either a l
 | **Full messagebox sweep** | This plan removes the dangerous post-batch dialogs and the redundant analysis one. The ~15 remaining are pre-action validations ("select a PDF first"), which are lower-frequency and far less costly if they misbehave. Worth doing as one deliberate pass. |
 | **Sort export columns into page reading order** | A real usability win, but it changes the column order of every exported sheet — best done as its own change teachers can be told about, not smuggled in with correctness fixes. |
 | **Preview canvas: horizontal pan, scrollbars, page navigation** | Self-contained UI work in `visual_preview.py` / the canvas handlers. |
+| **Highlight every widget of a merged field in the preview** | After Task 3, a merged field keeps only the first widget's page/rect, so the preview highlights just one button of a radio group / the page-1 instance of a repeated field. Needs `PDFField` to carry a list of rects — a model change best done with the preview-canvas work above. |
 | **Formula-injection and control-character sanitising of headers** | Needs a maliciously- or bizarrely-named PDF field to trigger. Real but remote, and a naive fix (prefixing `'`) breaks the mapping round-trip, so it needs thought. |
 | **XFA / hybrid form detection** | Rare, hard to test, and the failure (values invisible in Acrobat) needs a real XFA form to validate against. |
 | **Keyboard navigation and theme consistency** (Escape bindings on all dialogs, spacebar row-toggle, the undefined `Secondary.TButton`) | Pure polish; no correctness impact. |
