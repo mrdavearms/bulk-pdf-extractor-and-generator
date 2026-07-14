@@ -178,3 +178,22 @@ def test_field_type_detail_shows_tick_hint_for_checkbox():
 def test_field_type_detail_plain_for_text():
     f = _make(field_type="Signature")
     assert _field_type_detail(f) == "Signature"
+
+
+def test_paired_option_dropdown_analyses_to_export_values(tmp_path):
+    """A dropdown with (export, display) pairs must analyse to flat export
+    strings. Before the fix, PyMuPDF's tuples reached PDFField.options and
+    blew up the audit dialog's ", ".join(...) — killing the whole analysis."""
+    from tests._form_fixture import build_paired_choice_form
+
+    pdf = str(tmp_path / "paired.pdf")
+    build_paired_choice_form(pdf)
+
+    with PDFAnalyzer(pdf) as analyzer:
+        fields = analyzer.analyze_fields()
+
+    state = next(f for f in fields if f.field_name == "State")
+    assert state.options == ["VIC", "NSW"]
+    assert all(isinstance(o, str) for o in state.options)
+    # The audit dialog does exactly this — it must not raise.
+    assert ", ".join(state.options) == "VIC, NSW"

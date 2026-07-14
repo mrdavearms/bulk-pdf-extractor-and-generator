@@ -174,17 +174,9 @@ class PDFAnalyzer:
                     on_states = []
                     options = []
                     if ftype in ("CheckBox", "RadioButton"):
-                        try:
-                            states = widget.button_states() or {}
-                            normal = states.get("normal", []) or []
-                            on_states = [s for s in normal if s != "Off"]
-                        except (AttributeError, RuntimeError, TypeError):
-                            on_states = []
+                        on_states = self._read_on_states(widget)
                     elif ftype in ("ComboBox", "ListBox"):
-                        try:
-                            options = list(widget.choice_values or [])
-                        except (AttributeError, RuntimeError, TypeError):
-                            options = []
+                        options = self._read_options(widget)
 
                     result.append(PDFField(
                         field_name=name,
@@ -257,6 +249,47 @@ class PDFAnalyzer:
         median_h = sorted(heights)[len(heights) // 2] if heights else 0
         tolerance = max(4.0, median_h * 0.6)
         return (max(tops) - min(tops)) <= tolerance
+
+    @staticmethod
+    def _read_options(widget) -> List[str]:
+        """Choice (dropdown/listbox) options as flat export-value strings.
+
+        PyMuPDF returns a list of (export, display) TUPLES when the PDF's
+        /Opt array holds pairs — routine in government forms (display
+        "Victoria", export "VIC"). The export value is what must be written
+        into the PDF, and a tuple here crashed every consumer downstream.
+        """
+        try:
+            raw = widget.choice_values or []
+        except (AttributeError, RuntimeError, TypeError, ReferenceError):
+            return []
+
+        options = []
+        for opt in raw:
+            if isinstance(opt, (tuple, list)):
+                options.append(str(opt[0]) if opt else "")
+            else:
+                options.append(str(opt))
+        return options
+
+    @staticmethod
+    def _read_on_states(widget) -> List[str]:
+        """Checkbox/radio 'on' appearance states for a single widget.
+
+        A radio kid reports only its OWN export value here — the group's full
+        set is assembled in _merge_widgets_by_name().
+
+        MUST be called while the widget's owning page is still referenced:
+        button_states() dereferences page→doc through a weakref, so a deferred
+        read after the collection loop has moved on raises ReferenceError. That
+        is why analyze_fields() reads on-states eagerly, inside the page loop.
+        """
+        try:
+            states = widget.button_states() or {}
+            normal = states.get("normal", []) or []
+            return [str(s) for s in normal if s != "Off"]
+        except (AttributeError, RuntimeError, TypeError, ReferenceError):
+            return []
 
     def _get_widget_maxlen(self, widget) -> int:
         """
