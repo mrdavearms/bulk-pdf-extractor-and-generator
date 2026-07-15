@@ -3763,12 +3763,10 @@ class BulkPDFGenerator:
             if re.fullmatch(r'-?\d+\.0+', s):
                 return s.split('.', 1)[0]
 
-        # Convert to string and clean
-        str_val = str(val).strip()
-        if str_val.lower() == 'nan':
-            return ""
-
-        return str_val
+        # Convert to string and clean. Note: no `== 'nan'` string check —
+        # pd.isna() above already catches genuine missing values under
+        # dtype=str, and 'Nan' is a real given name that this would erase.
+        return str(val).strip()
 
     def update_progress_tab3(self, progress, status, current, total):
         """Update progress for Tab 3."""

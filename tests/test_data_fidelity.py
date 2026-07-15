@@ -201,5 +201,21 @@ class TestDateGuessWordBoundary(unittest.TestCase):
             assert _guess_data_type(name) == "date", f"{name} must be a Date"
 
 
+class TestNanPreservation(unittest.TestCase):
+    """'Nan' is a real given name (Vietnamese, Thai). The 'nan' string check
+    is redundant — pd.isna() already catches genuine missing values under dtype=str."""
+
+    def test_a_student_named_nan_is_not_erased(self):
+        """'Nan' is a real given name. pd.isna already handles genuine blanks."""
+        import numpy as np
+        from pdf_generator import BulkPDFGenerator
+
+        assert BulkPDFGenerator.format_value_tab3("Nan") == "Nan"
+        assert BulkPDFGenerator.format_value_tab3("nan") == "nan"
+        # Genuine missing values must still come back empty.
+        assert BulkPDFGenerator.format_value_tab3(np.nan) == ""
+        assert BulkPDFGenerator.format_value_tab3(None) == ""
+
+
 if __name__ == '__main__':
     unittest.main()
