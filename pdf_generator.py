@@ -2092,6 +2092,72 @@ class BulkPDFGenerator:
         # Non-blocking: renderer handles threading + debounce
         self._preview_renderer.request_preview(field, self.zoom_level, dpi=200)
 
+    def field_allowed_values(self, field: PDFField) -> str:
+        """Plain-English 'what do I type in this column?' for a field.
+
+        Generation validates strictly — a checkbox needs a truthy token, a
+        radio needs an exact export value, a dropdown must match an option.
+        Without this, a teacher only discovers the rules from a warning
+        AFTER generating 200 PDFs.
+        """
+        ftype = field.field_type
+
+        if ftype == 'Signature':
+            return 'Cannot be auto-filled — leave blank'
+        if ftype == 'Button':
+            return 'Not a data field — leave blank'
+        if ftype == 'CheckBox':
+            return 'Yes or No  (also accepts Y/N, X, 1/0, TRUE/FALSE)'
+        if ftype == 'RadioButton':
+            if field.on_states:
+                return 'One of: ' + ', '.join(field.on_states)
+            return 'Yes or No'
+        if ftype in ('ComboBox', 'ListBox'):
+            if field.options:
+                return 'One of: ' + ', '.join(field.options)
+            return 'Any text'
+        if field.data_type == 'date':
+            return 'A date, e.g. 25/12/2010'
+        if field.data_type == 'number':
+            return 'A number, e.g. 12'
+        if field.is_combed:
+            capacity = len(field.combed_fields) if field.combed_fields else field.length
+            if capacity:
+                return f'Any text, up to {capacity} characters'
+        return 'Any text'
+
+    def assign_export_columns(self) -> list:
+        """Give every data field a unique Excel column name, and remember it.
+
+        Writing the chosen name back onto field.excel_column is what makes the
+        exported sheet and the app's mapping agree: previously the export
+        guessed a header while Tab 2 held a different (possibly explicit)
+        mapping, and generation used the mapping — so a teacher could fill the
+        column they were given and still get a blank PDF.
+
+        Signature/Button fields are not data — they get no column.
+        """
+        columns = []
+        used = {}
+
+        for field in self.analyzed_fields:
+            if field.field_type in ('Signature', 'Button'):
+                field.excel_column = None
+                continue
+
+            name = field.excel_column or self.smart_guess_excel_column(field.field_name)
+            key = name.lower()
+            if key in used:
+                used[key] += 1
+                name = f"{name} ({used[key]})"
+            else:
+                used[key] = 1
+
+            field.excel_column = name
+            columns.append(name)
+
+        return columns
+
     def export_mapping_file(self):
         """Export field mapping to Excel file with formatted worksheets.
 
@@ -2122,14 +2188,17 @@ class BulkPDFGenerator:
         try:
             from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
 
-            # Build field data
+            # Assign (and remember) a unique column per data field, so the sheet
+            # the teacher fills in is exactly the sheet the app maps back.
+            data_entry_cols = self.assign_export_columns()
+
             data = []
             for field in self.analyzed_fields:
-                excel_col = self.smart_guess_excel_column(field.field_name)
                 data.append({
                     'PDF_Field_Name': field.field_name,
-                    'Excel_Column_Name': excel_col,
+                    'Excel_Column_Name': field.excel_column or '',
                     'Field_Type': field.field_type,
+                    'What to type': self.field_allowed_values(field),
                     'Page': field.page,
                     'Required': 'Yes' if field.is_critical else 'No',
                     'Length': f"{field.length} chars" if field.is_combed else '-',
@@ -2137,9 +2206,6 @@ class BulkPDFGenerator:
                 })
 
             df = pd.DataFrame(data)
-
-            # Data Entry columns: use the Excel column names as headers
-            data_entry_cols = [d['Excel_Column_Name'] for d in data if d['Excel_Column_Name']]
             df_data_entry = pd.DataFrame(columns=data_entry_cols)
 
             # Write sheets via pandas, then format with openpyxl
@@ -2152,17 +2218,22 @@ class BulkPDFGenerator:
                     'Bulk PDF Generator - Field Mapping Guide': [
                         '',
                         'HOW TO USE THIS FILE:',
-                        '1. Review the "Field Mapping" sheet',
-                        '2. Update any "Excel_Column_Name" values to match your preferred headers',
-                        '3. The "Data Entry" sheet is where you can start typing your data',
-                        '4. Save this file',
-                        '5. Return to the app and load this file in Tab 3 (Generate PDFs)',
+                        '1. Type your data into the "Data Entry" sheet — one row per person.',
+                        '2. The "Field Mapping" sheet is a read-only reference. Its',
+                        '   "What to type" column tells you the valid values for each field.',
+                        '3. Save this file.',
+                        '4. In the app, go to "3 Generate PDFs" and load this file.',
+                        '   When asked which sheet to use, choose "Data Entry".',
                         '',
                         'IMPORTANT NOTES:',
-                        '- The "Data Entry" sheet headers are automatically generated',
-                        '- If you change column names in "Field Mapping", you should also update them in "Data Entry"',
-                        '- Combed fields will auto-split text (e.g., "John" → J-o-h-n)',
-                        '- The app uses the "Data Entry" sheet for PDF generation',
+                        '- Editing column names in "Field Mapping" does NOT change anything.',
+                        '  To change how a column maps to a PDF field, use the app\'s',
+                        '  "2 Map Fields" tab.',
+                        '- Tick boxes: type Yes or No.',
+                        '- Dropdowns and option buttons: use one of the listed values',
+                        '  (cells with a dropdown arrow will offer them to you).',
+                        '- Signature fields cannot be filled automatically — leave blank.',
+                        '- Combed fields auto-split text into boxes (e.g. "John" -> J-o-h-n).',
                         '',
                         'For help: See the Getting Started tab in the app',
                     ]
@@ -2197,12 +2268,47 @@ class BulkPDFGenerator:
 
                 # ── Format: Data Entry sheet ──
                 ws_entry = wb['Data Entry']
-                # Format all columns as Text so numbers stay as strings
+                # Format columns as Text so leading zeros (student IDs) survive
+                # and typed dates aren't converted to Excel serials. Set it on
+                # the COLUMN as well as the cells — the old row-2..501 loop left
+                # cohorts larger than 500 unprotected.
                 from openpyxl.utils import get_column_letter
+                from openpyxl.worksheet.datavalidation import DataValidation
+
                 for c in range(1, len(data_entry_cols) + 1):
                     col_letter = get_column_letter(c)
-                    for row_num in range(2, 502):  # rows 2-501 for data
+                    ws_entry.column_dimensions[col_letter].number_format = '@'
+                    for row_num in range(2, 1002):
                         ws_entry.cell(row=row_num, column=c).number_format = '@'
+
+                # Dropdowns for fields with a fixed set of valid values, so an
+                # invalid entry cannot be typed in the first place.
+                data_fields = [f for f in self.analyzed_fields if f.excel_column]
+                for idx, field in enumerate(data_fields, start=1):
+                    if field.field_type == 'CheckBox':
+                        choices = ['Yes', 'No']
+                    elif field.field_type == 'RadioButton' and field.on_states:
+                        choices = list(field.on_states)
+                    elif field.field_type in ('ComboBox', 'ListBox') and field.options:
+                        choices = list(field.options)
+                    else:
+                        continue
+
+                    # Excel's inline list is comma-separated and capped at 255
+                    # chars; an option containing a comma would split in two.
+                    joined = ",".join(choices)
+                    if len(joined) > 250 or any(',' in c for c in choices):
+                        continue
+
+                    letter = get_column_letter(idx)
+                    dv = DataValidation(
+                        type='list', formula1=f'"{joined}"', allow_blank=True,
+                        showDropDown=False,
+                    )
+                    dv.error = f"Please choose one of: {', '.join(choices)}"
+                    dv.errorTitle = "Not a valid value for this field"
+                    ws_entry.add_data_validation(dv)
+                    dv.add(f"{letter}2:{letter}1001")
                 # Apply wrap text to ALL cells (headers + 50 empty rows for data entry)
                 for r in range(1, 52):
                     for c in range(1, len(data_entry_cols) + 1):
@@ -2296,6 +2402,10 @@ class BulkPDFGenerator:
                     if style_key == 'body':
                         ws_about.row_dimensions[r_idx].height = 42
 
+            # assign_export_columns() wrote the chosen headers onto the fields —
+            # show them in the mapping tab so the two never disagree.
+            self._refresh_tab2_mappings()
+            self.update_status(f"Mapping file saved: {os.path.basename(filepath)}", 'success')
             messagebox.showinfo("Export Successful", f"Mapping file saved to:\n{filepath}")
 
         except Exception as e:
@@ -2315,9 +2425,8 @@ class BulkPDFGenerator:
 
         if field.is_critical:
             notes.append('Critical field')
-
-        if field.is_combed and 'dob' in field.field_name.lower():
-            notes.append('Auto-format date')
+        if field.field_type == 'Text-Combed' and field.is_combed:
+            notes.append('Splits into character boxes')
 
         return ', '.join(notes) if notes else ''
 
