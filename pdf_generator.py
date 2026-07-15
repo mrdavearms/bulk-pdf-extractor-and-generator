@@ -1857,7 +1857,23 @@ class BulkPDFGenerator:
             self.header_status.config(text=f"Template: {template_name}")
             self.status_template.config(text=f"{template_name} ({total} fields)")
 
-            messagebox.showinfo("Analysis Complete", f"Found {total} fields ({combed} combed fields)")
+            # No success modal here: the stats label and status bar already say
+            # this, and a second modal stacks with the audit dialog below.
+            if total == 0:
+                self.stats_label.config(
+                    text="No fillable form fields found in this PDF."
+                )
+                self.update_status(
+                    "This PDF has no fillable form fields — it may be a scanned "
+                    "or flattened form", 'warning')
+                messagebox.showwarning(
+                    "No Fillable Fields",
+                    "This PDF has no fillable form fields.\n\n"
+                    "It may be a scanned or 'flattened' form. You'll need a "
+                    "version with real form fields — try asking whoever issued "
+                    "it for a fillable copy.",
+                )
+                return
 
             # Restore saved overrides from current template if available
             preconfigured_fields = set()

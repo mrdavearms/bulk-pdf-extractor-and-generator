@@ -336,5 +336,16 @@ def test_generation_warnings_are_logged():
         "per-field warnings must reach app.log, as the UI claims they do"
 
 
+def test_analysis_does_not_stack_modals_and_handles_empty_pdfs():
+    import inspect
+    from pdf_generator import BulkPDFGenerator
+
+    src = inspect.getsource(BulkPDFGenerator.analyze_pdf_fields)
+    assert 'showinfo("Analysis Complete"' not in src, \
+        "the success modal duplicates the stats label and stacks with the audit dialog"
+    assert "no fillable form fields" in src, \
+        "a flat/scanned PDF must say so instead of opening an empty audit dialog"
+
+
 if __name__ == '__main__':
     unittest.main()
