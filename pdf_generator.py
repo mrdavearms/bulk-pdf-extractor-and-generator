@@ -3389,6 +3389,22 @@ class BulkPDFGenerator:
                 seen[key] = str(header).strip()
         return duplicates
 
+    @staticmethod
+    def row_is_blank(row) -> bool:
+        """True only when EVERY cell in the row is empty.
+
+        The preview used to drop any row whose first preview column was blank,
+        so a student missing only their surname disappeared from the table —
+        unselectable, ungeneratable — while validation still counted them. The
+        two disagreed, and the missing student was invisible.
+        """
+        for value in row.values:
+            if pd.isna(value):
+                continue
+            if str(value).strip() != '':
+                return False
+        return True
+
     def validate_data_tab3(self):
         """Validate data for Tab 3."""
         warnings = []
@@ -3401,6 +3417,8 @@ class BulkPDFGenerator:
 
         # Check each row for critical fields
         for idx, row in self.df.iterrows():
+            if self.row_is_blank(row):
+                continue   # same rule as the preview, so the counts agree
             row_warnings = []
             row_dict = {str(col).lower(): val for col, val in row.items()}
 
@@ -3545,7 +3563,6 @@ class BulkPDFGenerator:
 
             # Build dynamic column values
             dyn_values = []
-            first_val = None  # used for empty-row detection
             for field in self._preview_columns:
                 col_key = (field.excel_column or field.field_name).lower()
                 raw = row_dict.get(col_key, '')
@@ -3553,12 +3570,11 @@ class BulkPDFGenerator:
                 if val.lower() == 'nan':
                     val = ''
                 dyn_values.append(val)
-                if first_val is None:
-                    first_val = val
 
-            # Skip completely empty rows (check first dynamic column).
-            # If no preview columns exist, treat every row as non-empty.
-            if self._preview_columns and not first_val:
+            # Skip only rows that are completely empty (trailing formatted rows
+            # in Excel). A row missing one value is a student who needs fixing —
+            # they must stay visible and selectable.
+            if self.row_is_blank(row):
                 continue
 
             # Check status using critical fields
