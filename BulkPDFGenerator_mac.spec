@@ -57,6 +57,7 @@ a = Analysis(
             'tkinter.ttk',
             '_version',
             'certifi',
+            'cryptography',
         ]
     ),
     hookspath=[],

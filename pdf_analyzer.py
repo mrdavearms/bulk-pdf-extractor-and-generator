@@ -11,6 +11,10 @@ import fitz  # PyMuPDF
 from models import PDFField
 
 
+class PDFPasswordProtected(Exception):
+    """The PDF needs a password to open."""
+
+
 class PDFAnalyzer:
     """Analyzes PDF forms to extract field information."""
 
@@ -21,6 +25,10 @@ class PDFAnalyzer:
     def __enter__(self):
         """Open PDF document."""
         self.doc = fitz.open(self.pdf_path)
+        if self.doc.needs_pass:
+            self.doc.close()
+            self.doc = None
+            raise PDFPasswordProtected(self.pdf_path)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

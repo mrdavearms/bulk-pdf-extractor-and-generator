@@ -183,7 +183,7 @@ def _resolve_data_dir() -> str:
 
 # Import our new modules
 from models import PDFField, TemplateConfig, AppSettings
-from pdf_analyzer import PDFAnalyzer, auto_name_template
+from pdf_analyzer import PDFAnalyzer, auto_name_template, PDFPasswordProtected
 from visual_preview import VisualPreviewGenerator
 from preview_renderer import PreviewRenderer
 from combed_filler import CombedFieldFiller
@@ -1939,6 +1939,15 @@ class BulkPDFGenerator:
             self._auto_map_fields()
             self._refresh_tab2_mappings()
 
+        except PDFPasswordProtected:
+            self._close_preview_generator()
+            self.update_status("PDF is password-protected", 'error')
+            messagebox.showerror(
+                "Password-Protected PDF",
+                "This PDF is protected with a password and can't be opened.\n\n"
+                "Open it in Acrobat, save an unprotected copy, and try again.",
+            )
+            return
         except Exception as e:
             self._close_preview_generator()  # Guarantee cleanup on error
             self.update_status(f"Analysis failed: {str(e)}", 'error')

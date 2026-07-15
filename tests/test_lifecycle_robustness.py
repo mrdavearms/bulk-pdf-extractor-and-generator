@@ -56,5 +56,28 @@ class TestTemplateLoadRefreshesTable(unittest.TestCase):
         )
 
 
+def test_cryptography_is_available_for_aes_encrypted_pdfs():
+    """pypdf needs `cryptography` to fill an AES-encrypted PDF. Without it,
+    analysis succeeds and generation dies — the worst possible ordering."""
+    import cryptography  # noqa: F401
+
+
+def test_password_protected_pdf_raises_a_friendly_error(tmp_path):
+    import fitz
+    import pytest
+    from pdf_analyzer import PDFAnalyzer, PDFPasswordProtected
+
+    pdf = str(tmp_path / "locked.pdf")
+    doc = fitz.open()
+    doc.new_page(width=200, height=200)
+    doc.save(pdf, encryption=fitz.PDF_ENCRYPT_AES_256,
+             user_pw="secret", owner_pw="secret")
+    doc.close()
+
+    with pytest.raises(PDFPasswordProtected):
+        with PDFAnalyzer(pdf):
+            pass
+
+
 if __name__ == '__main__':
     unittest.main()
