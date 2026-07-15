@@ -2593,7 +2593,7 @@ class BulkPDFGenerator:
         self._tab2_auto_btn = ttk.Button(
             btn_frame,
             text="Auto-Map All",
-            command=self._auto_map_fields,
+            command=lambda: self._auto_map_fields(overwrite=True),
             state=tk.DISABLED,
         )
         self._tab2_auto_btn.pack(side=tk.LEFT, padx=(0, 8))
@@ -2866,12 +2866,26 @@ class BulkPDFGenerator:
         )
         self._update_mapping_status()
 
-    def _auto_map_fields(self):
-        """Apply smart-guess mappings to all fields, overwriting existing mappings."""
+    def _auto_map_fields(self, overwrite: bool = False):
+        """Fill in field→column mappings by matching names.
+
+        By default this only fills fields that have NO mapping yet. It used to
+        overwrite every field on every data load, so a teacher who set a
+        mapping by hand in Tab 2 lost it the moment they re-loaded a corrected
+        spreadsheet — and every PDF was then filled from the wrong column.
+
+        Pass overwrite=True only from an explicit user action (the Auto-Map
+        button), never from a load.
+        """
         if self.df is None or not self.analyzed_fields:
             return
+
         column_lower = {col.lower(): col for col in self.df.columns}
+
         for field in self.analyzed_fields:
+            if field.excel_column and not overwrite:
+                continue  # the user (or a saved template) already decided this
+
             matched = False
             # Try smart-guess name first, then underscore-stripped field name, then direct
             guess = self.smart_guess_excel_column(field.field_name)
@@ -2884,9 +2898,10 @@ class BulkPDFGenerator:
             elif field.field_name.lower() in column_lower:
                 field.excel_column = column_lower[field.field_name.lower()]
                 matched = True
-            # else: no match found, leave as-is
+
             if matched:
                 field._auto_mapped = True
+
         self._refresh_tab2_mappings()
 
     def _clear_all_mappings(self):
@@ -3142,8 +3157,14 @@ class BulkPDFGenerator:
         """Change template in Tab 3."""
         self.load_template_from_file()
 
-    def _pick_excel_sheet(self, sheet_names: list) -> Optional[str]:
+    def _pick_excel_sheet(self, sheet_names: list,
+                          preferred: str = 'Data Entry') -> Optional[str]:
         """Show a modal sheet-picker dialog and return the chosen sheet name.
+
+        Preselects the app's own 'Data Entry' sheet when present. The exported
+        workbook lists 'Field Mapping' first, so defaulting to sheet 0 loaded
+        the reference sheet as data — no columns matched, and the preview
+        filled with header text.
 
         Returns None if the user cancels.
         """
@@ -3177,7 +3198,21 @@ class BulkPDFGenerator:
 
         combo = ttk.Combobox(inner, values=sheet_names, state='readonly',
                              font=(ff, 11), width=36)
-        combo.current(0)
+        default_idx = 0
+        for i, name in enumerate(sheet_names):
+            if str(name).strip().lower() == preferred.strip().lower():
+                default_idx = i
+                break
+        combo.current(default_idx)
+
+        if sheet_names[default_idx].strip().lower() == preferred.strip().lower():
+            # after=combo keeps the hint BELOW the dropdown — the original
+            # combo.pack() runs after this block, so a bare pack() would put
+            # the label above the dropdown.
+            tk.Label(inner,
+                text='"Data Entry" is the sheet this app created for your data.',
+                font=(ff, 9), fg=C['text_tertiary'], bg=C['bg_base'],
+            ).pack(anchor=tk.W, pady=(6, 0), after=combo)
         combo.pack(anchor=tk.W)
 
         # Defer grab_set so the window is fully realised by AppKit (macOS crash fix).
@@ -3282,10 +3317,9 @@ class BulkPDFGenerator:
             # Enable generate button
             self.generate_btn_tab3.config(state=tk.NORMAL)
 
-            # Refresh Tab 2 mapping dropdowns with the new column list;
-            # auto-map any fields that don't yet have an explicit mapping
-            if not self.analyzed_fields or any(f.excel_column is None for f in self.analyzed_fields):
-                self._auto_map_fields()
+            # Fill in any fields that have no mapping yet. Explicit mappings
+            # (set in Tab 2, or restored from a template) are left alone.
+            self._auto_map_fields()
             self._refresh_tab2_mappings()
 
         except Exception as e:
