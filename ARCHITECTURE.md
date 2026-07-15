@@ -41,7 +41,6 @@ All modules are pure Python with no circular imports. The main module imports al
 |-------|---------|
 | `BulkPDFGenerator` | Main app. Owns the root window, all tabs, settings, and state. |
 | `ScrollableFrame` | Reusable scrollable container. Platform-aware mousewheel handling. |
-| `WelcomeDialog` | First-run dialog. Routes user to Getting Started or Generate tab. |
 | `SchoolSetupDialog` | Prompts for school name and year (used in output filenames). |
 | `TemplateNameDialog` | Names a template when saving config. |
 
@@ -196,7 +195,7 @@ Centralised theme configuration. All colours, fonts, and spacing constants are d
 - macOS: Helvetica Neue / Menlo
 - Linux: DejaVu Sans / DejaVu Sans Mono
 
-**`apply_dark_theme()`** (name kept for backward compatibility) configures all ttk widget styles using the `clam` theme as a base. Covers: TFrame, TLabel (6 variants), TButton (3 variants), TEntry, TCombobox, TNotebook, TLabelframe, Treeview, TScrollbar, TRadiobutton (3 variants), TCheckbutton, TProgressbar, and TSeparator.
+**`apply_dark_theme()`** (name kept for backward compatibility) configures all ttk widget styles using ttkbootstrap (litera theme). Covers: TFrame, TLabel (6 variants), TButton (3 variants), TEntry, TCombobox, TNotebook, TLabelframe, Treeview, TScrollbar, TRadiobutton (3 variants), TCheckbutton, TProgressbar, and TSeparator.
 
 **Card section pattern:** The main app uses `create_section()` instead of `ttk.LabelFrame` for modern card-style layouts. This function creates:
 - A bold title label
@@ -429,7 +428,7 @@ This replaces tkinter's `ttk.LabelFrame` with a cleaner, more modern appearance 
 The PDF field preview canvas supports:
 - Zoom in/out buttons (50% to 400%)
 - "Fit" button to reset to fit-to-width
-- Mouse wheel zoom (when cursor is over the canvas)
+- Mouse wheel panning (when cursor is over the canvas)
 - Preview rendering caches the raw PIL Image at the current DPI, then applies zoom by resizing for display
 
 ---

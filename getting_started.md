@@ -99,3 +99,17 @@ Once your PDF template has properly named fields:
 
 * Go to the **Analyze Template** tab to scan your PDF and see what fields were detected.
 * Or go straight to the **Generate PDFs** tab if you already have a template configuration saved.
+
+## Using the app
+
+1. **Analyse Template** (Tab 1) — choose your PDF and click Analyze. The app finds
+   the form fields and asks you to confirm each field's type.
+2. **Export the spreadsheet** — click "Export Mapping File". You get a workbook with
+   a **Data Entry** sheet to type into, and a **Field Mapping** sheet that tells you
+   what each column accepts (tick boxes, dropdown options, dates).
+3. **Map Fields** (Tab 2) — check that each PDF field is matched to the right column.
+   Anything unmatched is flagged; unmatched fields come out blank.
+4. **Generate PDFs** (Tab 3) — load your filled spreadsheet, review the records
+   (rows missing required values are flagged), select who to generate, and click
+   Generate. The results panel then tells you what was created, what needs a check,
+   and where the files are.
