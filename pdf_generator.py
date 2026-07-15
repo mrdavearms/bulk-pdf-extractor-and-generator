@@ -875,6 +875,8 @@ class BulkPDFGenerator:
         # Current state
         self.current_template: Optional[TemplateConfig] = None
         self.analyzed_fields: List[PDFField] = []
+        self._analyzed_pdf_path = None
+        self._duplicate_headers = []
         self.pdf_template_path = tk.StringVar()
         self.excel_file_path = tk.StringVar()
         self.pdf_fields: List[str] = []
@@ -1816,6 +1818,10 @@ class BulkPDFGenerator:
             with PDFAnalyzer(pdf_path) as analyzer:
                 self.analyzed_fields = analyzer.analyze_fields()
                 field_stats = analyzer.get_field_statistics(self.analyzed_fields)
+
+            # Remember which PDF these fields describe — Tab 3 has its own
+            # PDF browser, so the two can drift apart.
+            self._analyzed_pdf_path = pdf_path
 
             # Close any existing preview generator before opening a new one
             self._close_preview_generator()
@@ -3276,6 +3282,7 @@ class BulkPDFGenerator:
                 return
 
             # Load Excel data (case-insensitive extension check)
+            chosen_sheet = None
             if excel_path.lower().endswith('.csv'):
                 # dtype=str mirrors the Excel path — preserves leading zeros on
                 # student IDs and prevents pandas from silently re-formatting
@@ -3297,6 +3304,20 @@ class BulkPDFGenerator:
 
             # Clean column names (strip whitespace, lowercase for matching)
             self.df.columns = [str(col).strip() for col in self.df.columns]
+
+            # pandas has already de-duplicated the headers by now ('Name.1'), so
+            # re-read the raw header row to see what the teacher actually typed.
+            try:
+                if excel_path.lower().endswith('.csv'):
+                    raw_header = pd.read_csv(excel_path, dtype=str, header=None,
+                                             nrows=1, encoding='utf-8-sig')
+                else:
+                    raw_header = pd.read_excel(excel_path, sheet_name=chosen_sheet,
+                                               dtype=str, header=None, nrows=1)
+                self._duplicate_headers = self.find_duplicate_headers(
+                    list(raw_header.iloc[0]) if not raw_header.empty else [])
+            except Exception:
+                self._duplicate_headers = []   # never block a load over a warning
 
             # Create lowercase mapping for field matching
             self.column_mapping = {col.lower(): col for col in self.df.columns}
@@ -3325,6 +3346,48 @@ class BulkPDFGenerator:
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load data:\n{str(e)}")
+
+    @staticmethod
+    def find_missing_fields(analyzed_fields, pdf_field_names) -> list:
+        """Analysed fields that do not exist in the PDF being filled.
+
+        pypdf silently ignores field names it cannot find, so a stale template
+        (or a PDF swapped on Tab 3 after analysis) produces blank PDFs that
+        report success. Signature/Button fields are never written, so their
+        absence is not a problem.
+        """
+        live = {str(name) for name in (pdf_field_names or [])}
+        if not live:
+            return []
+
+        missing = []
+        for field in analyzed_fields or []:
+            if field.field_type in ('Signature', 'Button'):
+                continue
+            names = field.combed_fields or [field.field_name]
+            if not any(name in live for name in names):
+                missing.append(field.field_name)
+        return missing
+
+    @staticmethod
+    def find_duplicate_headers(raw_headers) -> list:
+        """Column headers that appear more than once (case-insensitively).
+
+        pandas mangles the second occurrence to 'Name.1', which then matches no
+        PDF field — the column looks present but silently fills nothing.
+        """
+        seen = {}
+        duplicates = []
+        for header in raw_headers or []:
+            key = str(header).strip().lower()
+            if not key or key == 'nan':
+                continue
+            if key in seen:
+                if seen[key] not in duplicates:
+                    duplicates.append(seen[key])
+            else:
+                seen[key] = str(header).strip()
+        return duplicates
 
     def validate_data_tab3(self):
         """Validate data for Tab 3."""
@@ -3392,6 +3455,70 @@ class BulkPDFGenerator:
                 self.validation_text_tab3.config(state=tk.NORMAL)
                 self.validation_text_tab3.insert(tk.END, mapping_note)
                 self.validation_text_tab3.config(fg=COLORS['warning'])
+
+        # ── Template / PDF drift ──────────────────────────────────────────
+        notes = []
+
+        analysed = getattr(self, '_analyzed_pdf_path', None)
+        current_pdf = self.pdf_template_path.get()
+        if analysed and current_pdf and os.path.abspath(analysed) != os.path.abspath(current_pdf):
+            notes.append(
+                f"\n\n⚠ The PDF selected here is not the one you analysed.\n"
+                f"Analysed: {os.path.basename(analysed)}\n"
+                f"Selected: {os.path.basename(current_pdf)}\n"
+                f"Re-analyse on Tab 1, or the fields may not fill."
+            )
+
+        missing = self.find_missing_fields(
+            self.analyzed_fields, getattr(self, 'pdf_fields', []))
+        if missing:
+            shown = ", ".join(missing[:5])
+            if len(missing) > 5:
+                shown += f" (+{len(missing) - 5} more)"
+            notes.append(
+                f"\n\n⚠ {len(missing)} field(s) from your template no longer exist "
+                f"in this PDF — they will be blank:\n{shown}\n"
+                f"Re-analyse the PDF on Tab 1 to fix this."
+            )
+
+        dupes = getattr(self, '_duplicate_headers', [])
+        if dupes:
+            notes.append(
+                f"\n\n⚠ Your spreadsheet has duplicate column headings: "
+                f"{', '.join(dupes)}.\n"
+                f"Only the first of each will be used — rename them so each "
+                f"heading is unique."
+            )
+
+        # A field can be mapped (excel_column set, e.g. from a template or a
+        # previous export) to a column that isn't in THIS spreadsheet. Because
+        # auto-map is now non-destructive it won't silently re-point the field,
+        # so the value would just come out blank — say so. (The existing
+        # silent_blanks note above only covers excel_column is None.)
+        if self.analyzed_fields and self.df is not None:
+            col_names_lower = {str(col).lower() for col in self.df.columns}
+            mismatched = [
+                f for f in self.analyzed_fields
+                if f.excel_column
+                and f.excel_column.lower() not in col_names_lower
+                and f.field_type not in ('Signature', 'Button')
+            ]
+            if mismatched:
+                shown = ", ".join(
+                    f"{f.field_name} → {f.excel_column}" for f in mismatched[:5])
+                if len(mismatched) > 5:
+                    shown += f" (+{len(mismatched) - 5} more)"
+                notes.append(
+                    f"\n\n⚠ {len(mismatched)} field(s) are mapped to a column "
+                    f"that isn't in this spreadsheet — they will be blank:\n{shown}\n"
+                    f"Fix the mapping on Tab 2, or use a spreadsheet with those columns."
+                )
+
+        if notes:
+            self.validation_text_tab3.config(state=tk.NORMAL)
+            for note in notes:
+                self.validation_text_tab3.insert(tk.END, note)
+            self.validation_text_tab3.config(fg=COLORS['warning'])
 
         self.validation_text_tab3.config(state=tk.DISABLED)
 

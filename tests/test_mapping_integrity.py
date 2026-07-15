@@ -56,3 +56,38 @@ def test_sheet_picker_prefers_the_data_entry_sheet():
     src = inspect.getsource(BulkPDFGenerator._pick_excel_sheet)
     assert "Data Entry" in src, "picker must prefer the Data Entry sheet"
     assert "combo.current(0)" not in src, "picker must not hard-default to sheet 0"
+
+
+def test_find_missing_fields_spots_a_renamed_form():
+    """A template saved against last year's form must not generate 200 blank
+    PDFs in silence when the fields have been renamed."""
+    fields = [_field("Student_Name"), _field("Candidate_No")]
+    live = ["Student_Name", "CandidateNumber"]   # form was re-issued
+
+    missing = BulkPDFGenerator.find_missing_fields(fields, live)
+
+    assert missing == ["Candidate_No"]
+
+
+def test_find_missing_fields_understands_combed_fields():
+    combed = PDFField(
+        field_name="Surname", field_type="Text-Combed", page=1, length=3,
+        is_combed=True, combed_fields=["Surname[0]", "Surname[1]", "Surname[2]"],
+        rect=(0, 0, 10, 10),
+    )
+    live = ["Surname[0]", "Surname[1]", "Surname[2]"]
+    assert BulkPDFGenerator.find_missing_fields([combed], live) == []
+
+
+def test_find_missing_fields_ignores_unfillable_types():
+    sig = _field("Sign")
+    sig.field_type = "Signature"
+    assert BulkPDFGenerator.find_missing_fields([sig], []) == []
+
+
+def test_find_duplicate_headers():
+    """pandas silently renames the second 'Name' to 'Name.1', which then
+    matches no field at all."""
+    assert BulkPDFGenerator.find_duplicate_headers(
+        ["Name", "DOB", "name", "Class"]) == ["Name"]
+    assert BulkPDFGenerator.find_duplicate_headers(["Name", "DOB"]) == []
