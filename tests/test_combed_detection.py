@@ -36,8 +36,16 @@ def _analyzer():
 
 
 def _widgets(specs):
-    """specs: list of (name, rect) -> analyzer input dicts on page 1."""
-    return [{'widget': _FakeWidget(n, r), 'page_num': 1} for n, r in specs]
+    """specs: list of (name, rect) -> analyzer records on page 1.
+
+    _detect_combed_fields consumes the merged-record shape produced by
+    _merge_widgets_by_name; these tests build it directly. All specs are plain
+    Text fields, so on_states/options are empty."""
+    return [
+        {'name': n, 'widget': _FakeWidget(n, r), 'page_num': 1,
+         'field_type': 'Text', 'on_states': [], 'options': []}
+        for n, r in specs
+    ]
 
 
 class TestCombedRowDetection(unittest.TestCase):

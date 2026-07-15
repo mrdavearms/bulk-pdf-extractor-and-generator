@@ -38,95 +38,151 @@ class PDFAnalyzer:
         if not self.doc:
             raise ValueError("PDF not opened. Use context manager.")
 
-        # Collect all widgets from all pages
+        # Collect all widgets from all pages. Read button/choice state HERE,
+        # while `page` is still alive — button_states() dereferences the owning
+        # page through a weakref, and a deferred read (after this loop moves on)
+        # raises ReferenceError. This is why multi-page forms with a checkbox or
+        # radio on any non-final page previously failed analysis outright.
         all_widgets = []
         for page_num in range(len(self.doc)):
             page = self.doc.load_page(page_num)
             widgets = page.widgets()
             if widgets:
                 for widget in widgets:
-                    # Store widget with page number
+                    ftype = widget.field_type_string or 'Text'
                     all_widgets.append({
+                        'name': widget.field_name,
                         'widget': widget,
-                        'page_num': page_num + 1  # 1-indexed
+                        'page_num': page_num + 1,   # 1-indexed
+                        'field_type': ftype,
+                        'on_states': (self._read_on_states(widget)
+                                      if ftype in ("CheckBox", "RadioButton") else []),
+                        'options': (self._read_options(widget)
+                                    if ftype in ("ComboBox", "ListBox") else []),
                     })
 
-        # Detect and group combed fields
-        fields = self._detect_combed_fields(all_widgets)
+        # Collapse same-named widgets (radio groups, multi-page fields) first,
+        # then group comb character-boxes.
+        records = self._merge_widgets_by_name(all_widgets)
+        fields = self._detect_combed_fields(records)
 
         return fields
 
-    def _detect_combed_fields(self, all_widgets: List[dict]) -> List[PDFField]:
+    def _merge_widgets_by_name(self, all_widgets: List[dict]) -> List[dict]:
+        """Collapse widgets that share a field name into one record per field.
+
+        A PDF radio group is authored as one widget per button, and every one
+        of them reports the GROUP's field name — while button_states() reports
+        only that button's own export value. Emitting a PDFField per widget
+        therefore produced duplicate fields each holding a single on-state,
+        which made a radio group behave like a broken checkbox. The same
+        duplication hit any field repeated across pages (a signature on every
+        page, a header field on each sheet).
+
+        Pooling the on-states here is what lets normalize_button_value() see
+        len(on_states) > 1 and apply radio semantics.
+
+        Consumes the on_states/options ALREADY read (eagerly, while each page
+        was alive) by analyze_fields — it never touches the widget for button
+        or choice state itself, because by now the owning pages are gone.
+
+        The first widget for a name supplies the representative geometry
+        (page, rect) used by the visual preview.
+        """
+        merged = {}
+        order = []
+
+        for item in all_widgets:
+            name = item['name']
+            if not name:
+                continue
+
+            record = merged.get(name)
+            if record is None:
+                record = {
+                    'name': name,
+                    'widget': item['widget'],       # first widget = geometry source
+                    'page_num': item['page_num'],
+                    'field_type': item['field_type'],
+                    'on_states': [],
+                    'options': [],
+                }
+                merged[name] = record
+                order.append(name)
+
+            if item['field_type'] in ("CheckBox", "RadioButton"):
+                for state in item['on_states']:
+                    if state not in record['on_states']:
+                        record['on_states'].append(state)
+            elif item['field_type'] in ("ComboBox", "ListBox") and not record['options']:
+                record['options'] = list(item['options'])
+
+        return [merged[name] for name in order]
+
+    def _detect_combed_fields(self, records: List[dict]) -> List[PDFField]:
         """
         Group combed fields by base name pattern.
+
+        Takes the deduplicated records from _merge_widgets_by_name().
 
         Supported patterns:
         - Field_Name[0], Field_Name[1], ... (bracketed)
         - FieldName_0, FieldName_1, ...     (underscore)
         - FieldName0, FieldName1, ...       (sequential)
         """
-        # Group by base name
         groups = defaultdict(list)
 
-        for item in all_widgets:
-            widget = item['widget']
-            page_num = item['page_num']
-            name = widget.field_name
-
-            if not name:
-                continue
+        for record in records:
+            name = record['name']
+            page_num = record['page_num']
 
             # Try pattern 1: Field[N]
             match = re.match(r'^(.+?)\[(\d+)\]$', name)
             if match:
-                base = match.group(1)
-                index = int(match.group(2))
-                groups[base].append((index, name, widget, page_num))
+                groups[match.group(1)].append(
+                    (int(match.group(2)), name, record, page_num))
                 continue
 
             # Try pattern 2: Field_N
             match = re.match(r'^(.+?)_(\d+)$', name)
             if match:
-                # Only group if it ends with a digit
-                potential_base = match.group(1)
-                index = int(match.group(2))
-
-                # Check if this looks like a sequence (multiple similar fields)
-                # We'll do final grouping later
-                groups[(potential_base, '_')].append((index, name, widget, page_num))
+                groups[(match.group(1), '_')].append(
+                    (int(match.group(2)), name, record, page_num))
                 continue
 
             # Try pattern 3: FieldN (no separator, e.g. StudentNumber0)
-            # But NOT "Provision 1" — space before number means separate named fields
+            # But NOT "Provision 1" — space before number means separate fields
             match = re.match(r'^(.+?)(\d+)$', name)
             if match:
                 potential_base = match.group(1)
                 if potential_base.endswith(' '):
-                    # "Provision 1", "Date implemented 3" — separate fields, not combed
-                    groups[name].append((0, name, widget, page_num))
+                    groups[name].append((0, name, record, page_num))
                     continue
-                index = int(match.group(2))
-                groups[(potential_base, '')].append((index, name, widget, page_num))
+                groups[(potential_base, '')].append(
+                    (int(match.group(2)), name, record, page_num))
                 continue
 
             # Not a pattern - single field
-            groups[name].append((0, name, widget, page_num))
+            groups[name].append((0, name, record, page_num))
 
-        # Process groups
         result = []
         for base_key, items in groups.items():
-            # Handle tuple keys (from patterns 2 & 3)
             if isinstance(base_key, tuple):
-                base_name, separator = base_key
+                base_name, _separator = base_key
             else:
                 base_name = base_key
-                separator = None
 
-            # Sort by index
             items.sort(key=lambda x: x[0])
 
-            # Determine if this is a true combed field (multiple sequential items)
             treat_as_combed = len(items) > 1 and self._is_sequential(items)
+
+            # A comb is always made of plain Text boxes. A horizontal row of
+            # numbered CHECKBOXES (Q1_1…Q1_4) passes both the name and the
+            # geometry heuristics — merging it would write one character per
+            # checkbox, which never ticks and destroys the value.
+            if treat_as_combed:
+                treat_as_combed = all(
+                    item[2]['field_type'] == 'Text' for item in items)
 
             # Guard the loose suffix patterns ('Field_N', 'FieldN' — tuple keys)
             # against false grouping: real comb character-boxes sit on a single
@@ -138,25 +194,24 @@ class PDFAnalyzer:
                 treat_as_combed = self._looks_like_comb_row(items)
 
             if treat_as_combed:
-                # Combed field - group them
-                widget_0 = items[0][2]  # First widget for metadata
+                widget_0 = items[0][2]['widget']
 
                 result.append(PDFField(
                     field_name=base_name,
                     field_type='Text-Combed',
-                    page=items[0][3],  # Page of first field
+                    page=items[0][3],
                     length=len(items),
                     is_combed=True,
-                    combed_fields=[item[1] for item in items],  # All field names
+                    combed_fields=[item[1] for item in items],
                     rect=tuple(widget_0.rect),
                     current_value=widget_0.field_value or "",
                     is_critical=False,
-                    excel_column=None
+                    excel_column=None,
                 ))
             else:
-                # Single field(s) - treat each separately
-                for index, name, widget, page_num in items:
-                    ftype = widget.field_type_string or 'Text'
+                for _index, name, record, page_num in items:
+                    widget = record['widget']
+                    ftype = record['field_type']
                     max_len = None
                     is_combed = False
 
@@ -171,26 +226,19 @@ class PDFAnalyzer:
                         except (AttributeError, TypeError, ValueError):
                             pass
 
-                    on_states = []
-                    options = []
-                    if ftype in ("CheckBox", "RadioButton"):
-                        on_states = self._read_on_states(widget)
-                    elif ftype in ("ComboBox", "ListBox"):
-                        options = self._read_options(widget)
-
                     result.append(PDFField(
                         field_name=name,
                         field_type=ftype,
                         page=page_num,
                         length=max_len,
                         is_combed=is_combed,
-                        combed_fields=[],  # Single-field combed: no sub-fields
+                        combed_fields=[],
                         rect=tuple(widget.rect),
                         current_value=widget.field_value or "",
                         is_critical=False,
                         excel_column=None,
-                        on_states=on_states,
-                        options=options,
+                        on_states=list(record['on_states']),
+                        options=list(record['options']),
                     ))
 
         return result
@@ -230,15 +278,16 @@ class PDFAnalyzer:
         falls back to the previous (permissive) grouping — no regression.
 
         Args:
-            items: List of (index, name, widget, page_num) tuples.
+            items: List of (index, name, record, page_num) tuples.
 
         Returns:
             True if all widgets lie on roughly the same horizontal row.
         """
         try:
-            tops = [it[2].rect[1] for it in items]               # y0 of each box
-            heights = [abs(it[2].rect[3] - it[2].rect[1]) for it in items]
-        except (AttributeError, IndexError, TypeError):
+            widgets = [it[2]['widget'] for it in items]
+            tops = [w.rect[1] for w in widgets]                  # y0 of each box
+            heights = [abs(w.rect[3] - w.rect[1]) for w in widgets]
+        except (AttributeError, IndexError, KeyError, TypeError):
             return True
 
         if not tops:

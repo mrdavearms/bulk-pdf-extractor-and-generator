@@ -197,3 +197,129 @@ def test_paired_option_dropdown_analyses_to_export_values(tmp_path):
     assert all(isinstance(o, str) for o in state.options)
     # The audit dialog does exactly this — it must not raise.
     assert ", ".join(state.options) == "VIC, NSW"
+
+
+def test_radio_group_becomes_one_field_with_all_on_states(tmp_path):
+    """A radio group must analyse to ONE field carrying EVERY option.
+
+    Before the fix: two 'Gender' fields, each with on_states=['Male'] or
+    ['Female']. len(on_states)<=1 meant normalize_button_value applied
+    checkbox semantics — typing 'Male' filled nothing, typing 'Yes' let an
+    arbitrary option win."""
+    from tests._form_fixture import build_radio_form
+
+    pdf = str(tmp_path / "radio.pdf")
+    build_radio_form(pdf)
+
+    with PDFAnalyzer(pdf) as analyzer:
+        fields = analyzer.analyze_fields()
+
+    genders = [f for f in fields if f.field_name == "Gender"]
+    assert len(genders) == 1, "radio group must not fan out into one field per button"
+    assert genders[0].field_type == "RadioButton"
+    assert sorted(genders[0].on_states) == ["Female", "Male"]
+
+
+def test_radio_group_fills_the_chosen_option_end_to_end(tmp_path):
+    """The whole point: a teacher types 'Female' and that button is selected."""
+    from pypdf import PdfReader
+    from tests._form_fixture import build_radio_form
+    from field_values import normalize_button_value
+
+    pdf = str(tmp_path / "radio.pdf")
+    build_radio_form(pdf)
+
+    with PDFAnalyzer(pdf) as analyzer:
+        field = next(f for f in analyzer.analyze_fields() if f.field_name == "Gender")
+
+    name_val = normalize_button_value("Female", field.on_states)
+    assert name_val is not None, "'Female' must resolve against the group's on-states"
+
+    from pypdf import PdfWriter
+    out = str(tmp_path / "filled.pdf")
+    writer = PdfWriter(clone_from=pdf)
+    for page in writer.pages:
+        writer.update_page_form_field_values(
+            page, {"Gender": name_val}, auto_regenerate=True)
+    with open(out, "wb") as fh:
+        writer.write(fh)
+
+    assert str(PdfReader(out).get_fields()["Gender"]["/V"]) == "/Female"
+
+
+def test_same_field_on_two_pages_yields_one_field(tmp_path):
+    """A field whose widget repeats on several pages produced duplicate rows,
+    duplicate spreadsheet columns, and a header pandas mangles to 'Name.1'."""
+    import fitz
+
+    pdf = str(tmp_path / "twopage.pdf")
+    doc = fitz.open()
+    for _ in range(2):
+        page = doc.new_page(width=300, height=200)
+        w = fitz.Widget()
+        w.field_name = "Student_Name"
+        w.field_type = fitz.PDF_WIDGET_TYPE_TEXT
+        w.rect = fitz.Rect(50, 50, 250, 70)
+        page.add_widget(w)
+    doc.save(pdf)
+    doc.close()
+
+    with PDFAnalyzer(pdf) as analyzer:
+        fields = analyzer.analyze_fields()
+
+    assert [f.field_name for f in fields].count("Student_Name") == 1
+
+
+def test_numbered_checkbox_row_is_not_merged_into_a_comb(tmp_path):
+    """Checkboxes named Q1_1..Q1_4 on one line satisfy the comb heuristics by
+    name and geometry. Merging them would write one CHARACTER per checkbox —
+    they never tick, and the value is destroyed."""
+    import fitz
+
+    pdf = str(tmp_path / "checkrow.pdf")
+    doc = fitz.open()
+    page = doc.new_page(width=400, height=200)
+    for i in range(1, 5):
+        w = fitz.Widget()
+        w.field_name = f"Q1_{i}"
+        w.field_type = fitz.PDF_WIDGET_TYPE_CHECKBOX
+        w.rect = fitz.Rect(50 + i * 30, 100, 70 + i * 30, 120)
+        page.add_widget(w)
+    doc.save(pdf)
+    doc.close()
+
+    with PDFAnalyzer(pdf) as analyzer:
+        fields = analyzer.analyze_fields()
+
+    assert not any(f.is_combed for f in fields)
+    assert sorted(f.field_name for f in fields) == ["Q1_1", "Q1_2", "Q1_3", "Q1_4"]
+    assert all(f.field_type == "CheckBox" for f in fields)
+
+
+def test_checkbox_on_a_non_final_page_analyses(tmp_path):
+    """Pre-existing crash: analyze_fields collected every widget and read
+    button_states() lazily, after the owning page had been GC'd — raising
+    ReferenceError on ANY multi-page PDF with a checkbox/radio not on the last
+    page. That is the shape of a real VCAA exam form."""
+    import fitz
+
+    pdf = str(tmp_path / "multipage.pdf")
+    doc = fitz.open()
+    for pg in range(4):
+        page = doc.new_page(width=300, height=200)
+        if pg == 0:   # checkbox on the FIRST of four pages
+            w = fitz.Widget()
+            w.field_name = "Approved"
+            w.field_type = fitz.PDF_WIDGET_TYPE_CHECKBOX
+            w.rect = fitz.Rect(50, 50, 70, 70)
+            page.add_widget(w)
+    doc.save(pdf)
+    doc.close()
+
+    with PDFAnalyzer(pdf) as analyzer:
+        fields = analyzer.analyze_fields()   # must not raise ReferenceError
+
+    approved = [f for f in fields if f.field_name == "Approved"]
+    assert len(approved) == 1
+    assert approved[0].field_type == "CheckBox"
+    assert approved[0].page == 1
