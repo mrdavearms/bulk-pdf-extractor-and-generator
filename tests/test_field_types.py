@@ -335,3 +335,54 @@ def test_push_button_is_never_filled():
     src = inspect.getsource(app._generate_single_pdf)
     assert "'Button'" in src or '"Button"' in src, \
         "_generate_single_pdf must explicitly skip push-button fields"
+
+
+def test_comb_truncation_produces_a_warning(tmp_path):
+    """Silent truncation is data loss. The teacher must be told."""
+    import pandas as pd
+    from pypdf import PdfReader
+    from pdf_generator import BulkPDFGenerator
+    from models import PDFField
+
+    # A 5-box comb field, given a 9-character value.
+    field = PDFField(
+        field_name="Surname",
+        field_type="Text-Combed",
+        page=1,
+        length=5,
+        is_combed=True,
+        combed_fields=[f"Surname[{i}]" for i in range(5)],
+        rect=(0, 0, 10, 10),
+        excel_column="Surname",
+    )
+
+    pdf = str(tmp_path / "comb.pdf")
+    import fitz
+    doc = fitz.open()
+    page = doc.new_page(width=300, height=200)
+    for i in range(5):
+        w = fitz.Widget()
+        w.field_name = f"Surname[{i}]"
+        w.field_type = fitz.PDF_WIDGET_TYPE_TEXT
+        w.rect = fitz.Rect(20 + i * 20, 50, 38 + i * 20, 70)
+        page.add_widget(w)
+    doc.save(pdf)
+    doc.close()
+
+    app = BulkPDFGenerator.__new__(BulkPDFGenerator)
+    reader = PdfReader(pdf)
+    ctx = {
+        '_reader': reader,
+        'analyzed_fields': [field],
+        'pdf_fields': [],
+        'combed_padding': False,
+        'combed_align': 'left',
+    }
+    row = pd.Series({"Surname": "Nguyenson"})   # 9 chars into 5 boxes
+    warnings = app._generate_single_pdf(ctx, row, str(tmp_path / "out.pdf"))
+    reader.close()
+
+    assert warnings, "truncation must produce a warning"
+    joined = " ".join(warnings)
+    assert "Surname" in joined
+    assert "Nguye" in joined      # what actually got written

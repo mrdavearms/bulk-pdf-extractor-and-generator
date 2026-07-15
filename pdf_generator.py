@@ -3643,10 +3643,21 @@ class BulkPDFGenerator:
                     field_values[field.field_name] = value
                     continue
 
-                # Text / combed text (unchanged behaviour)
+                # Text / combed text
                 value = self.format_value_tab3(raw_val, data_type=field.data_type)
                 if not value:
                     continue
+                if field.is_combed:
+                    # fill_field() truncates over-long values silently — that is
+                    # real data loss on a legal-name field, so say so.
+                    check = combed_filler.validate_overflow(field, value)
+                    if check['will_truncate']:
+                        capacity = (len(field.combed_fields)
+                                    if field.combed_fields else field.length)
+                        warnings_out.append(
+                            f"{field.field_name}: '{value}' is too long "
+                            f"({check['original_length']} characters, room for "
+                            f"{capacity}) — saved as '{check['truncated_text']}'")
                 field_values.update(combed_filler.fill_field(field, value))
 
         else:
