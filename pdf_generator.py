@@ -14,6 +14,7 @@ Features:
 
 import logging
 import os
+import subprocess
 import sys
 import webbrowser
 import tkinter as tk
@@ -3060,6 +3061,39 @@ class BulkPDFGenerator:
         self.progress_label_tab3 = ttk.Label(progress_frame, text="", style='Secondary.TLabel')
         self.progress_label_tab3.pack()
 
+        # ── Results panel (hidden until a batch finishes) ──
+        # Deliberately NOT a messagebox: on macOS a modal can open behind the
+        # main window — invisible but blocking — and this fires right after a
+        # long batch. It also gives teachers a record that survives a click.
+        self.results_frame_tab3 = tk.Frame(container, bg=COLORS['bg_surface'])
+
+        results_inner = tk.Frame(self.results_frame_tab3, bg=COLORS['bg_surface'],
+                                 padx=14, pady=12)
+        results_inner.pack(fill=tk.BOTH, expand=True)
+
+        self.results_summary_tab3 = tk.Label(
+            results_inner, text="", font=font(12, 'bold'),
+            fg=COLORS['text_primary'], bg=COLORS['bg_surface'],
+            anchor=tk.W, justify=tk.LEFT,
+        )
+        self.results_summary_tab3.pack(fill=tk.X)
+
+        self.results_detail_tab3 = tk.Text(
+            results_inner, height=6, wrap=tk.WORD, state=tk.DISABLED,
+            bg=COLORS['bg_input'], fg=COLORS['text_primary'],
+            relief='flat', borderwidth=0, padx=10, pady=8,
+            font=font(10), autostyle=False,
+        )
+        self.results_detail_tab3.pack(fill=tk.X, pady=(8, 8))
+
+        self.results_open_btn_tab3 = ttk.Button(
+            results_inner, text="Open Output Folder",
+            command=self._open_last_output_folder,
+        )
+        self.results_open_btn_tab3.pack(anchor=tk.W)
+
+        self._last_output_folder = None
+
         # Generate Button (large CTA)
         self.generate_btn_tab3 = ttk.Button(
             container,
@@ -3722,6 +3756,7 @@ class BulkPDFGenerator:
 
         # Reset progress bar and disable button
         self.progress_var_tab3.set(0)
+        self.results_frame_tab3.pack_forget()   # clear the previous run's result
         self.generate_btn_tab3.config(state=tk.DISABLED)
         self.update_status(f"Generating PDFs for {selected_count} records...", 'info')
 
@@ -3753,7 +3788,6 @@ class BulkPDFGenerator:
             try:
                 total = len(ctx['selected_indices'])
                 success_count = 0
-                error_count = 0
                 error_details = []
                 warning_details = []  # advisory notes for rows that DID generate
 
@@ -3813,9 +3847,12 @@ class BulkPDFGenerator:
                         success_count += 1
                         status_text = f"Created: {filename}"
                         for w in (row_warnings or []):
-                            warning_details.append(f"{'_'.join(name_parts)}: {w}")
+                            detail = f"{'_'.join(name_parts)}: {w}"
+                            warning_details.append(detail)
+                            # The UI tells teachers the full list is in app.log —
+                            # it never was until now.
+                            self.logger.warning("Generation warning: %s", detail)
                     except Exception as e:
-                        error_count += 1
                         row_label = '_'.join(name_parts) if name_parts else f'Row_{idx+1}'
                         err_str = str(e)
                         error_details.append(f"{row_label}: {err_str}")
@@ -3832,15 +3869,9 @@ class BulkPDFGenerator:
                 # Always dispatch final 100% progress state
                 self.root.after(0, self.update_progress_tab3, 100, "Complete", total, total)
 
-                # Final message
-                final_message = f"Complete! {success_count} PDFs created"
-                if error_count > 0:
-                    final_message += f", {error_count} errors"
-                final_message += f"\n\nOutput folder: {output_folder}"
-
                 self.root.after(
                     0, self.generation_complete_tab3,
-                    final_message, output_folder, error_details, warning_details,
+                    success_count, output_folder, error_details, warning_details,
                 )
 
             finally:
@@ -3848,8 +3879,8 @@ class BulkPDFGenerator:
 
         except Exception as e:
             err_msg = str(e)  # Capture before 'e' goes out of scope (PEP 3110)
-            self.root.after(0, lambda msg=err_msg: messagebox.showerror("Error", f"Generation failed:\n{msg}"))
-            self.root.after(0, lambda: self.generate_btn_tab3.config(state=tk.NORMAL))
+            self.logger.exception("Generation batch failed")
+            self.root.after(0, self._show_generation_error, err_msg)
 
     def _generate_single_pdf(self, ctx, row_data, output_path):
         """Generate a single PDF with combed field support.
@@ -4060,54 +4091,103 @@ class BulkPDFGenerator:
         self.progress_var_tab3.set(progress)
         self.progress_label_tab3.config(text=f"[{current}/{total}] {status}")
 
-    def generation_complete_tab3(self, message, output_folder, error_details=None,
-                                 warning_details=None):
-        """Handle generation completion for Tab 3."""
+    def _open_last_output_folder(self):
+        """Open the folder the last batch was written to."""
+        folder = getattr(self, '_last_output_folder', None)
+        if not folder or not os.path.isdir(folder):
+            return
+        try:
+            if sys.platform == 'darwin':
+                subprocess.run(['open', folder], check=False)
+            elif sys.platform == 'win32':
+                os.startfile(folder)
+            else:
+                subprocess.run(['xdg-open', folder], check=False)
+        except Exception:
+            pass  # failing to open the folder is non-critical
+
+    def _show_generation_error(self, msg: str):
+        """Report a whole-batch failure inline (never a modal — see CLAUDE.md)."""
+        # `before=` keeps the panel above the Generate button — a bare pack()
+        # would append it to the bottom of the tab, below the button.
+        self.results_frame_tab3.pack(fill=tk.X, pady=(0, SPACING['element_gap']),
+                                     before=self.generate_btn_tab3)
+        self.results_summary_tab3.config(
+            text="❌ Generation failed — no PDFs were created",
+            fg=COLORS['error'],
+        )
+        self.results_detail_tab3.config(state=tk.NORMAL)
+        self.results_detail_tab3.delete(1.0, tk.END)
+        self.results_detail_tab3.insert(1.0, msg)
+        self.results_detail_tab3.config(state=tk.DISABLED)
+        self.results_open_btn_tab3.pack_forget()
+        self.update_status("Generation failed", 'error')
+        self.generate_btn_tab3.config(state=tk.NORMAL)
+
+    def generation_complete_tab3(self, success_count, output_folder,
+                                 error_details=None, warning_details=None):
+        """Show the batch result inline on Tab 3.
+
+        Deliberately dialog-free. Three stacked modal dialogs used to fire
+        here, any of which could open behind the main window on macOS and
+        freeze the app (CLAUDE.md). An inline panel also leaves a record the
+        teacher can re-read, and has no 20-item cap.
+        """
+        error_details = error_details or []
+        warning_details = warning_details or []
+
         self.progress_label_tab3.config(text="Generation complete!")
-        self.update_status("Generation complete!", 'success')
-        self.update_selection_count_tab3()  # Re-enable button with correct state
+        self.update_selection_count_tab3()   # re-enable button with correct state
+        self._last_output_folder = output_folder
+
+        parts = [f"✅ {success_count} PDF(s) created"]
+        if warning_details:
+            parts.append(f"⚠ {len(warning_details)} to check")
+        if error_details:
+            parts.append(f"❌ {len(error_details)} failed")
+
+        summary_colour = COLORS['success']
+        if error_details:
+            summary_colour = COLORS['error']
+        elif warning_details:
+            summary_colour = COLORS['warning']
+
+        self.results_summary_tab3.config(
+            text="   ·   ".join(parts), fg=summary_colour)
+
+        detail_lines = [f"Output folder: {output_folder}", ""]
+        if error_details:
+            detail_lines.append("These rows could not be generated:")
+            detail_lines.extend(f"  • {d}" for d in error_details)
+            detail_lines.append("")
+        if warning_details:
+            detail_lines.append(
+                "These files WERE created, but some values need a quick check:")
+            detail_lines.extend(f"  • {w}" for w in warning_details)
+            detail_lines.append("")
+        if not error_details and not warning_details:
+            detail_lines.append("All records generated cleanly.")
+
+        self.results_detail_tab3.config(state=tk.NORMAL)
+        self.results_detail_tab3.delete(1.0, tk.END)
+        self.results_detail_tab3.insert(1.0, "\n".join(detail_lines))
+        self.results_detail_tab3.config(state=tk.DISABLED)
+
+        self.results_open_btn_tab3.pack(anchor=tk.W)
+        # `before=` keeps the panel above the Generate button — a bare pack()
+        # would append it to the bottom of the tab, below the button.
+        self.results_frame_tab3.pack(fill=tk.X, pady=(0, SPACING['element_gap']),
+                                     before=self.generate_btn_tab3)
 
         if error_details:
-            # Cap at 20 rows to keep the dialog manageable; full list is in app.log
-            preview = "\n".join(error_details[:20])
-            if len(error_details) > 20:
-                preview += f"\n… and {len(error_details) - 20} more (see app.log)"
-            messagebox.showwarning(
-                f"{len(error_details)} rows failed",
-                f"The following rows could not be generated:\n\n{preview}",
-            )
-
-        if warning_details:
-            # These rows WERE created; the notes flag values worth a quick check
-            # (e.g. a spreadsheet value that wasn't a valid dropdown option).
-            preview = "\n".join(warning_details[:20])
-            if len(warning_details) > 20:
-                preview += f"\n… and {len(warning_details) - 20} more (see app.log)"
-            messagebox.showwarning(
-                "Generated with notes",
-                "All files were created. Some values may need a quick check:\n\n"
-                + preview,
-            )
-
-        # Ask to open folder
-        result = messagebox.askyesno(
-            "Generation Complete",
-            f"{message}\n\nWould you like to open the output folder?"
-        )
-
-        if result:
-            # Open folder in system file manager
-            try:
-                if sys.platform == 'darwin':
-                    import subprocess
-                    subprocess.run(['open', output_folder], check=False)
-                elif sys.platform == 'win32':
-                    os.startfile(output_folder)
-                else:
-                    import subprocess
-                    subprocess.run(['xdg-open', output_folder], check=False)
-            except Exception:
-                pass  # Failing to open folder is non-critical
+            self.update_status(
+                f"Generation finished with {len(error_details)} error(s)", 'error')
+        elif warning_details:
+            self.update_status(
+                f"Generation complete — {len(warning_details)} value(s) to check",
+                'warning')
+        else:
+            self.update_status("Generation complete!", 'success')
 
 
 def main():

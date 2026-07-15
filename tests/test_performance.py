@@ -310,5 +310,31 @@ class TestSelectAllResilientToGeometryManager(unittest.TestCase):
         )
 
 
+def test_generation_completion_uses_no_messagebox():
+    """CLAUDE.md: on macOS a messagebox can open BEHIND the main window —
+    invisible but modal — freezing the app. The end of a 200-PDF batch is the
+    worst possible place for that."""
+    import inspect
+    from pdf_generator import BulkPDFGenerator
+
+    src = inspect.getsource(BulkPDFGenerator.generation_complete_tab3)
+    assert "messagebox" not in src, \
+        "completion must report inline, not via a modal dialog"
+
+    worker = inspect.getsource(BulkPDFGenerator.run_generation_tab3)
+    assert "messagebox" not in worker, \
+        "the generation worker must not raise a modal from a background thread"
+
+
+def test_generation_warnings_are_logged():
+    """Both dialogs claimed '(see app.log)' while warnings were never logged."""
+    import inspect
+    from pdf_generator import BulkPDFGenerator
+
+    src = inspect.getsource(BulkPDFGenerator.run_generation_tab3)
+    assert "self.logger.warning" in src, \
+        "per-field warnings must reach app.log, as the UI claims they do"
+
+
 if __name__ == '__main__':
     unittest.main()
