@@ -3204,16 +3204,17 @@ class BulkPDFGenerator:
                 default_idx = i
                 break
         combo.current(default_idx)
+        combo.pack(anchor=tk.W)
 
         if sheet_names[default_idx].strip().lower() == preferred.strip().lower():
-            # after=combo keeps the hint BELOW the dropdown — the original
-            # combo.pack() runs after this block, so a bare pack() would put
-            # the label above the dropdown.
+            # after=combo keeps the hint BELOW the dropdown — combo must
+            # already be packed (above) before this call, since after=
+            # requires the referenced widget to already be under pack
+            # management at call time; it is not a forward reference.
             tk.Label(inner,
                 text='"Data Entry" is the sheet this app created for your data.',
                 font=(ff, 9), fg=C['text_tertiary'], bg=C['bg_base'],
             ).pack(anchor=tk.W, pady=(6, 0), after=combo)
-        combo.pack(anchor=tk.W)
 
         # Defer grab_set so the window is fully realised by AppKit (macOS crash fix).
         # Re-focus the combobox after grab — grab_set resets focus on macOS Tahoe.
