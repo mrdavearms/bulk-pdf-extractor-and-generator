@@ -386,3 +386,36 @@ def test_comb_truncation_produces_a_warning(tmp_path):
     joined = " ".join(warnings)
     assert "Surname" in joined
     assert "Nguye" in joined      # what actually got written
+
+
+def test_non_ascii_names_survive_a_fill(tmp_path):
+    """Vietnamese/Chinese names are routine in Victorian schools."""
+    import pandas as pd
+    from pypdf import PdfReader
+    from pdf_generator import BulkPDFGenerator
+    from models import PDFField
+    from tests._form_fixture import build_mixed_form
+
+    pdf = str(tmp_path / "form.pdf")
+    build_mixed_form(pdf)
+
+    field = PDFField(
+        field_name="Student_Name", field_type="Text", page=1, length=None,
+        is_combed=False, combed_fields=[], rect=(0, 0, 10, 10),
+        excel_column="Student_Name",
+    )
+
+    app = BulkPDFGenerator.__new__(BulkPDFGenerator)
+    reader = PdfReader(pdf)
+    ctx = {
+        '_reader': reader,
+        'analyzed_fields': [field],
+        'pdf_fields': [],
+        'combed_padding': False,
+        'combed_align': 'left',
+    }
+    out = str(tmp_path / "out.pdf")
+    app._generate_single_pdf(ctx, pd.Series({"Student_Name": "Nguyễn Thị Hương"}), out)
+    reader.close()
+
+    assert PdfReader(out).get_fields()["Student_Name"]["/V"] == "Nguyễn Thị Hương"
