@@ -176,5 +176,30 @@ class TestGenerationRowLookupByLabel(unittest.TestCase):
             _ = df.iloc[captured_label]
 
 
+class TestDateGuessWordBoundary(unittest.TestCase):
+    """Date-type guessing must anchor to word boundaries.
+
+    'date' in 'candidate' is true, which mis-types "Candidate Number" as a Date,
+    converting 245 into 01/09/1900. Same for "Consolidated", "Updated", "Mandated".
+    """
+
+    def test_date_guess_ignores_words_that_merely_contain_date(self):
+        """'candidate' contains 'date'. Mis-typing a candidate number as a Date
+        converts 245 into 01/09/1900 in every generated PDF."""
+        from pdf_generator import _guess_data_type
+
+        for name in ["Candidate Number", "Candidate_No", "Consolidated Score",
+                     "Updated By", "Mandated Hours"]:
+            assert _guess_data_type(name) == "text", f"{name} must not be a Date"
+
+
+    def test_date_guess_still_catches_real_date_fields(self):
+        from pdf_generator import _guess_data_type
+
+        for name in ["Date of Birth", "DOB", "Birth_Date", "Birthdate",
+                     "Expiry Date", "Date_Issued", "Due Date"]:
+            assert _guess_data_type(name) == "date", f"{name} must be a Date"
+
+
 if __name__ == '__main__':
     unittest.main()

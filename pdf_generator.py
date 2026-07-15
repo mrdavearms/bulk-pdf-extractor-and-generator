@@ -542,12 +542,16 @@ _DATE_KEYWORDS = {'date', 'dob', 'birth', 'born', 'expiry', 'issued', 'due'}
 
 
 def _guess_data_type(field_name: str) -> str:
-    """Guess a field's data type from its name. Returns 'text', 'number', or 'date'."""
+    """Guess a field's data type from its name. Returns 'text', 'number', or 'date'.
+
+    The keyword must START at a word boundary. A plain substring test matched
+    'date' inside 'candidate' (and 'updated', 'mandated', 'consolidated'),
+    which silently converted candidate numbers into 1900s dates. No trailing
+    boundary is required, so 'Birthdate' and 'DueDate' still match.
+    """
     lower = field_name.lower().replace('_', ' ')
-    for kw in _DATE_KEYWORDS:
-        if kw in lower:
-            return 'date'
-    return 'text'
+    pattern = r'\b(?:' + '|'.join(sorted(_DATE_KEYWORDS)) + r')'
+    return 'date' if re.search(pattern, lower) else 'text'
 
 
 def _field_type_detail(field) -> str:
@@ -3650,9 +3654,7 @@ class BulkPDFGenerator:
             for pdf_field in ctx['pdf_fields']:
                 pdf_field_lower = pdf_field.lower()
                 if pdf_field_lower in row_dict_lower:
-                    inferred_type = "date" if any(
-                        token in pdf_field_lower for token in _DATE_KEYWORDS
-                    ) else "text"
+                    inferred_type = _guess_data_type(pdf_field)
                     val = self.format_value_tab3(row_dict_lower[pdf_field_lower], data_type=inferred_type)
                     field_values[pdf_field] = val
 
