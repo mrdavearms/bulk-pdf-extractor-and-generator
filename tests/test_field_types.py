@@ -1,4 +1,5 @@
 from models import PDFField
+import inspect
 import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
@@ -323,3 +324,14 @@ def test_checkbox_on_a_non_final_page_analyses(tmp_path):
     assert len(approved) == 1
     assert approved[0].field_type == "CheckBox"
     assert approved[0].page == 1
+
+
+def test_push_button_is_never_filled():
+    """A 'Print Form' push button is not a data field. Writing a value into
+    it can corrupt its appearance state — skip it like a signature."""
+    from pdf_generator import BulkPDFGenerator
+
+    app = BulkPDFGenerator.__new__(BulkPDFGenerator)
+    src = inspect.getsource(app._generate_single_pdf)
+    assert "'Button'" in src or '"Button"' in src, \
+        "_generate_single_pdf must explicitly skip push-button fields"

@@ -3609,6 +3609,11 @@ class BulkPDFGenerator:
                             f"auto-filled (skipped)")
                     continue
 
+                if ftype == 'Button':
+                    # Push button (e.g. "Print Form") — an action control, not a
+                    # data field. Writing a value can corrupt its /AS state.
+                    continue
+
                 if ftype in ('CheckBox', 'RadioButton'):
                     if str(raw_val).strip().lower() in ('', 'nan'):
                         continue  # blank cell: leave the field at its existing state
