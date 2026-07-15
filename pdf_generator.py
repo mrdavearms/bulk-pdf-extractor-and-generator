@@ -2336,7 +2336,7 @@ class BulkPDFGenerator:
                     # Excel's inline list is comma-separated and capped at 255
                     # chars; an option containing a comma would split in two.
                     joined = ",".join(choices)
-                    if len(joined) > 250 or any(',' in c for c in choices):
+                    if len(joined) > 250 or any(',' in c or '"' in c for c in choices):
                         continue
 
                     letter = get_column_letter(idx)
