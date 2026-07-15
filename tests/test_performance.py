@@ -347,5 +347,27 @@ def test_analysis_does_not_stack_modals_and_handles_empty_pdfs():
         "a flat/scanned PDF must say so instead of opening an empty audit dialog"
 
 
+def test_window_is_clamped_to_the_screen():
+    """1000x800 with a 900x700 minimum overflows a 1366x768 school laptop and
+    pushes the Generate button off-screen."""
+    import inspect
+    from pdf_generator import BulkPDFGenerator
+
+    src = inspect.getsource(BulkPDFGenerator.__init__)
+    assert "winfo_screenheight" in src, \
+        "window size must be clamped to the actual screen"
+
+
+def test_no_misleading_button_labels():
+    import inspect
+    import pdf_generator
+
+    src = inspect.getsource(pdf_generator)
+    assert "Analyze & Save" not in src, \
+        "that button analyses but does not save the template config"
+    assert "Skip (all Text)" not in src, \
+        "Skip leaves types untouched — it does not set them all to Text"
+
+
 if __name__ == '__main__':
     unittest.main()

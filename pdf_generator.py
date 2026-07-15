@@ -506,7 +506,7 @@ class TemplateNameDialog(tk.Toplevel):
 
         ttk.Button(
             button_frame,
-            text="Analyze & Save",
+            text="Analyze",
             command=self.on_save,
             bootstyle='primary',
         ).pack(side=tk.RIGHT)
@@ -736,7 +736,7 @@ class FieldTypeAuditDialog(tk.Toplevel):
         btn_frame = tk.Frame(self, bg=C['bg_elevated'], autostyle=False)
         btn_frame.pack(pady=15, fill=tk.X, padx=30)
 
-        ttk.Button(btn_frame, text="Skip (all Text)",
+        ttk.Button(btn_frame, text="Skip — keep current types",
                    command=self.on_skip).pack(side=tk.LEFT)
         ttk.Button(btn_frame, text="Apply",
                    command=self.on_apply,
@@ -849,8 +849,15 @@ class BulkPDFGenerator:
         self._build_info = _get_build_info()   # (commit, date, version) — cached once
         _commit, _date, _version_tag = self._build_info
         self.root.title(f"Bulk PDF Generator {_version_tag}")
-        self.root.geometry("1000x800")
-        self.root.minsize(900, 700)
+        # Clamp to the actual screen — a 1366x768 school laptop cannot show an
+        # 800px-tall window plus chrome, and the Generate button ends up below
+        # the bottom edge.
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+        win_w = min(1000, screen_w - 40)
+        win_h = min(800, screen_h - 120)
+        self.root.geometry(f"{win_w}x{win_h}")
+        self.root.minsize(min(900, win_w), min(700, win_h))
 
         # Icon references — must live on self to prevent garbage collection
         self._icon_refs = {}
@@ -2988,7 +2995,7 @@ class BulkPDFGenerator:
 
         ttk.Button(template_frame, text="Change Template", command=self.change_template_tab3).pack(side=tk.LEFT, padx=(0, 8))
 
-        self.matching_status_label = ttk.Label(template_frame, text="Auto-matching enabled", style='Success.TLabel')
+        self.matching_status_label = ttk.Label(template_frame, text="Columns are matched to PDF fields automatically — check Tab 2 to adjust.", style='Success.TLabel')
         self.matching_status_label.pack(side=tk.LEFT, padx=10)
 
         # File Selection section
