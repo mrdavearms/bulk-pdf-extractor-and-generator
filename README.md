@@ -481,7 +481,7 @@ Date fields in spreadsheets are notoriously inconsistent. Excel can store dates 
 
 **Smart defaults:** Fields with "date", "dob", or "birth" in their name are automatically suggested as Date type during the field audit. You can accept or override these suggestions.
 
-**Serial number range:** Only Excel serials from 1 to 2,958,465 (covering dates 1900-01-01 through 9999-12-31) are converted. Values outside this range fall through to plain text conversion to avoid misinterpreting regular numbers as dates.
+**Serial number range:** Only Excel serials from 10,000 to 2,958,465 (covering dates 18/05/1927 through 31/12/9999) are converted. Smaller numbers pass through as plain text, so a day, month or year typed into a Date field (for example the separate day / month / year boxes on the VCAA form) is never mistaken for a 1900s date.
 
 > [!IMPORTANT]
 > **Set the field to Date in the audit dialog.** The date conversion only applies to fields explicitly marked as Date type. If you're seeing raw numbers or ISO strings in your output PDFs, open the audit dialog (Tab 1 → Analyse Fields → audit dialog) and change the field's data type to **Date (DD/MM/YYYY)**.

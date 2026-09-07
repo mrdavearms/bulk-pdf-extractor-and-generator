@@ -214,10 +214,15 @@ CRYPTIC_FIELD_RE = re.compile(r'^(Text|Field|Box|Untitled)\d+$', re.IGNORECASE)
 class ScrollableFrame(ttk.Frame):
     """A helper class to create a scrollable frame with dark-themed canvas.
 
-    Mousewheel scrolling is scoped: only the frame under the cursor
-    scrolls, and the delta calculation is platform-aware (Windows,
-    macOS, Linux all behave differently).
+    The content follows the visible width (never narrower than it needs),
+    so rows packed with fill=X really fill the window. Mousewheel scrolling
+    is dispatched by pointer position — one interpreter-wide binding finds
+    the ScrollableFrame under the pointer — so it works over labels, buttons
+    and entries, not only over bare background. The delta calculation is
+    platform-aware (Windows, macOS, Linux all behave differently).
     """
+
+    _wheel_installed: set = set()   # ids of Tk interpreters with the binding
 
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
@@ -236,17 +241,22 @@ class ScrollableFrame(ttk.Frame):
         self._config_pending = False
         self.scrollable_frame.bind("<Configure>", self._on_configure)
 
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self._window_id = self.canvas.create_window(
+            (0, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        # Without this the content sat at its natural width and Tab 3's
+        # Browse buttons were pushed off the right edge of a 1000px window
+        # with no horizontal scrollbar to reach them.
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
 
         self.canvas.pack(side="left", fill="both", expand=True)
         self.scrollbar.pack(side="right", fill="y")
 
-        # Scoped mousewheel: only bind when cursor is over this frame
-        self.canvas.bind("<Enter>", self._bind_mousewheel)
-        self.canvas.bind("<Leave>", self._unbind_mousewheel)
-        self.scrollable_frame.bind("<Enter>", self._bind_mousewheel)
-        self.scrollable_frame.bind("<Leave>", self._unbind_mousewheel)
+        # Binding the wheel on the canvas alone only worked while the pointer
+        # sat on bare background — over a label, button, entry or table the
+        # page did not move (Tk delivers the wheel to the widget under the
+        # pointer on macOS, to the focused widget on Windows).
+        self._install_wheel_dispatcher()
 
     def _on_configure(self, event):
         """Debounced configure handler — coalesces multiple events."""
@@ -258,22 +268,53 @@ class ScrollableFrame(ttk.Frame):
         """Single scrollregion update after all configure events settle."""
         self._config_pending = False
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        self._fit_content_width()   # content may have grown or shrunk
 
-    def _bind_mousewheel(self, event=None):
-        """Bind mousewheel events to this specific canvas (not bind_all)."""
-        if sys.platform == 'linux':
-            self.canvas.bind("<Button-4>", self._on_mousewheel)
-            self.canvas.bind("<Button-5>", self._on_mousewheel)
-        else:
-            self.canvas.bind("<MouseWheel>", self._on_mousewheel)
+    def _on_canvas_configure(self, event):
+        self._fit_content_width(event.width)
 
-    def _unbind_mousewheel(self, event=None):
-        """Unbind mousewheel events when cursor leaves."""
+    def _fit_content_width(self, canvas_width=None):
+        """Stretch the content to the canvas width, never narrower than it needs."""
+        if canvas_width is None:
+            canvas_width = self.canvas.winfo_width()
+        if canvas_width <= 1:
+            return   # canvas not realised yet
+        width = max(canvas_width, self.scrollable_frame.winfo_reqwidth())
+        self.canvas.itemconfigure(self._window_id, width=width)
+
+    def _install_wheel_dispatcher(self):
+        """One wheel binding per Tk interpreter, shared by every ScrollableFrame."""
+        key = id(self.tk)
+        if key in ScrollableFrame._wheel_installed:
+            return
+        ScrollableFrame._wheel_installed.add(key)
         if sys.platform == 'linux':
-            self.canvas.unbind("<Button-4>")
-            self.canvas.unbind("<Button-5>")
+            self.bind_all("<Button-4>", ScrollableFrame._dispatch_mousewheel, add='+')
+            self.bind_all("<Button-5>", ScrollableFrame._dispatch_mousewheel, add='+')
         else:
-            self.canvas.unbind("<MouseWheel>")
+            self.bind_all("<MouseWheel>", ScrollableFrame._dispatch_mousewheel, add='+')
+
+    @staticmethod
+    def _dispatch_mousewheel(event):
+        """Scroll the ScrollableFrame under the pointer, if there is one.
+
+        Walks up from the widget under the pointer (not event.widget — on
+        Windows that is the focused widget). Stops at anything that scrolls
+        its own content (tables, text boxes, canvases with their own wheel
+        binding, e.g. the visual preview) so the page does not move under it.
+        """
+        try:
+            w = event.widget.winfo_containing(event.x_root, event.y_root)
+        except (tk.TclError, AttributeError):
+            return
+        while w is not None:
+            if isinstance(w, ScrollableFrame):
+                w._on_mousewheel(event)
+                return
+            if (w.winfo_class() in ('Treeview', 'Text', 'Listbox')
+                    or w.bind("<MouseWheel>") or w.bind("<Button-4>")):
+                return
+            w = w.master
 
     def _on_mousewheel(self, event):
         """Scroll the canvas. Delta handling is platform-aware."""
@@ -541,6 +582,13 @@ class TemplateNameDialog(tk.Toplevel):
 # Date-hint keywords used to auto-detect date fields
 _DATE_KEYWORDS = {'date', 'dob', 'birth', 'born', 'expiry', 'issued', 'due'}
 
+# Smallest number treated as an Excel date serial. 10000 is 18/05/1927 — no
+# date a school types is earlier — while the plain numbers a teacher puts in
+# a Date-typed box (a day of 21, a month of 4, a year of 2008) all sit below
+# it and must pass through untouched.
+MIN_EXCEL_DATE_SERIAL = 10000
+MAX_EXCEL_DATE_SERIAL = 2958465   # 31/12/9999
+
 
 def _guess_data_type(field_name: str) -> str:
     """Guess a field's data type from its name. Returns 'text', 'number', or 'date'.
@@ -552,7 +600,22 @@ def _guess_data_type(field_name: str) -> str:
     """
     lower = field_name.lower().replace('_', ' ')
     pattern = r'\b(?:' + '|'.join(sorted(_DATE_KEYWORDS)) + r')'
-    return 'date' if re.search(pattern, lower) else 'text'
+    if not re.search(pattern, lower):
+        return 'text'
+    # A field holding ONE PART of a date ("day of birth", "DOB month",
+    # "dob year" on the VCAA form) is a plain number. Typing it as a Date
+    # ran 21 / 4 / 2008 through the Excel-serial converter and wrote
+    # 20 / 03 / 30/0 into the birth-date boxes.
+    if re.search(r'\b(?:day|month|year)\b', lower):
+        return 'text'
+    return 'date'
+
+
+def _same_path(a, b) -> bool:
+    """True when two path strings name the same file (case/separator tolerant)."""
+    if not a or not b:
+        return False
+    return os.path.normcase(os.path.abspath(a)) == os.path.normcase(os.path.abspath(b))
 
 
 def _field_type_detail(field) -> str:
@@ -1129,14 +1192,16 @@ class BulkPDFGenerator:
         self.tab0_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.tab0_frame, text="  Getting Started  ")
 
-        # Tabs 1-3 use ScrollableFrame
-        self.tab1_container = ScrollableFrame(self.notebook)
+        # Tabs 1-3 use ScrollableFrame. Tabs 1 and 3 sit in a page with an
+        # action bar pinned to the bottom, so Save Template / Generate are
+        # always on screen instead of 400px+ down a scrolling page.
+        self.tab1_page, self.tab1_container, self.tab1_actions = self._make_page_with_action_bar()
         self.tab2_container = ScrollableFrame(self.notebook)
-        self.tab3_container = ScrollableFrame(self.notebook)
+        self.tab3_page, self.tab3_container, self.tab3_actions = self._make_page_with_action_bar()
 
-        self.notebook.add(self.tab1_container, text="  1  Analyze Template  ")
+        self.notebook.add(self.tab1_page, text="  1  Analyze Template  ")
         self.notebook.add(self.tab2_container, text="  2  Map Fields  ")
-        self.notebook.add(self.tab3_container, text="  3  Generate PDFs  ")
+        self.notebook.add(self.tab3_page, text="  3  Generate PDFs  ")
 
         # About tab (plain frame, right-hand side)
         self.tab_about_frame = ttk.Frame(self.notebook)
@@ -1184,6 +1249,17 @@ class BulkPDFGenerator:
         self.notebook.tab(2, state='disabled')
 
     # ========== UI HELPERS ==========
+
+    def _make_page_with_action_bar(self):
+        """A notebook page: scrollable body on top, fixed action bar below."""
+        page = tk.Frame(self.notebook, bg=COLORS['bg_base'])
+        bar = tk.Frame(page, bg=COLORS['bg_base'],
+                       padx=SPACING['page_padding'], pady=8)
+        bar.pack(side=tk.BOTTOM, fill=tk.X)
+        ttk.Separator(page, orient='horizontal').pack(side=tk.BOTTOM, fill=tk.X)
+        body = ScrollableFrame(page)
+        body.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        return page, body, bar
 
     def create_section(self, parent, title, subtitle=None, expand=False):
         """Create a card-style section with title label and bordered content area.
@@ -1516,7 +1592,7 @@ class BulkPDFGenerator:
         pdf_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
         tk.Label(pdf_row, text="PDF Template:", width=18, anchor=tk.W,
                  font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
-        ttk.Entry(pdf_row, textvariable=self.pdf_template_path, width=50).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
+        ttk.Entry(pdf_row, textvariable=self.pdf_template_path, width=40).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
         ttk.Button(pdf_row, text="Browse...", command=self.select_pdf_tab1, width=10).pack(side=tk.LEFT)
 
         # Template name row
@@ -1525,7 +1601,7 @@ class BulkPDFGenerator:
         tk.Label(name_row, text="Template Name:", width=18, anchor=tk.W,
                  font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
         self.template_name_var = tk.StringVar()
-        ttk.Entry(name_row, textvariable=self.template_name_var, width=50).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
+        ttk.Entry(name_row, textvariable=self.template_name_var, width=40).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
 
         # Naming options
         naming_row = tk.Frame(load_inner, bg=COLORS['bg_surface'])
@@ -1540,7 +1616,7 @@ class BulkPDFGenerator:
         tk.Label(recent_row, text="Recent Templates:", width=18, anchor=tk.W,
                  font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
         self.recent_templates_var = tk.StringVar()
-        self.recent_templates_combo = ttk.Combobox(recent_row, textvariable=self.recent_templates_var, state="readonly", width=47)
+        self.recent_templates_combo = ttk.Combobox(recent_row, textvariable=self.recent_templates_var, state="readonly", width=37)
         self.recent_templates_combo.pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
         ttk.Button(recent_row, text="Load", command=self.load_recent_template, width=10).pack(side=tk.LEFT)
 
@@ -1655,9 +1731,9 @@ class BulkPDFGenerator:
         self.preview_generator = None
         self._preview_renderer: Optional[PreviewRenderer] = None
 
-        # Action buttons row
-        action_frame = tk.Frame(container, bg=COLORS['bg_base'])
-        action_frame.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
+        # Action buttons row — pinned below the scrolling body
+        action_frame = tk.Frame(self.tab1_actions, bg=COLORS['bg_base'])
+        action_frame.pack(fill=tk.X)
 
         ttk.Button(action_frame, text="Export Mapping File (.xlsx)", command=self.export_mapping_file).pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(action_frame, text="Save Template Config", command=self.save_template_config, bootstyle='primary').pack(side=tk.LEFT, padx=(0, 8))
@@ -1710,16 +1786,32 @@ class BulkPDFGenerator:
     def load_template_config(self, filepath: str):
         """Load template configuration."""
         try:
-            self.current_template = TemplateConfig.from_file(filepath)
+            template = TemplateConfig.from_file(filepath)
+            pdf_path = template.pdf_path
+            if not pdf_path or not os.path.exists(pdf_path):
+                # Used to fall through to "Template Loaded" and jump to the
+                # Generate tab with nothing analysed.
+                self.update_status(
+                    f"Template '{template.template_name}': its PDF was not found", 'error')
+                messagebox.showerror(
+                    "PDF Not Found",
+                    f"The template '{template.template_name}' points to a PDF that "
+                    f"no longer exists:\n\n{pdf_path}\n\n"
+                    "It may have been moved or renamed. Browse to the PDF on Tab 1 "
+                    "and click Analyze Fields to re-create the template.",
+                )
+                return
+            self.current_template = template
             self.pdf_template_path.set(self.current_template.pdf_path)
             self.template_name_var.set(self.current_template.template_name)
 
-            # If analyzed_fields is empty, silently re-analyze the PDF so that
-            # data types, mappings, and combed logic are all functional.
-            pdf_path = self.current_template.pdf_path
-            if not self.analyzed_fields and pdf_path and os.path.exists(pdf_path):
+            # Silently re-analyze the PDF unless the fields on screen already
+            # describe THIS PDF — otherwise the template's overrides land on
+            # whatever PDF was analysed last.
+            if not self.analyzed_fields or not _same_path(self._analyzed_pdf_path, pdf_path):
                 with PDFAnalyzer(pdf_path) as analyzer:
                     self.analyzed_fields = analyzer.analyze_fields()
+                self._analyzed_pdf_path = pdf_path
 
                 # Restore field type overrides from the template
                 if self.current_template.field_type_overrides:
@@ -1805,6 +1897,12 @@ class BulkPDFGenerator:
         if not pdf_path or not os.path.exists(pdf_path):
             messagebox.showerror("Error", "Please select a valid PDF template file.")
             return
+
+        # A template only ever describes the PDF it was saved from. Drop it
+        # when a different PDF is analysed, or its combed lengths, data types
+        # and column mappings get applied to any matching names in the new form.
+        if self.current_template and not _same_path(self.current_template.pdf_path, pdf_path):
+            self.current_template = None
 
         try:
             # Get template name (show dialog if custom)
@@ -2984,7 +3082,7 @@ class BulkPDFGenerator:
 
         # Template selection bar
         template_frame = tk.Frame(container, bg=COLORS['bg_base'])
-        template_frame.pack(fill=tk.X, pady=(0, SPACING['section_gap']))
+        template_frame.pack(fill=tk.X, pady=(0, 6))
 
         tk.Label(template_frame, text="Template:", font=font(10),
                  fg=COLORS['text_secondary'], bg=COLORS['bg_base']).pack(side=tk.LEFT, padx=(0, 10))
@@ -2995,8 +3093,9 @@ class BulkPDFGenerator:
 
         ttk.Button(template_frame, text="Change Template", command=self.change_template_tab3).pack(side=tk.LEFT, padx=(0, 8))
 
-        self.matching_status_label = ttk.Label(template_frame, text="Columns are matched to PDF fields automatically — check Tab 2 to adjust.", style='Success.TLabel')
-        self.matching_status_label.pack(side=tk.LEFT, padx=10)
+        # Own row: on the template row it widened the page past a 1000px window.
+        self.matching_status_label = ttk.Label(container, text="Columns are matched to PDF fields automatically — check Tab 2 to adjust.", style='Success.TLabel')
+        self.matching_status_label.pack(anchor=tk.W, pady=(0, SPACING['section_gap']))
 
         # File Selection section
         file_inner = self.create_section(container, "Select Files")
@@ -3006,7 +3105,7 @@ class BulkPDFGenerator:
         pdf_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
         tk.Label(pdf_row, text="PDF Template:", width=18, anchor=tk.W,
                  font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
-        ttk.Entry(pdf_row, textvariable=self.pdf_template_path, width=50).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
+        ttk.Entry(pdf_row, textvariable=self.pdf_template_path, width=40).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
         ttk.Button(pdf_row, text="Browse...", command=self.select_pdf_tab3, width=10).pack(side=tk.LEFT)
 
         # Excel file selection
@@ -3014,7 +3113,7 @@ class BulkPDFGenerator:
         excel_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
         tk.Label(excel_row, text="Excel Data File:", width=18, anchor=tk.W,
                  font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
-        ttk.Entry(excel_row, textvariable=self.excel_file_path, width=50).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
+        ttk.Entry(excel_row, textvariable=self.excel_file_path, width=40).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
         ttk.Button(excel_row, text="Browse...", command=self.select_excel_tab3, width=10).pack(side=tk.LEFT)
 
         # Output folder selection
@@ -3022,7 +3121,7 @@ class BulkPDFGenerator:
         output_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
         tk.Label(output_row, text="Output Folder:", width=18, anchor=tk.W,
                  font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
-        ttk.Entry(output_row, textvariable=self.output_dir_path, width=50).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
+        ttk.Entry(output_row, textvariable=self.output_dir_path, width=40).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
         ttk.Button(output_row, text="Browse...", command=self.select_output_dir_tab3, width=10).pack(side=tk.LEFT)
         tk.Label(output_row, text="(optional)", font=font(9),
                  fg=COLORS['text_tertiary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT, padx=(6, 0))
@@ -3082,9 +3181,10 @@ class BulkPDFGenerator:
         self.summary_label_tab3 = ttk.Label(container, text="No data loaded", style='Secondary.TLabel')
         self.summary_label_tab3.pack(pady=(8, 4))
 
-        # Progress Frame
-        progress_frame = tk.Frame(container, bg=COLORS['bg_base'])
-        progress_frame.pack(fill=tk.X, pady=(0, SPACING['section_gap']))
+        # Progress, results and the Generate button are pinned below the
+        # scrolling body so they are always on screen.
+        progress_frame = tk.Frame(self.tab3_actions, bg=COLORS['bg_base'])
+        progress_frame.pack(fill=tk.X, pady=(0, 4))
 
         self.progress_var_tab3 = tk.DoubleVar()
         self.progress_bar_tab3 = ttk.Progressbar(progress_frame, variable=self.progress_var_tab3, maximum=100)
@@ -3097,7 +3197,7 @@ class BulkPDFGenerator:
         # Deliberately NOT a messagebox: on macOS a modal can open behind the
         # main window — invisible but blocking — and this fires right after a
         # long batch. It also gives teachers a record that survives a click.
-        self.results_frame_tab3 = tk.Frame(container, bg=COLORS['bg_surface'])
+        self.results_frame_tab3 = tk.Frame(self.tab3_actions, bg=COLORS['bg_surface'])
 
         results_inner = tk.Frame(self.results_frame_tab3, bg=COLORS['bg_surface'],
                                  padx=14, pady=12)
@@ -3110,8 +3210,11 @@ class BulkPDFGenerator:
         )
         self.results_summary_tab3.pack(fill=tk.X)
 
+        # 4 lines (was 6): the panel now lives in the pinned bar, so its
+        # height comes straight off the scrolling body on a 768px laptop.
+        # Longer lists scroll inside the box.
         self.results_detail_tab3 = tk.Text(
-            results_inner, height=6, wrap=tk.WORD, state=tk.DISABLED,
+            results_inner, height=4, wrap=tk.WORD, state=tk.DISABLED,
             bg=COLORS['bg_input'], fg=COLORS['text_primary'],
             relief='flat', borderwidth=0, padx=10, pady=8,
             font=font(10), autostyle=False,
@@ -3128,14 +3231,14 @@ class BulkPDFGenerator:
 
         # Generate Button (large CTA)
         self.generate_btn_tab3 = ttk.Button(
-            container,
+            self.tab3_actions,
             text="Generate PDFs for Selected Records",
             command=self.start_generation_tab3,
             state=tk.DISABLED,
             bootstyle='primary',
             padding=(32, 14),
         )
-        self.generate_btn_tab3.pack(pady=SPACING['section_gap'])
+        self.generate_btn_tab3.pack(pady=(4, 0))
 
     def _get_preview_fields(self) -> list:
         """Return the list of PDFField objects to use as dynamic preview columns.
@@ -3356,7 +3459,10 @@ class BulkPDFGenerator:
                 try:
                     self.df = pd.read_csv(excel_path, dtype=str, encoding='utf-8-sig')
                 except UnicodeDecodeError:
-                    self.df = pd.read_csv(excel_path, dtype=str, encoding='latin-1')
+                    # Excel on Windows writes cp1252. latin-1 never fails to
+                    # decode, but turns curly quotes (O’Brien) and dashes into
+                    # control characters that reach the PDF and the filename.
+                    self.df = pd.read_csv(excel_path, dtype=str, encoding='cp1252')
             else:
                 with pd.ExcelFile(excel_path) as xl:
                     sheet_names = xl.sheet_names
@@ -3375,8 +3481,12 @@ class BulkPDFGenerator:
             # re-read the raw header row to see what the teacher actually typed.
             try:
                 if excel_path.lower().endswith('.csv'):
-                    raw_header = pd.read_csv(excel_path, dtype=str, header=None,
-                                             nrows=1, encoding='utf-8-sig')
+                    try:
+                        raw_header = pd.read_csv(excel_path, dtype=str, header=None,
+                                                 nrows=1, encoding='utf-8-sig')
+                    except UnicodeDecodeError:
+                        raw_header = pd.read_csv(excel_path, dtype=str, header=None,
+                                                 nrows=1, encoding='cp1252')
                 else:
                     raw_header = pd.read_excel(excel_path, sheet_name=chosen_sheet,
                                                dtype=str, header=None, nrows=1)
@@ -3782,8 +3892,13 @@ class BulkPDFGenerator:
             'combed_padding': self.settings.combed_field_padding,
             'combed_align': self.settings.combed_field_align,
             'output_dir': self.output_dir_path.get().strip() or '',
-            'template_name': (self.current_template.template_name
-                              if self.current_template else 'Form'),
+            # The name on Tab 1 is set by analysis and by template load. Using
+            # current_template alone called every file "…_Form …" until the
+            # teacher happened to save a template.
+            'template_name': (self.template_name_var.get().strip()
+                              or (self.current_template.template_name
+                                  if self.current_template else '')
+                              or 'Form'),
         }
 
         # Reset progress bar and disable button
@@ -4078,7 +4193,7 @@ class BulkPDFGenerator:
             # (e.g. "45000" or "45000.0" instead of a formatted date)
             try:
                 serial = int(float(val.strip()))
-                if 1 <= serial <= 2958465:
+                if MIN_EXCEL_DATE_SERIAL <= serial <= MAX_EXCEL_DATE_SERIAL:
                     from datetime import timedelta
                     excel_epoch = datetime(1899, 12, 30)
                     date_obj = excel_epoch + timedelta(days=serial)
@@ -4089,8 +4204,8 @@ class BulkPDFGenerator:
         # Date type: convert Excel serial numbers to DD/MM/YYYY
         if data_type == "date" and isinstance(val, (int, float)):
             serial = int(val)
-            # Valid Excel date serials: 1 (1900-01-01) to 2958465 (9999-12-31)
-            if 1 <= serial <= 2958465:
+            # Realistic Excel date serials only (see MIN_EXCEL_DATE_SERIAL)
+            if MIN_EXCEL_DATE_SERIAL <= serial <= MAX_EXCEL_DATE_SERIAL:
                 try:
                     from datetime import timedelta
                     # Excel epoch is 1899-12-30 (accounts for the 1900 leap-year bug)

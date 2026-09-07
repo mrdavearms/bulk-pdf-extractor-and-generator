@@ -136,7 +136,7 @@ Fields can be typed as `text`, `number`, or `date`:
 
 The audit dialog appears after PDF analysis with smart defaults (fields containing "date", "dob", "birth" → Date). Types are persisted in the template config JSON and restored on reload. Explicit user choices (including reverting a smart-guessed Date back to Text) are preserved.
 
-Excel serial date range validation: only serials 1–2958465 are converted (1900-01-01 to 9999-12-31). Invalid values fall through to string conversion.
+Excel serial date range validation: only serials 10000–2958465 are converted (1927-05-18 to 9999-12-31; `MIN_EXCEL_DATE_SERIAL`). Smaller numbers pass through as text so a day/month/year typed into a Date-typed box (the VCAA form's split DOB boxes) is never turned into a 1900s date. `_guess_data_type()` also never marks a split date part (name contains day/month/year) as Date.
 
 ## Dev Environment
 
