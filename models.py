@@ -156,8 +156,6 @@ class TemplateConfig:
 class AppSettings:
     """Application settings."""
     templates_directory: str
-    auto_load_last_template: bool = True
-    last_template: Optional[str] = None
     combed_field_padding: bool = False
     combed_field_align: str = "left"  # "left" or "right"
     school_name: str = ""

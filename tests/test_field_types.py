@@ -90,6 +90,11 @@ def test_choice_empty_options_returns_raw_unmatched():
 
 
 def _generate(pdf_path, out_path, fields, row_values):
+    # Generation fills only mapped fields; mirror what _auto_map_fields()
+    # does when a spreadsheet loads (by-name match for anything unmapped).
+    for f in fields:
+        if f.excel_column is None:
+            f.excel_column = f.field_name
     ctx = {
         "analyzed_fields": fields,
         "combed_padding": False,

@@ -5,6 +5,7 @@ no display — see CLAUDE.md); value handling is tested directly.
 """
 import inspect
 import os
+import re
 import unittest
 
 
@@ -169,6 +170,97 @@ class TestPrimaryActionsArePinned(unittest.TestCase):
         from pdf_generator import BulkPDFGenerator
         source = inspect.getsource(BulkPDFGenerator.setup_tab1_analyze)
         self.assertIn("action_frame = tk.Frame(self.tab1_actions", source)
+
+
+# ── "smaller things" from the same audit ─────────────────────────────────────
+
+def _generate_headless(pdf_path, out_path, fields, row_values):
+    import pandas as pd
+    from pypdf import PdfReader
+    from pdf_generator import BulkPDFGenerator
+    ctx = {"analyzed_fields": fields, "combed_padding": False, "combed_align": "left",
+           "pdf_fields": [f.field_name for f in fields], "_reader": PdfReader(pdf_path)}
+    app = BulkPDFGenerator.__new__(BulkPDFGenerator)
+    try:
+        return app._generate_single_pdf(ctx, pd.Series(row_values), out_path)
+    finally:
+        ctx["_reader"].close()
+
+
+class TestUnmappedFieldsAreLeftBlank(unittest.TestCase):
+    """'-- not mapped --' and Clear All Mappings used to be cosmetic: generation
+    fell back to matching by field name and filled the field anyway."""
+
+    def _fields(self, tmp):
+        from tests._form_fixture import build_mixed_form
+        from pdf_analyzer import PDFAnalyzer
+        pdf = os.path.join(tmp, "form.pdf")
+        build_mixed_form(pdf)
+        with PDFAnalyzer(pdf) as az:
+            return pdf, az.analyze_fields()
+
+    def test_cleared_mapping_is_not_filled_even_when_the_column_name_matches(self):
+        import tempfile, fitz
+        with tempfile.TemporaryDirectory() as tmp:
+            pdf, fields = self._fields(tmp)
+            for f in fields:
+                f.excel_column = None if f.field_name == "Student_Name" else f.field_name
+            out = os.path.join(tmp, "out.pdf")
+            _generate_headless(pdf, out, fields, {"Student_Name": "Jane", "State": "NSW",
+                                                  "Subject": "English", "Approved": "X"})
+            doc = fitz.open(out)
+            vals = {w.field_name: w.field_value for w in doc[0].widgets()}
+            doc.close()
+            self.assertIn(vals["Student_Name"], ("", None))
+            self.assertEqual(vals["State"], "NSW")
+
+    def test_a_pdf_nothing_reached_is_reported(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            pdf, fields = self._fields(tmp)
+            for f in fields:
+                f.excel_column = None
+            warns = _generate_headless(pdf, os.path.join(tmp, "out.pdf"), fields,
+                                       {"Student_Name": "Jane"})
+            self.assertTrue(any("blank" in w for w in warns), warns)
+
+    def test_no_by_name_fallback_remains_in_generation(self):
+        from pdf_generator import BulkPDFGenerator
+        for meth in (BulkPDFGenerator._generate_single_pdf, BulkPDFGenerator.run_generation_tab3,
+                     BulkPDFGenerator.validate_data_tab3, BulkPDFGenerator.show_preview_tab3):
+            self.assertIsNone(re.search(r"excel_column or \w+\.field_name", inspect.getsource(meth)),
+                              meth.__name__)
+
+    def test_auto_map_runs_before_validation_on_load(self):
+        from pdf_generator import BulkPDFGenerator
+        source = inspect.getsource(BulkPDFGenerator.load_data_tab3)
+        self.assertLess(source.index("self._auto_map_fields()"),
+                        source.index("self.validate_data_tab3()"))
+        self.assertIn("self._auto_map_fields()",
+                      inspect.getsource(BulkPDFGenerator.load_template_config))
+
+
+class TestBlankIdentifiersAreReported(unittest.TestCase):
+    """A row with no surname/first name generated 'cleanly' as Row_1.pdf."""
+
+    def test_generation_flags_rows_with_blank_critical_fields(self):
+        from pdf_generator import BulkPDFGenerator
+        source = inspect.getsource(BulkPDFGenerator.run_generation_tab3)
+        self.assertIn("blank_critical", source)
+        self.assertIn("no value for", source)
+
+
+class TestDeadSettingsRemoved(unittest.TestCase):
+    def test_unused_keys_are_gone_but_old_files_still_load(self):
+        import dataclasses
+        from models import AppSettings
+        names = {f.name for f in dataclasses.fields(AppSettings)}
+        self.assertNotIn("auto_load_last_template", names)
+        self.assertNotIn("last_template", names)
+        old = ('{"templates_directory": "/x", "auto_load_last_template": true, '
+               '"last_template": null, "school_name": "WHS"}')
+        s = AppSettings.from_json(old)
+        self.assertEqual(s.school_name, "WHS")
 
 
 if __name__ == "__main__":

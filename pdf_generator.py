@@ -1856,6 +1856,9 @@ class BulkPDFGenerator:
                     if field.field_name in saved_cols:
                         field.excel_column = saved_cols[field.field_name]
                         has_saved_mappings = True
+            # Unmapped fields are left blank at generation, so give any the
+            # template didn't cover a by-name match (no-op without a spreadsheet).
+            self._auto_map_fields()
 
             # Restore critical-field flags from saved template
             saved_critical = set(self.current_template.critical_fields or [])
@@ -3502,6 +3505,12 @@ class BulkPDFGenerator:
             # Clear previous selections
             self.selected_rows = {}
 
+            # Fill in any fields that have no mapping yet. Explicit mappings
+            # (set in Tab 2, or restored from a template) are left alone.
+            # Must run before validation/preview: an unmapped field is left
+            # blank at generation, so the checks below only see mapped ones.
+            self._auto_map_fields()
+
             # Rebuild treeview with dynamic columns based on critical/mapped fields
             self._rebuild_preview_treeview()
 
@@ -3515,9 +3524,6 @@ class BulkPDFGenerator:
             # Enable generate button
             self.generate_btn_tab3.config(state=tk.NORMAL)
 
-            # Fill in any fields that have no mapping yet. Explicit mappings
-            # (set in Tab 2, or restored from a template) are left alone.
-            self._auto_map_fields()
             self._refresh_tab2_mappings()
 
         except Exception as e:
@@ -3585,9 +3591,11 @@ class BulkPDFGenerator:
         """Validate data for Tab 3."""
         warnings = []
 
-        # Build critical-field lookup: {display_name: excel_column_key}
+        # Build critical-field lookup: {display_name: excel_column or None}.
+        # An unmapped critical field is left blank at generation, so it counts
+        # as missing in every row.
         critical_names = {
-            f.field_name: (f.excel_column or f.field_name)
+            f.field_name: f.excel_column
             for f in self.analyzed_fields if f.is_critical
         }
 
@@ -3599,16 +3607,15 @@ class BulkPDFGenerator:
             row_dict = {str(col).lower(): val for col, val in row.items()}
 
             for display_name, col_name in critical_names.items():
-                val = row_dict.get(col_name.lower(), '')
+                val = row_dict.get(col_name.lower(), '') if col_name else ''
                 if pd.isna(val) or str(val).strip() == '' or str(val).lower() == 'nan':
                     row_warnings.append(display_name)
 
             if row_warnings:
                 # Use the first dynamic preview column value as row identifier
                 row_label = f'Row {idx+1}'
-                if self._preview_columns:
-                    first_col = (self._preview_columns[0].excel_column or
-                                 self._preview_columns[0].field_name).lower()
+                if self._preview_columns and self._preview_columns[0].excel_column:
+                    first_col = self._preview_columns[0].excel_column.lower()
                     first_val = row_dict.get(first_col, '')
                     if first_val and not pd.isna(first_val) and str(first_val).strip():
                         row_label = str(first_val).strip()
@@ -3629,22 +3636,23 @@ class BulkPDFGenerator:
             self.validation_text_tab3.insert(1.0, "All records have required fields populated.")
             self.validation_text_tab3.config(fg=COLORS['success'])
 
-        # Warn about PDF fields that have no explicit mapping and won't auto-match any Excel column
+        # Warn about PDF fields that have no mapping — they are left blank.
+        # (Auto-Map has already run by this point, so anything still unmapped
+        # matched no column by name, or was cleared on purpose in Tab 2.)
         if self.analyzed_fields and self.df is not None:
-            col_names_lower = {str(col).lower() for col in self.df.columns}
             silent_blanks = [
                 f for f in self.analyzed_fields
                 if f.excel_column is None
-                and f.field_name.lower() not in col_names_lower
+                and f.field_type not in ('Signature', 'Button')
             ]
             if silent_blanks:
                 names = ", ".join(f.field_name for f in silent_blanks[:5])
                 if len(silent_blanks) > 5:
                     names += f" (+{len(silent_blanks) - 5} more)"
                 mapping_note = (
-                    f"\n\n⚠ {len(silent_blanks)} field(s) have no mapping and won't "
-                    f"auto-match — they will be blank:\n{names}\n"
-                    f"Go to Tab 2 to set explicit mappings."
+                    f"\n\n⚠ {len(silent_blanks)} field(s) have no mapping and "
+                    f"will be left blank:\n{names}\n"
+                    f"Go to Tab 2 to map them."
                 )
                 self.validation_text_tab3.config(state=tk.NORMAL)
                 self.validation_text_tab3.insert(tk.END, mapping_note)
@@ -3729,7 +3737,7 @@ class BulkPDFGenerator:
         critical_names = {}
         for f in self.analyzed_fields:
             if f.is_critical:
-                critical_names[f.field_name] = (f.excel_column or f.field_name)
+                critical_names[f.field_name] = f.excel_column   # None = unmapped = missing
 
         valid_count = 0
         warning_count = 0
@@ -3740,8 +3748,8 @@ class BulkPDFGenerator:
             # Build dynamic column values
             dyn_values = []
             for field in self._preview_columns:
-                col_key = (field.excel_column or field.field_name).lower()
-                raw = row_dict.get(col_key, '')
+                col_key = (field.excel_column or '').lower()
+                raw = row_dict.get(col_key, '') if col_key else ''
                 val = str(raw).strip() if not pd.isna(raw) else ''
                 if val.lower() == 'nan':
                     val = ''
@@ -3756,7 +3764,7 @@ class BulkPDFGenerator:
             # Check status using critical fields
             missing = []
             for display_name, col_name in critical_names.items():
-                val = row_dict.get(col_name.lower(), '')
+                val = row_dict.get(col_name.lower(), '') if col_name else ''
                 if pd.isna(val) or str(val).strip() == '' or str(val).strip().lower() == 'nan':
                     missing.append(display_name)
 
@@ -3960,11 +3968,15 @@ class BulkPDFGenerator:
                     row = ctx['df'].loc[idx]
                     row_dict = {str(col).lower(): val for col, val in row.items()}
                     name_parts = []
-                    for cf in critical[:3]:
-                        col_key = (cf.excel_column or cf.field_name).lower()
-                        val = str(row_dict.get(col_key, '')).strip()
+                    blank_critical = []   # identifiers this row has no value for
+                    for cf in critical:
+                        col_key = (cf.excel_column or '').lower()
+                        val = str(row_dict.get(col_key, '')).strip() if col_key else ''
                         if val and val.lower() != 'nan':
-                            name_parts.append(_safe(val))
+                            if len(name_parts) < 3:
+                                name_parts.append(_safe(val))
+                        else:
+                            blank_critical.append(cf.field_name)
                     if not name_parts:
                         name_parts = [f"Row_{idx+1}"]
 
@@ -3990,7 +4002,13 @@ class BulkPDFGenerator:
                         output_path = f"{base} ({counter}){ext}"
 
                     try:
-                        row_warnings = self._generate_single_pdf(ctx, row, output_path)
+                        row_warnings = list(self._generate_single_pdf(ctx, row, output_path) or [])
+                        if blank_critical:
+                            # Used to report "generated cleanly" for a row with
+                            # no name at all.
+                            row_warnings.append(
+                                f"no value for {', '.join(blank_critical)} — "
+                                f"check this file before sending it")
                         success_count += 1
                         status_text = f"Created: {filename}"
                         for w in (row_warnings or []):
@@ -4064,8 +4082,13 @@ class BulkPDFGenerator:
             row_raw_lower = {str(col).lower(): val for col, val in row_data.items()}
 
             for field in ctx['analyzed_fields']:
-                key = (field.excel_column or field.field_name).lower()
-                raw_val = row_raw_lower.get(key)
+                if not field.excel_column:
+                    # "-- not mapped --" / Clear All Mappings means leave it
+                    # blank. Auto-Map has already given every by-name match
+                    # an explicit mapping, so nothing is lost by not falling
+                    # back to the field name here.
+                    continue
+                raw_val = row_raw_lower.get(field.excel_column.lower())
                 if raw_val is None:
                     continue
 
@@ -4133,6 +4156,11 @@ class BulkPDFGenerator:
                     inferred_type = _guess_data_type(pdf_field)
                     val = self.format_value_tab3(row_dict_lower[pdf_field_lower], data_type=inferred_type)
                     field_values[pdf_field] = val
+
+        if not field_values and not button_values:
+            warnings_out.append(
+                "no spreadsheet data reached any field — the PDF is blank "
+                "(check the mappings on Tab 2)")
 
         # Split comb single-fields out of the text bucket (unchanged logic).
         comb_field_names = set()

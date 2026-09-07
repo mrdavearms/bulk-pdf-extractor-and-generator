@@ -343,7 +343,7 @@ Tab 2 unlocks after a successful analysis. It shows every PDF field alongside a 
 - **Status indicator** — shows how many fields are mapped (e.g. "34 of 36 fields mapped") and highlights individual fields with ✓ or –.
 - **Persistent** — mappings are saved with your template config and restored on next load.
 
-During generation, explicit mappings take priority. Any field without an explicit mapping falls back to auto-matching by field name — so existing templates work without any changes.
+During generation, only mapped fields are filled. When you load a spreadsheet, Auto-Map gives every field whose name matches a column an explicit mapping, so existing templates work without any changes — but a field you set to *-- not mapped --* (or cleared with Clear All Mappings) really is left blank, and the Generate results say so.
 
 > **When do I need this?** If your PDF field names don't match your Excel column headers exactly, fields will be blank without any error. Tab 2 is how you fix that — and Tab 3 will warn you if fields are at risk.
 
