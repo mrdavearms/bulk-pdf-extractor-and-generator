@@ -2,6 +2,19 @@
 
 All notable changes to Bulk PDF Generator are documented here.
 
+## [v2.15] — 2026-09-07
+
+- **Fixed: wrong dates of birth on the VCAA form** — The form's separate day, month and year boxes were treated as whole dates, so 21/4/2008 could come out as 20 / 03 / 30/0. Day, month and year now go in exactly as typed. Re-generate and check any VCAA forms made with an earlier version.
+- **Fixed: names with apostrophes from Windows spreadsheets** — A CSV saved from Excel on Windows turned O’Brien into "O?Brien" in the preview, the PDF and the file name.
+- **Fixed: settings from one form leaking onto another** — With a saved template loaded, analysing a different PDF quietly applied the old template's box lengths, date types and column matches to the new form.
+- **Fixed: file names said "Form" until a template was saved** — Generated PDFs are named after the form as soon as it has been analysed.
+- **Fixed: loading a template whose PDF has moved** — The app said "Template Loaded" and jumped to the Generate tab with nothing loaded. It now names the missing PDF and explains how to fix it.
+- **Browse buttons no longer hidden** — On the Generate tab they sat off the right edge of the window at the default size. Pages now fit the window width.
+- **Mouse-wheel scrolling works everywhere on a page** — It used to work only with the pointer over empty background, not over text, buttons or boxes.
+- **Main buttons stay on screen** — "Save Template Config" and "Generate PDFs" (with the progress bar and results) now sit in a bar at the bottom of their tabs instead of far down a scrolling page.
+- **Clearer results after generating** — A blank PDF, or a student with no surname or first name, is now listed under "values need a quick check" instead of being reported as generated cleanly.
+- **"-- not mapped --" really means blank** — A field set to not mapped (or cleared with "Clear All Mappings") is left empty in the PDF. Previously it was filled anyway whenever the field name matched a column.
+
 ## [v2.7.5] — 2026-03-20
 
 - **Fixed: macOS dialog input** — School name, template name, and sheet picker dialogs now accept keyboard input immediately on macOS Tahoe (26).
