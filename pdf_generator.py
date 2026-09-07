@@ -85,8 +85,50 @@ def _get_build_info() -> tuple:
     return ('dev', 'local build', 'dev')
 
 
+def _ssl_contexts():
+    """Yield SSL contexts to try, best-first for this platform.
+
+    Certificate trust is the most common reason an update check fails on a
+    school machine, and the two platforms fail in opposite directions:
+
+    * Windows — school networks inspect HTTPS traffic through a proxy that
+      presents its own certificate. That proxy's root certificate is installed
+      in the Windows certificate store, but is NOT in the bundled certifi file,
+      so pinning to certifi makes the check fail permanently on exactly the
+      machines the app is built for. The system store is tried first.
+    * macOS — a PyInstaller app has no OpenSSL certificate path to read, so the
+      system default finds nothing and certifi is the only bundle that works.
+
+    Yielding both, in the right order, means a machine that fails one way still
+    succeeds the other. The caller only retries on certificate errors.
+    """
+    import ssl
+    import certifi
+
+    def _system():
+        return ssl.create_default_context()
+
+    def _bundled():
+        return ssl.create_default_context(cafile=certifi.where())
+
+    order = (_system, _bundled) if sys.platform == 'win32' else (_bundled, _system)
+    for make_context in order:
+        try:
+            yield make_context()
+        except Exception:
+            continue  # unusable context — try the other source
+
+
 def check_for_update(current_version: str) -> dict:
-    """Query GitHub Releases API and compare to current_version.
+    """Ask GitHub for the latest release tag and compare to current_version.
+
+    Uses the public github.com/<repo>/releases/latest redirect rather than
+    api.github.com. The API allows only 60 unauthenticated requests per hour
+    PER IP ADDRESS, and a whole school shares one public IP — so on a busy
+    morning most staff would be refused and would silently never learn an
+    update exists. Some school web filters also block api.github.com while
+    allowing github.com. The redirect carries no such quota and answers on the
+    main domain; a HEAD request means no page body is downloaded.
 
     Args:
         current_version: Version string like 'v2.6'. Pass 'dev' to skip check.
@@ -99,11 +141,11 @@ def check_for_update(current_version: str) -> dict:
           'message'  — human-readable error text (present on 'error' only)
     """
     import ssl
+    import urllib.error
     import urllib.request
-    import certifi
 
-    RELEASES_API = (
-        'https://api.github.com/repos/'
+    RELEASES_LATEST = (
+        'https://github.com/'
         'mrdavearms/bulk-pdf-extractor-and-generator/releases/latest'
     )
 
@@ -118,30 +160,43 @@ def check_for_update(current_version: str) -> dict:
     if not current_version.startswith('v'):
         return {'status': 'up_to_date', 'latest': current_version, 'html_url': ''}
 
-    try:
-        ctx = ssl.create_default_context(cafile=certifi.where())
-        req = urllib.request.Request(
-            RELEASES_API,
-            headers={'User-Agent': 'BulkPDFGenerator-UpdateCheck/1.0'}
-        )
-        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
-            data = json.loads(resp.read())
+    last_error = 'update check did not run'
 
-        latest_tag = data.get('tag_name', '')
-        html_url = data.get('html_url', '')
-        is_newer = _parse_version(latest_tag) > _parse_version(current_version)
+    for ctx in _ssl_contexts():
+        try:
+            req = urllib.request.Request(
+                RELEASES_LATEST,
+                headers={'User-Agent': 'BulkPDFGenerator-UpdateCheck/1.0'},
+                method='HEAD',
+            )
+            # urlopen follows the 302, so resp.url is the resolved release page
+            # (…/releases/tag/v2.15). HEAD means the body is never transferred.
+            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                html_url = resp.url
 
-        return {
-            'status': 'update_available' if is_newer else 'up_to_date',
-            'latest': latest_tag,
-            'html_url': html_url,
-        }
+            latest_tag = html_url.rstrip('/').rsplit('/', 1)[-1]
+            if not latest_tag.startswith('v'):
+                # No releases published yet — GitHub serves the releases index
+                # instead of redirecting to a tag.
+                raise ValueError(f'no release tag in {html_url}')
 
-    except Exception as exc:
-        return {
-            'status': 'error',
-            'message': str(exc),
-        }
+            is_newer = _parse_version(latest_tag) > _parse_version(current_version)
+            return {
+                'status': 'update_available' if is_newer else 'up_to_date',
+                'latest': latest_tag,
+                'html_url': html_url,
+            }
+
+        except urllib.error.URLError as exc:
+            reason = getattr(exc, 'reason', None)
+            last_error = str(reason or exc)
+            if not isinstance(reason, ssl.SSLError):
+                break  # offline, blocked or timed out — another CA won't help
+        except Exception as exc:
+            last_error = str(exc)
+            break
+
+    return {'status': 'error', 'message': last_error}
 
 
 def _should_check_for_update(last_check_iso: str, today_iso: str) -> bool:
@@ -1520,8 +1575,12 @@ class BulkPDFGenerator:
     def _maybe_auto_check_update(self):
         """Once-per-day background update check, surfaced as an inline banner.
 
-        Skips source/dev runs (no installed version). Records the attempt date
-        BEFORE the network call so an offline launch doesn't retry every time.
+        Skips source/dev runs (no installed version). The date is recorded by
+        _show_startup_update_result, and only when the check actually reached
+        GitHub — a check that failed (offline at login, blocked, rate-limited)
+        must be retried on the next launch rather than using up the day's only
+        attempt and leaving the user silently un-notified for weeks. A repeat
+        within one launch is prevented by _update_check_started instead.
         The result is dispatched to _show_startup_update_result via root.after.
         Never shows a modal pop-up (macOS freeze rule).
         """
@@ -1530,14 +1589,12 @@ class BulkPDFGenerator:
         _commit, _date, current_version = self._build_info
         if not current_version.startswith("v"):
             return  # dev/source run — nothing to update
+        if getattr(self, "_update_check_started", False):
+            return  # one attempt per launch, however it turns out
         today = datetime.now().date().isoformat()
         if not _should_check_for_update(self.settings.last_update_check, today):
             return
-        self.settings.last_update_check = today
-        try:
-            self.settings.save_to_file(self.settings_file)
-        except OSError:
-            pass  # non-fatal; we'll just retry on the next eligible launch
+        self._update_check_started = True
 
         def _worker():
             result = check_for_update(current_version)
@@ -1550,9 +1607,17 @@ class BulkPDFGenerator:
 
         Runs on the main thread (dispatched via root.after). Silent on
         up-to-date or error — a startup check must never interrupt the user.
+        Also records today's date, but only for a check that actually reached
+        GitHub, so a failed one is retried on the next launch.
         """
         if getattr(self, "_closing", False):
             return
+        if result.get("status") != "error":
+            self.settings.last_update_check = datetime.now().date().isoformat()
+            try:
+                self.settings.save_to_file(self.settings_file)
+            except OSError:
+                pass  # non-fatal; we'll just check again on the next launch
         if result.get("status") != "update_available":
             return
         self._update_url = result.get("html_url", "")
