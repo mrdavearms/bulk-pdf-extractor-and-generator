@@ -135,7 +135,15 @@ def resolve_font_family():
         pass  # keep platform default
 
 
-_VALID_WEIGHTS = {'', 'bold', 'italic', 'bold italic'}
+_VALID_WEIGHTS = {'', 'bold', 'italic', 'bold italic', 'underline'}
+
+# Tk 8.x on macOS draws a point as one pixel; Tk 9 and Windows at 100% draw
+# it as 4/3 px. Mac releases bundle Tk 8.6, so without this their text came
+# out a quarter smaller than on Windows or in development (Tk 9).
+# tk scaling does not help: Tk 8.x on macOS ignores it for point sizes.
+# Tk's named fonts (TkDefaultFont etc.) are already the same pixel size on
+# both, so only sizes given here are scaled.
+FONT_SCALE = 4 / 3 if platform.system() == 'Darwin' and tk.TkVersion < 9 else 1.0
 
 
 def font(size: int, weight: str = '') -> tuple:
@@ -143,13 +151,14 @@ def font(size: int, weight: str = '') -> tuple:
         raise ValueError(
             f"font() weight must be one of {sorted(_VALID_WEIGHTS)!r}, got {weight!r}"
         )
+    size = round(size * FONT_SCALE)
     if weight:
         return (SYSTEM_FONTS['family'], size, weight)
     return (SYSTEM_FONTS['family'], size)
 
 
 def mono_font(size: int) -> tuple:
-    return (SYSTEM_FONTS['mono'], size)
+    return (SYSTEM_FONTS['mono'], round(size * FONT_SCALE))
 
 
 # ============================================================
@@ -184,7 +193,6 @@ def apply_dark_theme(root: tk.Tk):
     style = tbs.Style(theme='litera')
 
     C = COLORS
-    ff = SYSTEM_FONTS['family']
 
     # ── Custom surface/card frames ──────────────────────────────
     # litera paints every ttk.Frame white, which hid the page/card split:
@@ -214,72 +222,72 @@ def apply_dark_theme(root: tk.Tk):
     style.configure('Title.TLabel',
         background=C['bg_base'],
         foreground=C['text_primary'],
-        font=(ff, 22, 'bold'),
+        font=font(22, 'bold'),
     )
     style.configure('Subtitle.TLabel',
         background=C['bg_base'],
         foreground=C['text_secondary'],
-        font=(ff, 11),
+        font=font(11),
     )
     style.configure('SectionHeader.TLabel',
         background=C['bg_surface'],
         foreground=C['text_primary'],
-        font=(ff, 13, 'bold'),
+        font=font(13, 'bold'),
     )
     style.configure('Secondary.TLabel',
         background=C['bg_base'],
         foreground=C['text_secondary'],
-        font=(ff, 10),
+        font=font(10),
     )
     style.configure('Success.TLabel',
         background=C['bg_base'],
         foreground=C['success'],
-        font=(ff, 10),
+        font=font(10),
     )
     style.configure('Warning.TLabel',
         background=C['bg_base'],
         foreground=C['warning'],
-        font=(ff, 10),
+        font=font(10),
     )
     style.configure('Muted.TLabel',
         background=C['bg_base'],
         foreground=C['text_tertiary'],
-        font=(ff, 10),
+        font=font(10),
     )
     style.configure('Surface.TLabel',
         background=C['bg_surface'],
         foreground=C['text_primary'],
-        font=(ff, 11),
+        font=font(11),
     )
     style.configure('Surface.Secondary.TLabel',
         background=C['bg_surface'],
         foreground=C['text_secondary'],
-        font=(ff, 10),
+        font=font(10),
     )
     style.configure('Surface.Success.TLabel',
         background=C['bg_surface'],
         foreground=C['success'],
-        font=(ff, 10),
+        font=font(10),
     )
     style.configure('SectionTitle.TLabel',
         background=C['bg_base'],
         foreground=C['text_primary'],
-        font=(ff, 13, 'bold'),
+        font=font(13, 'bold'),
     )
     style.configure('SectionSubtitle.TLabel',
         background=C['bg_base'],
         foreground=C['text_secondary'],
-        font=(ff, 10),
+        font=font(10),
     )
 
     # ── Treeview ────────────────────────────────────────────────
     # ttkbootstrap styles the base Treeview; we tune row height and header.
-    style.configure('Treeview', font=(ff, 11))
+    style.configure('Treeview', font=font(11))
     fit_treeview_rows(style)
     style.configure('Treeview.Heading',
         background=C['tree_header_bg'],
         foreground=C['tree_header_fg'],
-        font=(ff, 10, 'bold'),
+        font=font(10, 'bold'),
         padding=(8, 8),
     )
     style.map('Treeview.Heading',
@@ -344,7 +352,7 @@ def apply_dark_theme(root: tk.Tk):
     style.configure('TLabelframe.Label',
         background=C['bg_surface'],
         foreground=C['text_primary'],
-        font=(ff, 12, 'bold'),
+        font=font(12, 'bold'),
     )
 
     # ── TRadiobutton / TCheckbutton surface variants ────────────

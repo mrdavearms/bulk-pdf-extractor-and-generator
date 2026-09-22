@@ -244,7 +244,7 @@ from preview_renderer import PreviewRenderer
 from combed_filler import CombedFieldFiller
 from field_values import normalize_button_value, normalize_choice_value
 from theme import (
-    COLORS, SPACING, SYSTEM_FONTS, font,
+    COLORS, SPACING, font,
     apply_dark_theme, resolve_font_family, setup_treeview_tags,
     bind_treeview_hover,
 )
@@ -401,13 +401,12 @@ class SchoolSetupDialog(tk.Toplevel):
         self.result_name = None
         self.result_year = None
         C = COLORS
-        ff = SYSTEM_FONTS['family']
 
         # Title
         tk.Label(
             self,
             text="School Details",
-            font=(ff, 18, 'bold'),
+            font=font(18, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_elevated'],
             autostyle=False,
@@ -417,7 +416,7 @@ class SchoolSetupDialog(tk.Toplevel):
             self,
             text="These details are used in generated PDF filenames\n"
                  "and are saved so you only need to enter them once.",
-            font=(ff, 10),
+            font=font(10),
             fg=C['text_secondary'],
             bg=C['bg_elevated'],
             justify=tk.CENTER,
@@ -432,7 +431,7 @@ class SchoolSetupDialog(tk.Toplevel):
         tk.Label(
             form,
             text="School Name",
-            font=(ff, 10, 'bold'),
+            font=font(10, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_elevated'],
             anchor=tk.W,
@@ -447,7 +446,7 @@ class SchoolSetupDialog(tk.Toplevel):
         tk.Label(
             form,
             text='e.g. "Wangaratta High School"',
-            font=(ff, 9),
+            font=font(9),
             fg=C['text_tertiary'],
             bg=C['bg_elevated'],
             anchor=tk.W,
@@ -458,7 +457,7 @@ class SchoolSetupDialog(tk.Toplevel):
         tk.Label(
             form,
             text="Academic Year",
-            font=(ff, 10, 'bold'),
+            font=font(10, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_elevated'],
             anchor=tk.W,
@@ -527,13 +526,12 @@ class TemplateNameDialog(tk.Toplevel):
 
         self.result = None
         C = COLORS
-        ff = SYSTEM_FONTS['family']
 
         # Title
         tk.Label(
             self,
             text="Template Name",
-            font=(ff, 16, 'bold'),
+            font=font(16, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_elevated'],
             autostyle=False,
@@ -542,7 +540,7 @@ class TemplateNameDialog(tk.Toplevel):
         tk.Label(
             self,
             text="This configuration will be saved for reuse.",
-            font=(ff, 10),
+            font=font(10),
             fg=C['text_secondary'],
             bg=C['bg_elevated'],
             autostyle=False,
@@ -553,7 +551,7 @@ class TemplateNameDialog(tk.Toplevel):
         name_frame.pack(pady=10, padx=40, fill=tk.X)
 
         tk.Label(name_frame, text="Template Name:",
-                 font=(ff, 11), fg=C['text_primary'],
+                 font=font(11), fg=C['text_primary'],
                  bg=C['bg_elevated'], autostyle=False).pack(anchor=tk.W, pady=(0, 5))
 
         self.name_var = tk.StringVar(value=suggested_name)
@@ -565,7 +563,7 @@ class TemplateNameDialog(tk.Toplevel):
         tk.Label(
             name_frame,
             text="Auto-generated from the PDF filename. Edit above to customise.",
-            font=(ff, 9),
+            font=font(9),
             fg=C['text_tertiary'],
             bg=C['bg_elevated'],
             autostyle=False,
@@ -712,13 +710,12 @@ class FieldTypeAuditDialog(tk.Toplevel):
         self.preconfigured = preconfigured or set()
         self.result = None  # Will be list of dicts on OK
         C = COLORS
-        ff = SYSTEM_FONTS['family']
 
         # Title
         tk.Label(
             self,
             text="Review Field Types",
-            font=(ff, 16, 'bold'),
+            font=font(16, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_elevated'],
             autostyle=False,
@@ -728,7 +725,7 @@ class FieldTypeAuditDialog(tk.Toplevel):
             self,
             text="Set each field's type and data format.\n"
                  "Text-Combed fields require a character length.",
-            font=(ff, 10),
+            font=font(10),
             fg=C['text_secondary'],
             bg=C['bg_elevated'],
             autostyle=False,
@@ -790,7 +787,7 @@ class FieldTypeAuditDialog(tk.Toplevel):
         hdr = tk.Frame(self.inner_frame, bg=C['bg_surface'], autostyle=False)
         hdr.pack(fill=tk.X, padx=5, pady=(5, 2))
         for hdr_text, hdr_w in [("Field Name", 26), ("Field Type", 14), ("Data Type", 16), ("Length", 8)]:
-            lbl = tk.Label(hdr, text=hdr_text, font=(ff, 10, 'bold'),
+            lbl = tk.Label(hdr, text=hdr_text, font=font(10, 'bold'),
                            fg=C['text_primary'], bg=C['bg_surface'], width=hdr_w,
                            anchor=tk.W, autostyle=False)
             lbl.pack(side=tk.LEFT)
@@ -806,7 +803,7 @@ class FieldTypeAuditDialog(tk.Toplevel):
             row.pack(fill=tk.X, padx=5, pady=1)
 
             # Column 1: Field Name
-            lbl_name = tk.Label(row, text=field.field_name, font=(ff, 10),
+            lbl_name = tk.Label(row, text=field.field_name, font=font(10),
                                 fg=C['text_primary'], bg=bg, width=26,
                                 anchor=tk.W, autostyle=False)
             lbl_name.pack(side=tk.LEFT)
@@ -823,7 +820,7 @@ class FieldTypeAuditDialog(tk.Toplevel):
                                  lambda e, idx=i: self._on_field_type_changed(idx))
             else:
                 ftype_var = tk.StringVar(value=field.field_type)
-                lbl_ftype = tk.Label(row, text=_field_type_detail(field), font=(ff, 10),
+                lbl_ftype = tk.Label(row, text=_field_type_detail(field), font=font(10),
                                      fg=C['text_secondary'], bg=bg, width=28,
                                      anchor=tk.W, autostyle=False)
                 lbl_ftype.pack(side=tk.LEFT, padx=(2, 0))
@@ -1140,7 +1137,6 @@ class BulkPDFGenerator:
     def setup_ui(self):
         """Create the main UI with tabbed interface."""
         C = COLORS
-        ff = SYSTEM_FONTS['family']
 
         # Main container
         main_frame = ttk.Frame(self.root, padding="0")
@@ -1167,14 +1163,14 @@ class BulkPDFGenerator:
         else:
             tk.Label(title_row,
                 text="\u25c6",
-                font=(ff, 18),
+                font=font(18),
                 fg=C['accent'],
                 bg=C['bg_surface'],
                 autostyle=False,
             ).pack(side=tk.LEFT, padx=(0, 8))
         tk.Label(title_row,
             text="Bulk PDF Generator",
-            font=(ff, 22, 'bold'),
+            font=font(22, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_surface'],
             autostyle=False,
@@ -1182,7 +1178,7 @@ class BulkPDFGenerator:
 
         tk.Label(title_area,
             text="Generate filled PDFs from spreadsheet data",
-            font=(ff, 10),
+            font=font(10),
             fg=C['text_secondary'],
             bg=C['bg_surface'],
             autostyle=False,
@@ -1198,7 +1194,7 @@ class BulkPDFGenerator:
             school_text = "Click to set school details"
         self.header_school = tk.Label(info_area,
             text=school_text,
-            font=(ff, 10, 'bold'),
+            font=font(10, 'bold'),
             fg=C['accent'],
             bg=C['bg_surface'],
             cursor="hand2",
@@ -1209,7 +1205,7 @@ class BulkPDFGenerator:
 
         self.header_status = tk.Label(info_area,
             text="No template loaded",
-            font=(ff, 10),
+            font=font(10),
             fg=C['text_secondary'],
             bg=C['bg_surface'],
             autostyle=False,
@@ -1225,7 +1221,7 @@ class BulkPDFGenerator:
         # here, never via a pop-up. Revealed by _show_startup_update_result.
         self._update_banner = tk.Frame(main_frame, bg=C['bg_surface'], autostyle=False)
         self._update_banner_lbl = tk.Label(
-            self._update_banner, text="", font=(ff, 10, 'bold'),
+            self._update_banner, text="", font=font(10, 'bold'),
             fg=C['accent'], bg=C['bg_surface'], autostyle=False,
         )
         self._update_banner_lbl.pack(side=tk.LEFT, padx=(16, 8), pady=6)
@@ -1234,7 +1230,7 @@ class BulkPDFGenerator:
             width=12, command=self._open_update_url,
         ).pack(side=tk.LEFT, padx=4, pady=6)
         _dismiss = tk.Label(
-            self._update_banner, text="✕", font=(ff, 11),
+            self._update_banner, text="✕", font=font(11),
             fg=C['text_secondary'], bg=C['bg_surface'], cursor="hand2",
             autostyle=False,
         )
@@ -1282,7 +1278,7 @@ class BulkPDFGenerator:
 
         self.status_label = tk.Label(status_frame,
             text="Ready",
-            font=(ff, 9),
+            font=font(9),
             fg=C['text_secondary'],
             bg=C['bg_surface'],
             anchor=tk.W,
@@ -1292,7 +1288,7 @@ class BulkPDFGenerator:
 
         self.status_template = tk.Label(status_frame,
             text="No template loaded",
-            font=(ff, 9),
+            font=font(9),
             fg=C['text_tertiary'],
             bg=C['bg_surface'],
             anchor=tk.E,
@@ -1329,7 +1325,6 @@ class BulkPDFGenerator:
         Returns the inner content frame to pack widgets into.
         """
         C = COLORS
-        ff = SYSTEM_FONTS['family']
 
         # Section wrapper
         wrapper = ttk.Frame(parent)
@@ -1339,7 +1334,7 @@ class BulkPDFGenerator:
         # Title label
         tk.Label(wrapper,
             text=title,
-            font=(ff, 13, 'bold'),
+            font=font(13, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_base'],
             anchor=tk.W,
@@ -1350,7 +1345,7 @@ class BulkPDFGenerator:
         if subtitle:
             tk.Label(wrapper,
                 text=subtitle,
-                font=(ff, 10),
+                font=font(10),
                 fg=C['text_secondary'],
                 bg=C['bg_base'],
                 anchor=tk.W,
@@ -1418,7 +1413,6 @@ class BulkPDFGenerator:
     def setup_tab_about(self):
         """Build the About tab with developer info and project links."""
         C = COLORS
-        ff = SYSTEM_FONTS['family']
 
         # Outer wrapper centres content vertically and horizontally
         outer = tk.Frame(self.tab_about_frame, bg=C['bg_base'], autostyle=False)
@@ -1439,12 +1433,12 @@ class BulkPDFGenerator:
             tk.Label(card, image=self._icon_refs['about'],
                      bg=C['bg_surface'], autostyle=False).pack(pady=(0, 8))
         else:
-            tk.Label(card, text="\u25c6", font=(ff, 36), fg=C['accent'],
+            tk.Label(card, text="\u25c6", font=font(36), fg=C['accent'],
                      bg=C['bg_surface'], autostyle=False).pack(pady=(0, 4))
-        tk.Label(card, text="Bulk PDF Generator", font=(ff, 22, 'bold'),
+        tk.Label(card, text="Bulk PDF Generator", font=font(22, 'bold'),
                  fg=C['text_primary'], bg=C['bg_surface'], autostyle=False).pack()
         tk.Label(card, text="Generate filled PDFs from spreadsheet data",
-                 font=(ff, 11), fg=C['text_secondary'],
+                 font=font(11), fg=C['text_secondary'],
                  bg=C['bg_surface'], autostyle=False).pack(pady=(2, 20))
 
         # Divider
@@ -1457,22 +1451,22 @@ class BulkPDFGenerator:
             "data entry into a single click, so staff can focus on the\n"
             "work that actually matters."
         )
-        tk.Label(card, text=mission, font=(ff, 11), fg=C['text_primary'],
+        tk.Label(card, text=mission, font=font(11), fg=C['text_primary'],
                  bg=C['bg_surface'], justify=tk.CENTER,
                  wraplength=420, autostyle=False).pack(pady=(0, 24))
 
         # Developer info
-        tk.Label(card, text="Developed by", font=(ff, 10),
+        tk.Label(card, text="Developed by", font=font(10),
                  fg=C['text_tertiary'], bg=C['bg_surface'], autostyle=False).pack()
-        tk.Label(card, text="Dave Armstrong", font=(ff, 14, 'bold'),
+        tk.Label(card, text="Dave Armstrong", font=font(14, 'bold'),
                  fg=C['text_primary'], bg=C['bg_surface'], autostyle=False).pack(pady=(2, 2))
         tk.Label(card, text="A Principal-developed app for educators and school leaders",
-                 font=(ff, 10), fg=C['text_secondary'],
+                 font=font(10), fg=C['text_secondary'],
                  bg=C['bg_surface'], autostyle=False).pack(pady=(0, 16))
 
         # Email link
         email_label = tk.Label(card, text="Dave.Armstrong@education.vic.gov.au",
-                               font=(ff, 11, 'underline'), fg=C['info'],
+                               font=font(11, 'underline'), fg=C['info'],
                                bg=C['bg_surface'], cursor='hand2', autostyle=False)
         email_label.pack(pady=(0, 6))
         email_label.bind('<Button-1>',
@@ -1480,7 +1474,7 @@ class BulkPDFGenerator:
 
         # GitHub link
         github_label = tk.Label(card, text="github.com/mrdavearms/bulk-pdf-extractor-and-generator",
-                                font=(ff, 11, 'underline'), fg=C['info'],
+                                font=font(11, 'underline'), fg=C['info'],
                                 bg=C['bg_surface'], cursor='hand2', autostyle=False)
         github_label.pack(pady=(0, 20))
         github_label.bind('<Button-1>',
@@ -1494,13 +1488,13 @@ class BulkPDFGenerator:
             "This is a Principal-developed tool shared in good faith.\n"
             "Always review all generated outputs before use."
         )
-        tk.Label(card, text=disclaimer, font=(ff, 9), fg=C['text_tertiary'],
+        tk.Label(card, text=disclaimer, font=font(9), fg=C['text_tertiary'],
                  bg=C['bg_surface'], justify=tk.CENTER, autostyle=False).pack(pady=(0, 12))
 
         # Version — commit hash and build date baked in at build time
         _commit, _date, _version_tag = self._build_info
         version_str = f"{_version_tag}  ·  {_commit}  ·  {_date}"
-        tk.Label(card, text=version_str, font=(ff, 10),
+        tk.Label(card, text=version_str, font=font(10),
                  fg=C['text_tertiary'], bg=C['bg_surface'], autostyle=False).pack(pady=(0, 8))
 
         update_btn = ttk.Button(card, text='Check for Updates', bootstyle='outline-primary',
@@ -1514,7 +1508,7 @@ class BulkPDFGenerator:
         # shown only when an update is actually available.
         self._update_url = ''
         self._update_status_lbl = tk.Label(
-            card, text='', font=(ff, 10),
+            card, text='', font=font(10),
             fg=C['text_secondary'], bg=C['bg_surface'],
             wraplength=360, justify=tk.CENTER,
             autostyle=False,
@@ -3451,7 +3445,6 @@ class BulkPDFGenerator:
         Returns None if the user cancels.
         """
         C = COLORS
-        ff = SYSTEM_FONTS['family']
         result = {'choice': None}
 
         dialog = tk.Toplevel(self.root)
@@ -3465,17 +3458,17 @@ class BulkPDFGenerator:
 
         tk.Label(inner,
             text="This workbook has multiple sheets.",
-            font=(ff, 12, 'bold'), fg=C['text_primary'], bg=C['bg_base'],
+            font=font(12, 'bold'), fg=C['text_primary'], bg=C['bg_base'],
             autostyle=False,
         ).pack(anchor=tk.W)
         tk.Label(inner,
             text="Please select the sheet that contains your data:",
-            font=(ff, 10), fg=C['text_secondary'], bg=C['bg_base'],
+            font=font(10), fg=C['text_secondary'], bg=C['bg_base'],
             autostyle=False,
         ).pack(anchor=tk.W, pady=(2, 10))
 
         combo = ttk.Combobox(inner, values=sheet_names, state='readonly',
-                             font=(ff, 11), width=36)
+                             font=font(11), width=36)
         default_idx = 0
         for i, name in enumerate(sheet_names):
             if str(name).strip().lower() == preferred.strip().lower():
@@ -3491,7 +3484,7 @@ class BulkPDFGenerator:
             # management at call time; it is not a forward reference.
             tk.Label(inner,
                 text='"Data Entry" is the sheet this app created for your data.',
-                font=(ff, 9), fg=C['text_tertiary'], bg=C['bg_base'],
+                font=font(9), fg=C['text_tertiary'], bg=C['bg_base'],
                 autostyle=False,
             ).pack(anchor=tk.W, pady=(6, 0), after=combo)
 

@@ -21,7 +21,7 @@ import re
 import tkinter as tk  # tk.Text, tk.END, tk.NORMAL, tk.DISABLED — no ttkbootstrap needed here
 import webbrowser
 
-from theme import COLORS, SYSTEM_FONTS, font
+from theme import COLORS, font
 
 # Regex that matches **bold** spans and [text](url) links within a line.
 _INLINE_RE = re.compile(
@@ -42,29 +42,28 @@ class MarkdownRenderer:
     # ── tag configuration ──────────────────────────────────────
 
     def _setup_tags(self):
-        ff = SYSTEM_FONTS['family']
         C = COLORS
 
         self.text.tag_configure('h1',
-            font=(ff, 22, 'bold'),
+            font=font(22, 'bold'),
             foreground=C['accent'],
             spacing1=20,
             spacing3=8,
         )
         self.text.tag_configure('h2',
-            font=(ff, 16, 'bold'),
+            font=font(16, 'bold'),
             foreground=C['text_primary'],
             spacing1=18,
             spacing3=6,
         )
         self.text.tag_configure('h3',
-            font=(ff, 13, 'bold'),
+            font=font(13, 'bold'),
             foreground=C['text_primary'],
             spacing1=14,
             spacing3=4,
         )
         self.text.tag_configure('body',
-            font=(ff, 11),
+            font=font(11),
             foreground=C['text_primary'],
             spacing1=2,
             spacing3=2,
@@ -72,10 +71,10 @@ class MarkdownRenderer:
             lmargin2=12,
         )
         self.text.tag_configure('bold',
-            font=(ff, 11, 'bold'),
+            font=font(11, 'bold'),
         )
         self.text.tag_configure('bullet',
-            font=(ff, 11),
+            font=font(11),
             foreground=C['text_primary'],
             lmargin1=28,
             lmargin2=44,
@@ -83,17 +82,17 @@ class MarkdownRenderer:
             spacing3=2,
         )
         self.text.tag_configure('link_base',
-            font=(ff, 11),
+            font=font(11),
             foreground=C['info'],
             underline=True,
         )
         self.text.tag_configure('spacer',
-            font=(ff, 4),
+            font=font(4),
             spacing1=0,
             spacing3=0,
         )
         self.text.tag_configure('hr',
-            font=(ff, 1),
+            font=font(1),
             foreground=C['border_subtle'],
             spacing1=12,
             spacing3=12,
