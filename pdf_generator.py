@@ -1184,8 +1184,10 @@ class BulkPDFGenerator:
             autostyle=False,
         ).pack(anchor=tk.W, padx=(30, 0))
 
+        # Fills the space beside the title so a long template name wraps
+        # instead of being cut off (150% scaling, 1000px window).
         info_area = tk.Frame(header, bg=C['bg_surface'], autostyle=False)
-        info_area.pack(side=tk.RIGHT, padx=24, pady=12)
+        info_area.pack(side=tk.RIGHT, padx=24, pady=12, fill=tk.X, expand=True)
 
         # School name (clickable to edit)
         if self.settings.school_configured:
@@ -1208,9 +1210,14 @@ class BulkPDFGenerator:
             font=font(10),
             fg=C['text_secondary'],
             bg=C['bg_surface'],
+            width=1,
+            anchor=tk.E,
+            justify=tk.RIGHT,
             autostyle=False,
         )
-        self.header_status.pack(anchor=tk.E)
+        self.header_status.pack(fill=tk.X)
+        self.header_status.bind('<Configure>', lambda e: e.widget.configure(wraplength=e.width)
+                                if str(e.widget.cget('wraplength')) != str(e.width) else None)
 
         # Accent stripe divider
         tk.Frame(main_frame, bg=C['accent'], height=3, autostyle=False).pack(fill=tk.X)
