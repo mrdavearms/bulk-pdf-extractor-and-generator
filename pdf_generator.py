@@ -1268,9 +1268,11 @@ class BulkPDFGenerator:
         self.notebook.add(self.tab2_container, text="  2  Map Fields  ")
         self.notebook.add(self.tab3_page, text="  3  Generate PDFs  ")
 
-        # About tab (plain frame, right-hand side)
-        self.tab_about_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.tab_about_frame, text="  About  ")
+        # About tab scrolls too: on a 1366x768 laptop its card is taller
+        # than the window and the contact details fell off the bottom.
+        self.tab_about_container = ScrollableFrame(self.notebook)
+        self.notebook.add(self.tab_about_container, text="  About  ")
+        self.tab_about_frame = self.tab_about_container.scrollable_frame
 
         # Shorthand for actual UI frames
         self.tab1 = self.tab1_container.scrollable_frame
@@ -1421,11 +1423,11 @@ class BulkPDFGenerator:
         """Build the About tab with developer info and project links."""
         C = COLORS
 
-        # Outer wrapper centres content vertically and horizontally
+        # Outer wrapper centres the card horizontally (the page scrolls, so
+        # there is no spare height to centre it in vertically)
         outer = tk.Frame(self.tab_about_frame, bg=C['bg_base'], autostyle=False)
-        outer.pack(fill=tk.BOTH, expand=True)
+        outer.pack(fill=tk.BOTH, expand=True, pady=SPACING['page_padding'])
         outer.columnconfigure(0, weight=1)
-        outer.rowconfigure(0, weight=1)
 
         # Centred card
         card_border = tk.Frame(outer, bg=C['border_subtle'], padx=1, pady=1,

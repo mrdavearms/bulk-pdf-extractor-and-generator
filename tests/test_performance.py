@@ -411,6 +411,13 @@ class TestSizesFollowTheFont(unittest.TestCase):
         self.assertIn('round(1000 * k)', src)
         self.assertIn('round(900 * k)', src)
 
+    def test_about_tab_scrolls(self):
+        """The About card is taller than a 1366x768 laptop's window."""
+        from pdf_generator import BulkPDFGenerator
+        import inspect
+        src = inspect.getsource(BulkPDFGenerator.setup_ui)
+        self.assertIn('self.tab_about_container = ScrollableFrame(self.notebook)', src)
+
     def test_map_fields_hint_takes_remaining_width(self):
         from pdf_generator import BulkPDFGenerator
         import inspect
