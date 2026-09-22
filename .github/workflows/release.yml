@@ -212,6 +212,18 @@ jobs:
             echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # ── Update-check manifest ────────────────────────────────
+      # The app fetches this tiny file from …/releases/latest/download/latest.json
+      # to learn the newest version. GitHub counts each fetch as a download of
+      # the file, which is how the repo-stats dashboard measures how many
+      # installed copies are checking for updates. Keep the file name and the
+      # "version" key in step with check_for_update() in pdf_generator.py.
+      - name: Write update-check manifest
+        run: |
+          printf '{"version": "%s", "html_url": "https://github.com/%s/releases/tag/%s"}\n' \
+            "${{ github.ref_name }}" "${{ github.repository }}" "${{ github.ref_name }}" > artifacts/latest.json
+          cat artifacts/latest.json
+
       # ── Assemble and create release ──────────────────────────
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
@@ -247,6 +259,7 @@ jobs:
           files: |
             artifacts/Bulk.PDF.Generator.exe
             artifacts/Bulk.PDF.Generator.macOS.dmg
+            artifacts/latest.json
 
       # ── Clear RELEASE_NOTES.md so it's ready for the next release ──
       # Direct push to main is blocked by branch protection (status check required).

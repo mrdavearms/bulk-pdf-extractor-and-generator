@@ -122,13 +122,22 @@ def _ssl_contexts():
 def check_for_update(current_version: str) -> dict:
     """Ask GitHub for the latest release tag and compare to current_version.
 
-    Uses the public github.com/<repo>/releases/latest redirect rather than
-    api.github.com. The API allows only 60 unauthenticated requests per hour
-    PER IP ADDRESS, and a whole school shares one public IP — so on a busy
-    morning most staff would be refused and would silently never learn an
-    update exists. Some school web filters also block api.github.com while
-    allowing github.com. The redirect carries no such quota and answers on the
-    main domain; a HEAD request means no page body is downloaded.
+    Two ways of asking, both on github.com and never api.github.com. The API
+    allows only 60 unauthenticated requests per hour PER IP ADDRESS, and a
+    whole school shares one public IP, so on a busy morning most staff would
+    be refused and would silently never learn an update exists. Some school
+    web filters also block api.github.com while allowing github.com.
+
+    1. Fetch the tiny ``latest.json`` manifest attached to every release
+       (``…/releases/latest/download/latest.json``, about 100 bytes). GitHub
+       counts that fetch as a download of the manifest file, which is the only
+       way the number of installed copies checking for updates can be measured
+       (the repo-stats dashboard reads it). electron-updater and Tauri use the
+       same mechanism. Nothing about the machine or the user is sent beyond
+       what any web request carries.
+    2. If the latest release has no manifest, fall back to a HEAD request to
+       ``…/releases/latest`` and read the tag page the 302 resolves to. HEAD
+       means no page body is transferred.
 
     Args:
         current_version: Version string like 'v2.6'. Pass 'dev' to skip check.
@@ -140,14 +149,15 @@ def check_for_update(current_version: str) -> dict:
           'html_url' — release page URL (present on non-error)
           'message'  — human-readable error text (present on 'error' only)
     """
+    import json
     import ssl
     import urllib.error
     import urllib.request
 
-    RELEASES_LATEST = (
-        'https://github.com/'
-        'mrdavearms/bulk-pdf-extractor-and-generator/releases/latest'
-    )
+    REPO_URL = 'https://github.com/mrdavearms/bulk-pdf-extractor-and-generator'
+    MANIFEST_URL = REPO_URL + '/releases/latest/download/latest.json'
+    RELEASES_LATEST = REPO_URL + '/releases/latest'
+    HEADERS = {'User-Agent': 'BulkPDFGenerator-UpdateCheck/1.0'}
 
     def _parse_version(tag: str):
         """Convert 'v2.6' -> (2, 6) for numeric comparison."""
@@ -155,6 +165,37 @@ def check_for_update(current_version: str) -> dict:
             return tuple(int(x) for x in tag.lstrip('v').split('.'))
         except ValueError:
             return (0,)
+
+    def _from_manifest(ctx):
+        """(tag, html_url) from latest.json, or None if GitHub serves none."""
+        req = urllib.request.Request(MANIFEST_URL, headers=HEADERS)
+        try:
+            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                data = json.loads(resp.read(4096).decode('utf-8'))
+        except urllib.error.HTTPError:
+            return None  # 404: latest release carries no manifest — use the redirect
+        except ValueError:
+            return None  # unreadable manifest — use the redirect
+        if not isinstance(data, dict):
+            return None
+        tag = str(data.get('version', ''))
+        if not tag.startswith('v'):
+            return None
+        return tag, str(data.get('html_url') or f'{REPO_URL}/releases/tag/{tag}')
+
+    def _from_redirect(ctx):
+        """(tag, html_url) from the …/releases/latest 302 redirect."""
+        req = urllib.request.Request(RELEASES_LATEST, headers=HEADERS, method='HEAD')
+        # urlopen follows the 302, so resp.url is the resolved release page
+        # (…/releases/tag/v2.15). HEAD means the body is never transferred.
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+            html_url = resp.url
+        tag = html_url.rstrip('/').rsplit('/', 1)[-1]
+        if not tag.startswith('v'):
+            # No releases published yet — GitHub serves the releases index
+            # instead of redirecting to a tag.
+            raise ValueError(f'no release tag in {html_url}')
+        return tag, html_url
 
     # Don't prompt dev/source-run users — they have no installed version to update
     if not current_version.startswith('v'):
@@ -164,21 +205,7 @@ def check_for_update(current_version: str) -> dict:
 
     for ctx in _ssl_contexts():
         try:
-            req = urllib.request.Request(
-                RELEASES_LATEST,
-                headers={'User-Agent': 'BulkPDFGenerator-UpdateCheck/1.0'},
-                method='HEAD',
-            )
-            # urlopen follows the 302, so resp.url is the resolved release page
-            # (…/releases/tag/v2.15). HEAD means the body is never transferred.
-            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
-                html_url = resp.url
-
-            latest_tag = html_url.rstrip('/').rsplit('/', 1)[-1]
-            if not latest_tag.startswith('v'):
-                # No releases published yet — GitHub serves the releases index
-                # instead of redirecting to a tag.
-                raise ValueError(f'no release tag in {html_url}')
+            latest_tag, html_url = _from_manifest(ctx) or _from_redirect(ctx)
 
             is_newer = _parse_version(latest_tag) > _parse_version(current_version)
             return {

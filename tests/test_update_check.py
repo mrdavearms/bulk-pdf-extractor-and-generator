@@ -1,4 +1,5 @@
 """Tests for check_for_update() — the in-app update check."""
+import json
 import ssl
 import sys
 import unittest
@@ -11,19 +12,42 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import pdf_generator
 
 
-def _mock_response(tag_name):
-    """Mock a urlopen response whose redirect resolved to a release tag page.
+REPO = 'https://github.com/mrdavearms/bulk-pdf-extractor-and-generator'
 
-    check_for_update sends a HEAD to …/releases/latest and reads resp.url,
-    which urllib sets to the URL the 302 resolved to.
+
+def _mock_response(tag_name):
+    """Mock a successful fetch of the latest.json manifest.
+
+    check_for_update GETs …/releases/latest/download/latest.json first; the
+    body is a tiny JSON object naming the newest release tag.
     """
-    url = ('https://github.com/mrdavearms/bulk-pdf-extractor-and-generator'
-           f'/releases/tag/{tag_name}')
     mock = MagicMock()
     mock.__enter__ = lambda s: s
     mock.__exit__ = MagicMock(return_value=False)
-    mock.url = url
+    mock.url = f'{REPO}/releases/download/{tag_name}/latest.json'
+    mock.read = MagicMock(return_value=json.dumps(
+        {'version': tag_name, 'html_url': f'{REPO}/releases/tag/{tag_name}'}
+    ).encode('utf-8'))
     return mock
+
+
+def _mock_redirect(tag_name):
+    """Mock a HEAD to …/releases/latest whose 302 resolved to a tag page.
+
+    This is the fallback path, used only when the latest release has no
+    manifest; urllib sets resp.url to the URL the 302 resolved to.
+    """
+    mock = MagicMock()
+    mock.__enter__ = lambda s: s
+    mock.__exit__ = MagicMock(return_value=False)
+    mock.url = f'{REPO}/releases/tag/{tag_name}'
+    return mock
+
+
+def _http_404():
+    """What urlopen raises when the latest release carries no latest.json."""
+    return urllib.error.HTTPError(
+        f'{REPO}/releases/latest/download/latest.json', 404, 'Not Found', {}, None)
 
 
 class TestCheckForUpdate(unittest.TestCase):
@@ -53,13 +77,13 @@ class TestCheckForUpdate(unittest.TestCase):
         self.assertIn('message', result)
 
     def test_error_when_no_release_published(self):
-        """No releases yet: GitHub serves the index, not a /tag/ URL."""
+        """No releases yet: no manifest, and GitHub serves the releases index
+        instead of a /tag/ URL."""
         mock = MagicMock()
         mock.__enter__ = lambda s: s
         mock.__exit__ = MagicMock(return_value=False)
-        mock.url = ('https://github.com/mrdavearms/'
-                    'bulk-pdf-extractor-and-generator/releases')
-        with patch('urllib.request.urlopen', return_value=mock):
+        mock.url = f'{REPO}/releases'
+        with patch('urllib.request.urlopen', side_effect=[_http_404(), mock]):
             result = pdf_generator.check_for_update('v2.5')
         self.assertEqual(result['status'], 'error')
 
@@ -94,21 +118,69 @@ class TestAvoidsRateLimitedAPI(unittest.TestCase):
     web filters also block api.github.com while allowing github.com.
     """
 
-    def test_requests_the_plain_github_redirect(self):
+    def test_requests_the_manifest_on_github_com(self):
         with patch('urllib.request.urlopen',
                    return_value=_mock_response('v2.6')) as mock_urlopen:
             pdf_generator.check_for_update('v2.5')
         req = mock_urlopen.call_args[0][0]
         self.assertNotIn('api.github.com', req.full_url,
                          'must not use the rate-limited GitHub API')
-        self.assertTrue(req.full_url.endswith('/releases/latest'), req.full_url)
+        self.assertTrue(req.full_url.startswith('https://github.com/'), req.full_url)
 
-    def test_uses_head_so_no_page_body_is_downloaded(self):
+    def test_fallback_redirect_is_on_github_com_and_uses_head(self):
+        """With no manifest, fall back to a HEAD on …/releases/latest so no
+        page body is downloaded."""
+        with patch('urllib.request.urlopen',
+                   side_effect=[_http_404(), _mock_redirect('v2.6')]) as mock_urlopen:
+            result = pdf_generator.check_for_update('v2.5')
+        self.assertEqual(result['status'], 'update_available')
+        self.assertEqual(result['latest'], 'v2.6')
+        req = mock_urlopen.call_args_list[1][0][0]
+        self.assertNotIn('api.github.com', req.full_url)
+        self.assertTrue(req.full_url.endswith('/releases/latest'), req.full_url)
+        self.assertEqual(req.get_method(), 'HEAD')
+
+
+class TestManifestIsMeasurable(unittest.TestCase):
+    """The check must fetch the release's latest.json manifest.
+
+    GitHub counts each fetch of a release asset, and nothing else the app
+    could do (a HEAD to the redirect, a page view) is counted anywhere. The
+    manifest download is therefore the only way the repo-stats dashboard can
+    measure how many installed copies are checking for updates. Keep the file
+    name and the …/releases/latest/download/ URL in step with release.yml.
+    """
+
+    def test_fetches_latest_json_as_a_release_asset(self):
         with patch('urllib.request.urlopen',
                    return_value=_mock_response('v2.6')) as mock_urlopen:
-            pdf_generator.check_for_update('v2.5')
+            result = pdf_generator.check_for_update('v2.5')
         req = mock_urlopen.call_args[0][0]
-        self.assertEqual(req.get_method(), 'HEAD')
+        self.assertTrue(
+            req.full_url.endswith('/releases/latest/download/latest.json'), req.full_url)
+        self.assertEqual(req.get_method(), 'GET',
+                         'a HEAD would not be counted as a download')
+        self.assertEqual(mock_urlopen.call_count, 1,
+                         'the manifest alone must answer the check')
+        self.assertEqual(result['latest'], 'v2.6')
+        self.assertTrue(result['html_url'].endswith('/releases/tag/v2.6'))
+
+    def test_unreadable_manifest_falls_back_to_redirect(self):
+        broken = _mock_response('v2.6')
+        broken.read = MagicMock(return_value=b'not json')
+        with patch('urllib.request.urlopen',
+                   side_effect=[broken, _mock_redirect('v2.7')]):
+            result = pdf_generator.check_for_update('v2.5')
+        self.assertEqual(result['status'], 'update_available')
+        self.assertEqual(result['latest'], 'v2.7')
+
+    def test_manifest_without_a_tag_falls_back_to_redirect(self):
+        empty = _mock_response('v2.6')
+        empty.read = MagicMock(return_value=b'{}')
+        with patch('urllib.request.urlopen',
+                   side_effect=[empty, _mock_redirect('v2.6')]):
+            result = pdf_generator.check_for_update('v2.5')
+        self.assertEqual(result['status'], 'update_available')
 
 
 class TestCertificateFallback(unittest.TestCase):
