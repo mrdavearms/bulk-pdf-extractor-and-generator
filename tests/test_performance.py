@@ -369,5 +369,55 @@ def test_no_misleading_button_labels():
         "Skip leaves types untouched — it does not set them all to Text"
 
 
+class TestSizesFollowTheFont(unittest.TestCase):
+    """Fixed pixel sizes clipped text at Windows 125%/150% display scaling."""
+
+    def test_header_height_follows_content(self):
+        from pdf_generator import BulkPDFGenerator
+        import inspect
+        src = inspect.getsource(BulkPDFGenerator.setup_ui)
+        self.assertNotIn('height=80', src)
+        self.assertNotIn('header.pack_propagate(False)', src)
+
+    def test_treeview_rowheight_from_font(self):
+        import inspect
+        import theme
+        src = inspect.getsource(theme.apply_dark_theme)
+        self.assertNotIn('rowheight=30', src)
+        self.assertIn('fit_treeview_rows(style)', src)
+        self.assertIn("metrics('linespace')", inspect.getsource(theme.fit_treeview_rows))
+
+    def test_sheet_picker_sized_from_content(self):
+        from pdf_generator import BulkPDFGenerator
+        import inspect
+        src = inspect.getsource(BulkPDFGenerator._pick_excel_sheet)
+        self.assertNotIn('geometry(f"440x210', src)
+        self.assertIn('winfo_reqwidth()', src)
+        # measured after the content exists, i.e. after the buttons are built
+        self.assertGreater(src.index('winfo_reqwidth()'), src.index('text="Load this sheet"'))
+
+    def test_naming_row_indent_measured(self):
+        from pdf_generator import BulkPDFGenerator
+        import inspect
+        src = inspect.getsource(BulkPDFGenerator.setup_tab1_analyze)
+        self.assertNotIn('padx=(144', src)
+        self.assertIn('name_label.winfo_reqwidth()', src)
+
+    def test_window_size_scales_with_windows_dpi(self):
+        from pdf_generator import BulkPDFGenerator
+        import inspect
+        src = inspect.getsource(BulkPDFGenerator.__init__)
+        self.assertIn("winfo_fpixels('1i') / 96", src)
+        self.assertIn('round(1000 * k)', src)
+        self.assertIn('round(900 * k)', src)
+
+    def test_map_fields_hint_takes_remaining_width(self):
+        from pdf_generator import BulkPDFGenerator
+        import inspect
+        src = inspect.getsource(BulkPDFGenerator._refresh_tab2_mappings)
+        self.assertIn("hint_lbl.pack(side=tk.LEFT, padx=(8, 0), fill=tk.X, expand=True)", src)
+        self.assertNotIn('width=30', src)
+
+
 if __name__ == '__main__':
     unittest.main()

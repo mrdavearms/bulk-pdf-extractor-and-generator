@@ -274,10 +274,8 @@ def apply_dark_theme(root: tk.Tk):
 
     # ── Treeview ────────────────────────────────────────────────
     # ttkbootstrap styles the base Treeview; we tune row height and header.
-    style.configure('Treeview',
-        font=(ff, 11),
-        rowheight=30,
-    )
+    style.configure('Treeview', font=(ff, 11))
+    fit_treeview_rows(style)
     style.configure('Treeview.Heading',
         background=C['tree_header_bg'],
         foreground=C['tree_header_fg'],
@@ -370,6 +368,16 @@ def apply_dark_theme(root: tk.Tk):
 # ============================================================
 # TREEVIEW HELPERS
 # ============================================================
+
+def fit_treeview_rows(style):
+    """Row height = the Treeview font's line height plus 10px of air.
+
+    A fixed 30px left text touching the row edges at Windows 150% scaling.
+    """
+    import tkinter.font as tkfont
+    linespace = tkfont.Font(font=style.lookup('Treeview', 'font')).metrics('linespace')
+    style.configure('Treeview', rowheight=linespace + 10)
+
 
 def setup_treeview_tags(tree: ttk.Treeview):
     """Configure alternating row colours and status tags on a Treeview."""
