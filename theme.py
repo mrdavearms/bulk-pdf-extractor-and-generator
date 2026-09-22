@@ -31,7 +31,7 @@ COLORS = {
     # --- Text (Tailwind Slate) ---
     'text_primary':   '#1e293b',   # slate-800
     'text_secondary': '#64748b',   # slate-500
-    'text_tertiary':  '#94a3b8',   # slate-400
+    'text_tertiary':  '#64748b',   # slate-500 — was slate-400 (2.6:1 on white, fails WCAG AA)
     'text_inverse':   '#ffffff',
 
     # --- Accent / Brand (Tailwind Blue) ---
@@ -46,13 +46,13 @@ COLORS = {
     'border_focus':   '#2563eb',   # blue-600
 
     # --- Semantic (Tailwind Emerald / Amber / Red) ---
-    'success':        '#10b981',   # emerald-500
+    'success':        '#047857',   # emerald-700 — was emerald-500 (2.5:1 on white)
     'success_bg':     '#ecfdf5',   # emerald-50
-    'warning':        '#f59e0b',   # amber-500
+    'warning':        '#b45309',   # amber-700 — was amber-500 (2.1:1 on white)
     'warning_bg':     '#fffbeb',   # amber-50
-    'error':          '#ef4444',   # red-500
+    'error':          '#b91c1c',   # red-700 — was red-500 (3.8:1 on white)
     'error_bg':       '#fef2f2',   # red-50
-    'info':           '#3b82f6',   # blue-500
+    'info':           '#2563eb',   # blue-600 — was blue-500 (3.7:1 on white)
 
     # --- Tab bar ---
     'tab_inactive_bg':   '#e2e8f0',   # slate-200
@@ -184,7 +184,21 @@ def apply_dark_theme(root: tk.Tk):
     ff = SYSTEM_FONTS['family']
 
     # ── Custom surface/card frames ──────────────────────────────
-    # ttkbootstrap owns TFrame; we add named variants for layered surfaces.
+    # litera paints every ttk.Frame white, which hid the page/card split:
+    # labels asking for bg_base drew pale boxes on a white page. The page
+    # is bg_base and cards are bg_surface, so set the base TFrame to match.
+    style.configure('TFrame', background=C['bg_base'])
+    # The notebook's tab strip and pane edge were white too; match the page,
+    # and let the selected tab join the page it opens onto.
+    style.configure('TNotebook',
+        background=C['bg_base'],
+        lightcolor=C['bg_base'],
+        darkcolor=C['bg_base'],
+    )
+    style.map('TNotebook.Tab',
+        background=[('selected', C['bg_base']), ('!selected', C['bg_surface'])],
+        lightcolor=[('selected', C['bg_base']), ('!selected', C['bg_surface'])],
+    )
     style.configure('Card.TFrame', background=C['bg_surface'])
     style.configure('Elevated.TFrame', background=C['bg_elevated'])
 
@@ -265,6 +279,11 @@ def apply_dark_theme(root: tk.Tk):
     )
     style.map('Treeview.Heading',
         background=[('active', C['bg_hover'])],
+    )
+    # litera's selected row is white on grey #adb5bd (2.1:1).
+    style.map('Treeview',
+        background=[('selected', C['tree_selected'])],
+        foreground=[('selected', C['text_primary'])],
     )
 
     # ── TLabelframe (kept for compatibility) ────────────────────
