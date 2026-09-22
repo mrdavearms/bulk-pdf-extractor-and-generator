@@ -598,6 +598,7 @@ class TemplateNameDialog(tk.Toplevel):
             button_frame,
             text="Cancel",
             command=self.on_cancel,
+            bootstyle='outline-primary',
         ).pack(side=tk.LEFT)
 
         ttk.Button(
@@ -855,7 +856,7 @@ class FieldTypeAuditDialog(tk.Toplevel):
         btn_frame.pack(pady=15, fill=tk.X, padx=30)
 
         ttk.Button(btn_frame, text="Skip — keep current types",
-                   command=self.on_skip).pack(side=tk.LEFT)
+                   command=self.on_skip, bootstyle='outline-primary').pack(side=tk.LEFT)
         ttk.Button(btn_frame, text="Apply",
                    command=self.on_apply,
                    bootstyle='primary').pack(side=tk.RIGHT)
@@ -1498,7 +1499,7 @@ class BulkPDFGenerator:
         tk.Label(card, text=version_str, font=(ff, 10),
                  fg=C['text_tertiary'], bg=C['bg_surface'], autostyle=False).pack(pady=(0, 8))
 
-        update_btn = ttk.Button(card, text='Check for Updates', bootstyle='outline-dark',
+        update_btn = ttk.Button(card, text='Check for Updates', bootstyle='outline-primary',
                                 width=20)
         update_btn.config(command=lambda: self._run_update_check(update_btn))
         update_btn.pack()
@@ -1663,7 +1664,7 @@ class BulkPDFGenerator:
         tk.Label(pdf_row, text="PDF Template:", width=18, anchor=tk.W,
                  font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface'], autostyle=False).pack(side=tk.LEFT)
         ttk.Entry(pdf_row, textvariable=self.pdf_template_path, width=40).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
-        ttk.Button(pdf_row, text="Browse...", command=self.select_pdf_tab1, width=10).pack(side=tk.LEFT)
+        ttk.Button(pdf_row, text="Browse...", command=self.select_pdf_tab1, width=10, bootstyle='outline-primary').pack(side=tk.LEFT)
 
         # Template name row
         name_row = tk.Frame(load_inner, bg=COLORS['bg_surface'], autostyle=False)
@@ -1688,7 +1689,7 @@ class BulkPDFGenerator:
         self.recent_templates_var = tk.StringVar()
         self.recent_templates_combo = ttk.Combobox(recent_row, textvariable=self.recent_templates_var, state="readonly", width=37)
         self.recent_templates_combo.pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
-        ttk.Button(recent_row, text="Load", command=self.load_recent_template, width=10).pack(side=tk.LEFT)
+        ttk.Button(recent_row, text="Load", command=self.load_recent_template, width=10, bootstyle='outline-primary').pack(side=tk.LEFT)
 
         self.populate_recent_templates()
 
@@ -1755,15 +1756,15 @@ class BulkPDFGenerator:
         self.zoom_level = 1.0
         self._preview_raw_img = None  # Store unscaled PIL image for zoom
 
-        ttk.Button(zoom_frame, text="\u2212", width=3,
+        ttk.Button(zoom_frame, text="\u2212", width=3, bootstyle='outline-primary',
                    command=lambda: self._zoom_preview(-0.25)).pack(side=tk.LEFT, padx=2)
         self.zoom_label = tk.Label(zoom_frame, text="100%", width=5,
                                    font=font(10), fg=COLORS['text_secondary'],
                                    bg=COLORS['bg_surface'], anchor=tk.CENTER, autostyle=False)
         self.zoom_label.pack(side=tk.LEFT, padx=2)
-        ttk.Button(zoom_frame, text="+", width=3,
+        ttk.Button(zoom_frame, text="+", width=3, bootstyle='outline-primary',
                    command=lambda: self._zoom_preview(0.25)).pack(side=tk.LEFT, padx=2)
-        ttk.Button(zoom_frame, text="Fit", width=4,
+        ttk.Button(zoom_frame, text="Fit", width=4, bootstyle='outline-primary',
                    command=lambda: self._zoom_preview(0, fit=True)).pack(side=tk.LEFT, padx=(6, 0))
 
         tk.Label(results_inner, text="Click a field above to preview \u2022 Use +/\u2212 to zoom \u2022 Scroll to pan",
@@ -1805,9 +1806,9 @@ class BulkPDFGenerator:
         action_frame = tk.Frame(self.tab1_actions, bg=COLORS['bg_base'], autostyle=False)
         action_frame.pack(fill=tk.X)
 
-        ttk.Button(action_frame, text="Export Mapping File (.xlsx)", command=self.export_mapping_file).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(action_frame, text="Export Mapping File (.xlsx)", command=self.export_mapping_file, bootstyle='outline-primary').pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(action_frame, text="Save Template Config", command=self.save_template_config, bootstyle='primary').pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Button(action_frame, text="Skip to Generate PDFs \u2192", command=lambda: self.notebook.select(3)).pack(side=tk.RIGHT)
+        ttk.Button(action_frame, text="Skip to Generate PDFs \u2192", command=lambda: self.notebook.select(3), bootstyle='outline-primary').pack(side=tk.RIGHT)
 
     def select_pdf_tab1(self):
         """Select PDF file in Tab 1."""
@@ -2811,6 +2812,7 @@ class BulkPDFGenerator:
             btn_frame,
             text="Auto-Map All",
             command=lambda: self._auto_map_fields(overwrite=True),
+            bootstyle='outline-primary',
             state=tk.DISABLED,
         )
         self._tab2_auto_btn.pack(side=tk.LEFT, padx=(0, 8))
@@ -2819,7 +2821,7 @@ class BulkPDFGenerator:
             btn_frame,
             text="Clear All Mappings",
             command=self._clear_all_mappings,
-            bootstyle='outline-dark',
+            bootstyle='outline-primary',
             state=tk.DISABLED,
         )
         self._tab2_clear_btn.pack(side=tk.LEFT)
@@ -3174,7 +3176,7 @@ class BulkPDFGenerator:
         template_combo = ttk.Combobox(template_frame, textvariable=self.selected_template_var, state="readonly", width=40)
         template_combo.pack(side=tk.LEFT, padx=(0, 8))
 
-        ttk.Button(template_frame, text="Change Template", command=self.change_template_tab3).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(template_frame, text="Change Template", command=self.change_template_tab3, bootstyle='outline-primary').pack(side=tk.LEFT, padx=(0, 8))
 
         # Own row: on the template row it widened the page past a 1000px window.
         self.matching_status_label = ttk.Label(container, text="Columns are matched to PDF fields automatically — check Tab 2 to adjust.", style='Success.TLabel')
@@ -3189,7 +3191,7 @@ class BulkPDFGenerator:
         tk.Label(pdf_row, text="PDF Template:", width=18, anchor=tk.W,
                  font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface'], autostyle=False).pack(side=tk.LEFT)
         ttk.Entry(pdf_row, textvariable=self.pdf_template_path, width=40).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
-        ttk.Button(pdf_row, text="Browse...", command=self.select_pdf_tab3, width=10).pack(side=tk.LEFT)
+        ttk.Button(pdf_row, text="Browse...", command=self.select_pdf_tab3, width=10, bootstyle='outline-primary').pack(side=tk.LEFT)
 
         # Excel file selection
         excel_row = tk.Frame(file_inner, bg=COLORS['bg_surface'], autostyle=False)
@@ -3197,7 +3199,7 @@ class BulkPDFGenerator:
         tk.Label(excel_row, text="Excel Data File:", width=18, anchor=tk.W,
                  font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface'], autostyle=False).pack(side=tk.LEFT)
         ttk.Entry(excel_row, textvariable=self.excel_file_path, width=40).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
-        ttk.Button(excel_row, text="Browse...", command=self.select_excel_tab3, width=10).pack(side=tk.LEFT)
+        ttk.Button(excel_row, text="Browse...", command=self.select_excel_tab3, width=10, bootstyle='outline-primary').pack(side=tk.LEFT)
 
         # Output folder selection
         output_row = tk.Frame(file_inner, bg=COLORS['bg_surface'], autostyle=False)
@@ -3205,7 +3207,7 @@ class BulkPDFGenerator:
         tk.Label(output_row, text="Output Folder:", width=18, anchor=tk.W,
                  font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface'], autostyle=False).pack(side=tk.LEFT)
         ttk.Entry(output_row, textvariable=self.output_dir_path, width=40).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
-        ttk.Button(output_row, text="Browse...", command=self.select_output_dir_tab3, width=10).pack(side=tk.LEFT)
+        ttk.Button(output_row, text="Browse...", command=self.select_output_dir_tab3, width=10, bootstyle='outline-primary').pack(side=tk.LEFT)
         tk.Label(output_row, text="(optional)", font=font(9),
                  fg=COLORS['text_tertiary'], bg=COLORS['bg_surface'], autostyle=False).pack(side=tk.LEFT, padx=(6, 0))
 
@@ -3242,8 +3244,8 @@ class BulkPDFGenerator:
         tk.Label(selection_frame, text="Select records to process:", font=font(11),
                  fg=COLORS['text_primary'], bg=COLORS['bg_base'], autostyle=False).pack(side=tk.LEFT)
 
-        ttk.Button(selection_frame, text="Select All", command=self.select_all_tab3).pack(side=tk.LEFT, padx=(15, 5))
-        ttk.Button(selection_frame, text="Deselect All", command=self.deselect_all_tab3).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(selection_frame, text="Select All", command=self.select_all_tab3, bootstyle='outline-primary').pack(side=tk.LEFT, padx=(15, 5))
+        ttk.Button(selection_frame, text="Deselect All", command=self.deselect_all_tab3, bootstyle='outline-primary').pack(side=tk.LEFT, padx=(0, 5))
 
         self.selection_count_label_tab3 = ttk.Label(selection_frame, text="", style='Secondary.TLabel')
         self.selection_count_label_tab3.pack(side=tk.RIGHT)
@@ -3308,6 +3310,7 @@ class BulkPDFGenerator:
         self.results_open_btn_tab3 = ttk.Button(
             results_inner, text="Open Output Folder",
             command=self._open_last_output_folder,
+            bootstyle='outline-primary',
         )
         self.results_open_btn_tab3.pack(anchor=tk.W)
 
@@ -3496,7 +3499,7 @@ class BulkPDFGenerator:
         def on_cancel():
             dialog.destroy()
 
-        ttk.Button(btn_row, text="Cancel", command=on_cancel).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(btn_row, text="Cancel", command=on_cancel, bootstyle='outline-primary').pack(side=tk.LEFT, padx=(0, 8))
         ttk.Button(btn_row, text="Load this sheet", bootstyle='primary',
                    command=on_ok).pack(side=tk.LEFT)
 

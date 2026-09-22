@@ -89,6 +89,37 @@ class TestTextContrast(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertReadable('text_inverse', key)
 
+    def test_outline_buttons_readable_in_every_state(self):
+        """Accent text at rest, white on a darkened fill when hovered/pressed."""
+        src = inspect.getsource(theme.apply_dark_theme)
+        self.assertIn("name = 'primary.Outline.TButton'", src)
+        self.assertIn("tbs.Bootstyle.update_ttk_widget_style(None, name)", src)
+        self.assertIn("('pressed !disabled', C['text_inverse'])", src)
+        self.assertIn("('hover !disabled', C['text_inverse'])", src)
+        self.assertIn("('pressed !disabled', C['accent_pressed'])", src)
+        self.assertIn("('hover !disabled', C['accent_hover'])", src)
+        self.assertReadable('accent', 'bg_surface')
+        for key in ('accent_hover', 'accent_pressed'):
+            with self.subTest(key=key):
+                self.assertReadable('text_inverse', key)
+
+    def test_buttons_are_solid_primary_or_one_outline_style(self):
+        """Two button kinds only: solid primary/success, or outline-primary."""
+        tree = ast.parse((REPO / 'pdf_generator.py').read_text(encoding='utf-8'))
+        styles = set()
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == 'Button'
+                    and isinstance(node.func.value, ast.Name) and node.func.value.id == 'ttk'):
+                kw = {k.arg: k.value for k in node.keywords}
+                styles.add(kw['bootstyle'].value if 'bootstyle' in kw else None)
+        self.assertLessEqual(styles, {'primary', 'success', 'outline-primary'},
+                             'every ttk.Button needs an explicit, approved bootstyle')
+
+    def test_disabled_notebook_tab_is_greyed(self):
+        src = inspect.getsource(theme.apply_dark_theme)
+        self.assertIn("foreground=[('disabled', C['text_disabled'])]", src)
+
     def test_page_frames_use_page_colour(self):
         """litera paints ttk.Frame white; the page must be bg_base so cards stand out."""
         src = inspect.getsource(theme.apply_dark_theme)

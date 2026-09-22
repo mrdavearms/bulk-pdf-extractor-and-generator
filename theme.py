@@ -33,6 +33,7 @@ COLORS = {
     'text_secondary': '#64748b',   # slate-500
     'text_tertiary':  '#64748b',   # slate-500 — was slate-400 (2.6:1 on white, fails WCAG AA)
     'text_inverse':   '#ffffff',
+    'text_disabled':  '#94a3b8',   # slate-400 — disabled controls only (WCAG exempt)
 
     # --- Accent / Brand (Tailwind Blue) ---
     'accent':         '#2563eb',   # blue-600  — primary interactive
@@ -200,6 +201,10 @@ def apply_dark_theme(root: tk.Tk):
     style.map('TNotebook.Tab',
         background=[('selected', C['bg_base']), ('!selected', C['bg_surface'])],
         lightcolor=[('selected', C['bg_base']), ('!selected', C['bg_surface'])],
+        # A disabled tab (Map Fields before analysis) looked enabled: litera's
+        # '!selected' colour matched it too. Grey it out, checked first.
+        foreground=[('disabled', C['text_disabled'])]
+                   + style.map('TNotebook.Tab', 'foreground'),
     )
     style.configure('Card.TFrame', background=C['bg_surface'])
     style.configure('Elevated.TFrame', background=C['bg_elevated'])
@@ -311,6 +316,26 @@ def apply_dark_theme(root: tk.Tk):
                         darkcolor=base, lightcolor=base)
         style.map(name, background=states, bordercolor=states,
                   darkcolor=states, lightcolor=states)
+
+    # ── Outline buttons (every secondary action) ────────────────
+    # One solid primary per screen; everything else is outline-primary.
+    # litera's is #4582ec text on white (3.7:1) and white on #4582ec when
+    # hovered/pressed. Use accent text at rest and darken the fill on
+    # hover/press so white text passes 4.5:1 there too.
+    name = 'primary.Outline.TButton'
+    tbs.Bootstyle.update_ttk_widget_style(None, name)
+    disabled = style.lookup(name, 'foreground', ['disabled'])
+    fill = [('pressed !disabled', C['accent_pressed']),
+            ('hover !disabled', C['accent_hover'])]
+    style.configure(name, foreground=C['accent'], bordercolor=C['accent'],
+                    focuscolor=C['accent'])
+    style.map(name,
+        foreground=[('disabled', disabled),
+                    ('pressed !disabled', C['text_inverse']),
+                    ('hover !disabled', C['text_inverse'])],
+        bordercolor=[('disabled', disabled)] + fill,
+        background=fill, darkcolor=fill, lightcolor=fill,
+    )
 
     # ── TLabelframe (kept for compatibility) ────────────────────
     style.configure('TLabelframe',
