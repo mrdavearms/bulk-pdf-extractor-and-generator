@@ -78,6 +78,17 @@ class TestTextContrast(unittest.TestCase):
         self.assertIn("('selected', C['tree_selected'])", src)
         self.assertReadable('text_primary', 'tree_selected')
 
+    def test_solid_buttons_readable_in_every_state(self):
+        """White button text must pass at rest, hover and press (litera fails all three)."""
+        src = inspect.getsource(theme.apply_dark_theme)
+        for style_name in ("'TButton'", "'primary.TButton'", "'success.TButton'"):
+            self.assertIn(style_name, src)
+        self.assertIn("tbs.Bootstyle.update_ttk_widget_style(None, name)", src)
+        for key in ('accent', 'accent_hover', 'accent_pressed',
+                    'success', 'success_hover', 'success_pressed'):
+            with self.subTest(key=key):
+                self.assertReadable('text_inverse', key)
+
     def test_page_frames_use_page_colour(self):
         """litera paints ttk.Frame white; the page must be bg_base so cards stand out."""
         src = inspect.getsource(theme.apply_dark_theme)

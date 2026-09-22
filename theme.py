@@ -48,6 +48,8 @@ COLORS = {
     # --- Semantic (Tailwind Emerald / Amber / Red) ---
     'success':        '#047857',   # emerald-700 — was emerald-500 (2.5:1 on white)
     'success_bg':     '#ecfdf5',   # emerald-50
+    'success_hover':  '#065f46',   # emerald-800
+    'success_pressed': '#064e3b',  # emerald-900
     'warning':        '#b45309',   # amber-700 — was amber-500 (2.1:1 on white)
     'warning_bg':     '#fffbeb',   # amber-50
     'error':          '#b91c1c',   # red-700 — was red-500 (3.8:1 on white)
@@ -285,6 +287,30 @@ def apply_dark_theme(root: tk.Tk):
         background=[('selected', C['tree_selected'])],
         foreground=[('selected', C['text_primary'])],
     )
+
+    # ── Solid buttons ───────────────────────────────────────────
+    # litera's are white on #4582ec (3.7:1) and #02b875 (2.6:1), and they
+    # get LIGHTER on hover/press. Use our accent/success colours and darken
+    # on hover/press so every state keeps white text at 4.5:1 or better.
+    # Build each style first: ttkbootstrap builds on first use and would
+    # overwrite anything configured before then.
+    solid_buttons = {
+        'TButton':         (C['accent'], C['accent_hover'], C['accent_pressed']),
+        'primary.TButton': (C['accent'], C['accent_hover'], C['accent_pressed']),
+        'success.TButton': (C['success'], C['success_hover'], C['success_pressed']),
+    }
+    for name, (base, hover, pressed) in solid_buttons.items():
+        tbs.Bootstyle.update_ttk_widget_style(None, name)
+        disabled = style.lookup(name, 'background', ['disabled'])
+        states = [
+            ('disabled', disabled),
+            ('pressed !disabled', pressed),
+            ('hover !disabled', hover),
+        ]
+        style.configure(name, background=base, bordercolor=base,
+                        darkcolor=base, lightcolor=base)
+        style.map(name, background=states, bordercolor=states,
+                  darkcolor=states, lightcolor=states)
 
     # ── TLabelframe (kept for compatibility) ────────────────────
     style.configure('TLabelframe',
