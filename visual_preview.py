@@ -161,16 +161,26 @@ class VisualPreviewGenerator:
             self._cached_pages.move_to_end(cache_key)
             return self._cached_pages[cache_key]
 
-        # Check disk cache (include PDF identity to prevent stale cross-PDF hits)
-        pdf_hash = hashlib.md5(self.pdf_path.encode()).hexdigest()[:8]
+        # Check disk cache. The key includes the file's size and modified time
+        # as well as its path, so a revised form saved over last year's file
+        # is rendered afresh instead of showing the old page.
+        try:
+            st = os.stat(self.pdf_path)
+            pdf_identity = f"{self.pdf_path}|{st.st_size}|{st.st_mtime_ns}"
+        except OSError:
+            pdf_identity = self.pdf_path
+        pdf_hash = hashlib.md5(pdf_identity.encode()).hexdigest()[:8]
         cache_filename = f"{pdf_hash}_page_{page_num}_dpi_{dpi}.png"
         cache_path = os.path.join(self.cache_dir, cache_filename)
 
         if os.path.exists(cache_path):
-            img = Image.open(cache_path)
-            img.load()  # Force full read into memory; releases file handle
-            self._cached_pages[cache_key] = img
-            return img
+            try:
+                img = Image.open(cache_path)
+                img.load()  # Force full read into memory; releases file handle
+                self._cached_pages[cache_key] = img
+                return img
+            except OSError:
+                pass  # damaged cache file (e.g. crash mid-save) — re-render
 
         # Render from PDF
         page = self.doc.load_page(page_num - 1)  # 0-indexed
@@ -179,8 +189,15 @@ class VisualPreviewGenerator:
         # Convert to PIL Image
         img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
 
-        # Save to disk cache
-        img.save(cache_path, "PNG")
+        # Save to disk cache. The cache is optional: a read-only or full disk
+        # must not stop the preview, and the temp-then-rename means a crash
+        # mid-save never leaves a damaged PNG behind.
+        try:
+            tmp_path = cache_path + '.tmp'
+            img.save(tmp_path, "PNG")
+            os.replace(tmp_path, cache_path)
+        except OSError:
+            pass
 
         # Save to memory cache with LRU eviction
         self._cached_pages[cache_key] = img

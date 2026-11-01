@@ -206,6 +206,10 @@ def check_for_update(current_version: str) -> dict:
     for ctx in _ssl_contexts():
         try:
             latest_tag, html_url = _from_manifest(ctx) or _from_redirect(ctx)
+            # The Download button hands this to webbrowser.open, which on
+            # Windows can launch file: or UNC paths. Only ever open this repo.
+            if not html_url.startswith(REPO_URL + '/'):
+                html_url = RELEASES_LATEST
 
             is_newer = _parse_version(latest_tag) > _parse_version(current_version)
             return {
@@ -4128,7 +4132,11 @@ class BulkPDFGenerator:
                     if safe_year:
                         suffix_parts.append(safe_year)
 
-                    filename = f"{'_'.join(name_parts)}_{' '.join(suffix_parts)}.pdf"
+                    # Cap the name so a deep OneDrive folder stays under the
+                    # Windows 260-character path limit; the "(n)" suffix below
+                    # separates any names the cap makes identical.
+                    stem = f"{'_'.join(name_parts)}_{' '.join(suffix_parts)}"
+                    filename = f"{stem[:120].rstrip(' _-')}.pdf"
                     output_path = os.path.join(output_folder, filename)
 
                     # Avoid overwriting existing files (e.g. duplicate names, re-runs)
@@ -4152,14 +4160,20 @@ class BulkPDFGenerator:
                         for w in (row_warnings or []):
                             detail = f"{'_'.join(name_parts)}: {w}"
                             warning_details.append(detail)
-                            # The UI tells teachers the full list is in app.log —
-                            # it never was until now.
-                            self.logger.warning("Generation warning: %s", detail)
+                        # app.log holds no student data: names and cell values
+                        # stay on screen. Teachers send this file with bug
+                        # reports and it often sits in a synced Documents folder.
+                        if row_warnings:
+                            self.logger.warning(
+                                "Generation warnings for spreadsheet row %s: %d",
+                                idx + 1, len(row_warnings))
                     except Exception as e:
                         row_label = '_'.join(name_parts) if name_parts else f'Row_{idx+1}'
                         err_str = str(e)
                         error_details.append(f"{row_label}: {err_str}")
-                        self.logger.exception("Generation failed for %s", row_label)
+                        # Exception text can hold the output path, i.e. the name.
+                        self.logger.error("Generation failed for spreadsheet row %s: %s",
+                                          idx + 1, type(e).__name__)
                         status_text = f"Error: {row_label} - {err_str}"
 
                     # Throttled progress: update every 10th record or 200ms
@@ -4325,8 +4339,20 @@ class BulkPDFGenerator:
                 writer.update_page_form_field_values(
                     page, button_values, auto_regenerate=True)
 
-        with open(output_path, 'wb') as f:
-            writer.write(f)
+        # Write to a .part file, then rename: a full disk, a sync hiccup or the
+        # window closing mid-write must never leave a truncated PDF that looks
+        # finished.
+        part_path = output_path + '.part'
+        try:
+            with open(part_path, 'wb') as f:
+                writer.write(f)
+            os.replace(part_path, output_path)
+        except BaseException:
+            try:
+                os.remove(part_path)
+            except OSError:
+                pass
+            raise
 
         return warnings_out
 
