@@ -12,6 +12,7 @@ import platform
 import tkinter as tk
 from tkinter import ttk  # ttk.Treeview type hints in helper functions
 import ttkbootstrap as tbs
+from ttkbootstrap.style import Colors, ThemeDefinition
 
 
 # ============================================================
@@ -84,6 +85,32 @@ COLORS = {
     'canvas_bg':      '#f8fafc',   # slate-50
     'canvas_border':  '#e2e8f0',   # slate-200
 }
+
+# ttkbootstrap 1.x's 'litera' palette, the base the ttk widgets are drawn
+# from. Copied so the app keeps it after ttkbootstrap drops the legacy names.
+LITERA_THEME = 'bulkpdf-litera'
+LITERA_COLORS = {
+    'primary':   '#4582ec',
+    'secondary': '#adb5bd',
+    'success':   '#02b875',
+    'info':      '#17a2b8',
+    'warning':   '#f0ad4e',
+    'danger':    '#d9534f',
+    'light':     '#F8F9FA',
+    'dark':      '#343A40',
+    'bg':        '#ffffff',
+    'fg':        '#343a40',
+    'selectbg':  '#adb5bd',
+    'selectfg':  '#ffffff',
+    'border':    '#bfbfbf',
+    'inputfg':   '#343a40',
+    'inputbg':   '#fff',
+    'active':    '#e5e5e5',
+}
+# litera's disabled-button colours under ttkbootstrap 1.x. 2.x fills a
+# disabled button with #fafbfb, which all but disappears on a white page.
+BUTTON_DISABLED_BG = '#eaebeb'
+BUTTON_DISABLED_FG = '#c2c3c5'
 
 
 # ============================================================
@@ -190,7 +217,13 @@ def apply_dark_theme(root: tk.Tk):
     # Initialise ttkbootstrap style on the existing root window.
     # 'litera' is a clean, professional light theme whose primary blue
     # (#4582ec) closely matches our brand accent (#4c8bf5).
-    style = tbs.Style(theme='litera')
+    # ttkbootstrap 2 only keeps 'litera' as a legacy name (removed in 3.0)
+    # and regenerates its border/input colours, so register litera's own
+    # colours under the app's name. default_button='primary' keeps a bare
+    # Button blue; 2.x defaults it to a grey 'neutral' fill.
+    style = tbs.Style(default_button='primary')
+    style.register_theme(ThemeDefinition(LITERA_THEME, Colors(**LITERA_COLORS)))
+    style.theme_use(LITERA_THEME)
 
     C = COLORS
 
@@ -211,9 +244,12 @@ def apply_dark_theme(root: tk.Tk):
         lightcolor=[('selected', C['bg_base']), ('!selected', C['bg_surface'])],
         # A disabled tab (Map Fields before analysis) looked enabled: litera's
         # '!selected' colour matched it too. Grey it out, checked first.
+        # ttkbootstrap 2 fades unselected tabs to #666666; keep litera's
+        # one text colour for both.
         foreground=[('disabled', C['text_disabled'])]
-                   + style.map('TNotebook.Tab', 'foreground'),
+                   + [('selected', LITERA_COLORS['fg']), ('!selected', LITERA_COLORS['fg'])],
     )
+    style.configure('TNotebook.Tab', foreground=LITERA_COLORS['fg'])
     style.configure('Card.TFrame', background=C['bg_surface'])
     style.configure('Elevated.TFrame', background=C['bg_elevated'])
 
@@ -298,6 +334,20 @@ def apply_dark_theme(root: tk.Tk):
         background=[('selected', C['tree_selected'])],
         foreground=[('selected', C['text_primary'])],
     )
+    # ttkbootstrap 2 draws the table edge lighter than the theme border.
+    style.configure('Treeview', bordercolor=LITERA_COLORS['border'])
+
+    # ── Dropdowns ───────────────────────────────────────────────
+    # Every dropdown is readonly. ttkbootstrap 1.x filled those light grey;
+    # 2.x fills them white like a text box.
+    for option in ('fieldbackground', 'background', 'lightcolor', 'darkcolor'):
+        states = [s for s in style.map('TCombobox', option) if s[:-1] != ('readonly',)]
+        style.map('TCombobox', **{option: states + [('readonly', LITERA_COLORS['light'])]})
+    # 1.x outlined a text box or dropdown in blue under the pointer; 2.x
+    # only does it on focus.
+    for name in ('TEntry', 'TCombobox'):
+        style.map(name, bordercolor=style.map(name, 'bordercolor')
+                  + [('hover', '!disabled', LITERA_COLORS['primary'])])
 
     # ── Solid buttons ───────────────────────────────────────────
     # litera's are white on #4582ec (3.7:1) and #02b875 (2.6:1), and they
@@ -310,18 +360,20 @@ def apply_dark_theme(root: tk.Tk):
         'primary.TButton': (C['accent'], C['accent_hover'], C['accent_pressed']),
         'success.TButton': (C['success'], C['success_hover'], C['success_pressed']),
     }
+    # ttkbootstrap 2 pads buttons (10, 4); keep 1.x's (10, 5) height.
     for name, (base, hover, pressed) in solid_buttons.items():
         tbs.Bootstyle.update_ttk_widget_style(None, name)
-        disabled = style.lookup(name, 'background', ['disabled'])
         states = [
-            ('disabled', disabled),
+            ('disabled', BUTTON_DISABLED_BG),
             ('pressed !disabled', pressed),
             ('hover !disabled', hover),
         ]
         style.configure(name, background=base, bordercolor=base,
-                        darkcolor=base, lightcolor=base)
+                        darkcolor=base, lightcolor=base, padding=(10, 5))
         style.map(name, background=states, bordercolor=states,
-                  darkcolor=states, lightcolor=states)
+                  darkcolor=states, lightcolor=states,
+                  foreground=[('disabled', BUTTON_DISABLED_FG)],
+                  focuscolor=[('disabled', BUTTON_DISABLED_FG)])
 
     # ── Outline buttons (every secondary action) ────────────────
     # One solid primary per screen; everything else is outline-primary.
@@ -330,11 +382,11 @@ def apply_dark_theme(root: tk.Tk):
     # hover/press so white text passes 4.5:1 there too.
     name = 'primary.Outline.TButton'
     tbs.Bootstyle.update_ttk_widget_style(None, name)
-    disabled = style.lookup(name, 'foreground', ['disabled'])
+    disabled = BUTTON_DISABLED_FG
     fill = [('pressed !disabled', C['accent_pressed']),
             ('hover !disabled', C['accent_hover'])]
     style.configure(name, foreground=C['accent'], bordercolor=C['accent'],
-                    focuscolor=C['accent'])
+                    focuscolor=C['accent'], padding=(10, 5))
     style.map(name,
         foreground=[('disabled', disabled),
                     ('pressed !disabled', C['text_inverse']),

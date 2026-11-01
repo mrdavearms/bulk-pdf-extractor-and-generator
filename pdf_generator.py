@@ -317,7 +317,6 @@ class ScrollableFrame(ttk.Frame):
             borderwidth=0,
             highlightthickness=0,
             bg=COLORS['bg_base'],
-            autostyle=False,
         )
         self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.scrollable_frame = ttk.Frame(self.canvas)
@@ -440,7 +439,6 @@ class SchoolSetupDialog(tk.Toplevel):
             font=font(18, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_elevated'],
-            autostyle=False,
         ).pack(pady=(30, 4))
 
         tk.Label(
@@ -451,11 +449,10 @@ class SchoolSetupDialog(tk.Toplevel):
             fg=C['text_secondary'],
             bg=C['bg_elevated'],
             justify=tk.CENTER,
-            autostyle=False,
         ).pack(pady=(0, 20))
 
         # Form area
-        form = tk.Frame(self, bg=C['bg_elevated'], autostyle=False)
+        form = tk.Frame(self, bg=C['bg_elevated'])
         form.pack(padx=40, fill=tk.X)
 
         # School name
@@ -466,7 +463,6 @@ class SchoolSetupDialog(tk.Toplevel):
             fg=C['text_primary'],
             bg=C['bg_elevated'],
             anchor=tk.W,
-            autostyle=False,
         ).pack(fill=tk.X, pady=(0, 4))
 
         self.name_var = tk.StringVar(value=current_name)
@@ -481,7 +477,6 @@ class SchoolSetupDialog(tk.Toplevel):
             fg=C['text_tertiary'],
             bg=C['bg_elevated'],
             anchor=tk.W,
-            autostyle=False,
         ).pack(fill=tk.X, pady=(0, 16))
 
         # Academic year
@@ -492,7 +487,6 @@ class SchoolSetupDialog(tk.Toplevel):
             fg=C['text_primary'],
             bg=C['bg_elevated'],
             anchor=tk.W,
-            autostyle=False,
         ).pack(fill=tk.X, pady=(0, 4))
 
         # Default to current year if not provided
@@ -565,7 +559,6 @@ class TemplateNameDialog(tk.Toplevel):
             font=font(16, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_elevated'],
-            autostyle=False,
         ).pack(pady=(20, 5))
 
         tk.Label(
@@ -574,16 +567,15 @@ class TemplateNameDialog(tk.Toplevel):
             font=font(10),
             fg=C['text_secondary'],
             bg=C['bg_elevated'],
-            autostyle=False,
         ).pack(pady=(0, 15))
 
         # Name entry
-        name_frame = tk.Frame(self, bg=C['bg_elevated'], autostyle=False)
+        name_frame = tk.Frame(self, bg=C['bg_elevated'])
         name_frame.pack(pady=10, padx=40, fill=tk.X)
 
         tk.Label(name_frame, text="Template Name:",
                  font=font(11), fg=C['text_primary'],
-                 bg=C['bg_elevated'], autostyle=False).pack(anchor=tk.W, pady=(0, 5))
+                 bg=C['bg_elevated']).pack(anchor=tk.W, pady=(0, 5))
 
         self.name_var = tk.StringVar(value=suggested_name)
         name_entry = ttk.Entry(name_frame, textvariable=self.name_var, width=50)
@@ -597,7 +589,6 @@ class TemplateNameDialog(tk.Toplevel):
             font=font(9),
             fg=C['text_tertiary'],
             bg=C['bg_elevated'],
-            autostyle=False,
         ).pack(anchor=tk.W, pady=(5, 10))
 
         # Naming option
@@ -620,7 +611,7 @@ class TemplateNameDialog(tk.Toplevel):
         ).pack(anchor=tk.W, pady=2)
 
         # Buttons
-        button_frame = tk.Frame(self, bg=C['bg_elevated'], autostyle=False)
+        button_frame = tk.Frame(self, bg=C['bg_elevated'])
         button_frame.pack(pady=20, fill=tk.X, padx=40)
 
         ttk.Button(
@@ -749,7 +740,6 @@ class FieldTypeAuditDialog(tk.Toplevel):
             font=font(16, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_elevated'],
-            autostyle=False,
         ).pack(pady=(20, 5))
 
         tk.Label(
@@ -759,17 +749,16 @@ class FieldTypeAuditDialog(tk.Toplevel):
             font=font(10),
             fg=C['text_secondary'],
             bg=C['bg_elevated'],
-            autostyle=False,
             justify=tk.CENTER,
         ).pack(pady=(0, 15))
 
         # Scrollable frame for field list
-        list_outer = tk.Frame(self, bg=C['bg_elevated'], autostyle=False)
+        list_outer = tk.Frame(self, bg=C['bg_elevated'])
         list_outer.pack(fill=tk.BOTH, expand=True, padx=30, pady=(0, 10))
 
-        canvas = tk.Canvas(list_outer, bg=C['bg_surface'], highlightthickness=0, autostyle=False)
+        canvas = tk.Canvas(list_outer, bg=C['bg_surface'], highlightthickness=0)
         scrollbar = ttk.Scrollbar(list_outer, orient=tk.VERTICAL, command=canvas.yview)
-        self.inner_frame = tk.Frame(canvas, bg=C['bg_surface'], autostyle=False)
+        self.inner_frame = tk.Frame(canvas, bg=C['bg_surface'])
 
         # Debounced <Configure> (same pattern as ScrollableFrame)
         self._config_pending = False
@@ -815,12 +804,12 @@ class FieldTypeAuditDialog(tk.Toplevel):
         canvas.bind('<Leave>', _unbind_scroll)
 
         # Header row
-        hdr = tk.Frame(self.inner_frame, bg=C['bg_surface'], autostyle=False)
+        hdr = tk.Frame(self.inner_frame, bg=C['bg_surface'])
         hdr.pack(fill=tk.X, padx=5, pady=(5, 2))
         for hdr_text, hdr_w in [("Field Name", 26), ("Field Type", 14), ("Data Type", 16), ("Length", 8)]:
             lbl = tk.Label(hdr, text=hdr_text, font=font(10, 'bold'),
                            fg=C['text_primary'], bg=C['bg_surface'], width=hdr_w,
-                           anchor=tk.W, autostyle=False)
+                           anchor=tk.W)
             lbl.pack(side=tk.LEFT)
 
         # Field rows
@@ -830,13 +819,13 @@ class FieldTypeAuditDialog(tk.Toplevel):
 
         for i, field in enumerate(fields):
             bg = C['bg_surface'] if i % 2 == 0 else C['bg_elevated']
-            row = tk.Frame(self.inner_frame, bg=bg, autostyle=False)
+            row = tk.Frame(self.inner_frame, bg=bg)
             row.pack(fill=tk.X, padx=5, pady=1)
 
             # Column 1: Field Name
             lbl_name = tk.Label(row, text=field.field_name, font=font(10),
                                 fg=C['text_primary'], bg=bg, width=26,
-                                anchor=tk.W, autostyle=False)
+                                anchor=tk.W)
             lbl_name.pack(side=tk.LEFT)
 
             # Column 2: Field Type (editable for Text types, read-only for others)
@@ -853,7 +842,7 @@ class FieldTypeAuditDialog(tk.Toplevel):
                 ftype_var = tk.StringVar(value=field.field_type)
                 lbl_ftype = tk.Label(row, text=_field_type_detail(field), font=font(10),
                                      fg=C['text_secondary'], bg=bg, width=28,
-                                     anchor=tk.W, autostyle=False)
+                                     anchor=tk.W)
                 lbl_ftype.pack(side=tk.LEFT, padx=(2, 0))
             self.ftype_vars.append(ftype_var)
 
@@ -880,7 +869,7 @@ class FieldTypeAuditDialog(tk.Toplevel):
             self.length_entries.append((length_entry, length_var))
 
         # Buttons
-        btn_frame = tk.Frame(self, bg=C['bg_elevated'], autostyle=False)
+        btn_frame = tk.Frame(self, bg=C['bg_elevated'])
         btn_frame.pack(pady=15, fill=tk.X, padx=30)
 
         ttk.Button(btn_frame, text="Skip — keep current types",
@@ -1176,20 +1165,19 @@ class BulkPDFGenerator:
         # ── Header Bar ──
         # Height follows the text: a fixed 80px cut off the subtitle at
         # Windows 125%/150% scaling and under Tk 9 on macOS.
-        header = tk.Frame(main_frame, bg=C['bg_surface'], autostyle=False)
+        header = tk.Frame(main_frame, bg=C['bg_surface'])
         header.pack(fill=tk.X)
 
-        title_area = tk.Frame(header, bg=C['bg_surface'], autostyle=False)
+        title_area = tk.Frame(header, bg=C['bg_surface'])
         title_area.pack(side=tk.LEFT, padx=24, pady=12)
 
         # Title row with app icon
-        title_row = tk.Frame(title_area, bg=C['bg_surface'], autostyle=False)
+        title_row = tk.Frame(title_area, bg=C['bg_surface'])
         title_row.pack(anchor=tk.W)
         if 'header' in self._icon_refs:
             tk.Label(title_row,
                 image=self._icon_refs['header'],
                 bg=C['bg_surface'],
-                autostyle=False,
             ).pack(side=tk.LEFT, padx=(0, 8))
         else:
             tk.Label(title_row,
@@ -1197,14 +1185,12 @@ class BulkPDFGenerator:
                 font=font(18),
                 fg=C['accent'],
                 bg=C['bg_surface'],
-                autostyle=False,
             ).pack(side=tk.LEFT, padx=(0, 8))
         tk.Label(title_row,
             text="Bulk PDF Generator",
             font=font(22, 'bold'),
             fg=C['text_primary'],
             bg=C['bg_surface'],
-            autostyle=False,
         ).pack(side=tk.LEFT)
 
         tk.Label(title_area,
@@ -1212,12 +1198,11 @@ class BulkPDFGenerator:
             font=font(10),
             fg=C['text_secondary'],
             bg=C['bg_surface'],
-            autostyle=False,
         ).pack(anchor=tk.W, padx=(30, 0))
 
         # Fills the space beside the title so a long template name wraps
         # instead of being cut off (150% scaling, 1000px window).
-        info_area = tk.Frame(header, bg=C['bg_surface'], autostyle=False)
+        info_area = tk.Frame(header, bg=C['bg_surface'])
         info_area.pack(side=tk.RIGHT, padx=24, pady=12, fill=tk.X, expand=True)
 
         # School name (clickable to edit)
@@ -1231,7 +1216,6 @@ class BulkPDFGenerator:
             fg=C['accent'],
             bg=C['bg_surface'],
             cursor="hand2",
-            autostyle=False,
         )
         self.header_school.pack(anchor=tk.E)
         self.header_school.bind("<Button-1>", lambda e: self.prompt_school_setup())
@@ -1244,23 +1228,22 @@ class BulkPDFGenerator:
             width=1,
             anchor=tk.E,
             justify=tk.RIGHT,
-            autostyle=False,
         )
         self.header_status.pack(fill=tk.X)
         self.header_status.bind('<Configure>', lambda e: e.widget.configure(wraplength=e.width)
                                 if str(e.widget.cget('wraplength')) != str(e.width) else None)
 
         # Accent stripe divider
-        tk.Frame(main_frame, bg=C['accent'], height=3, autostyle=False).pack(fill=tk.X)
+        tk.Frame(main_frame, bg=C['accent'], height=3).pack(fill=tk.X)
 
         # ── Update banner (hidden until a startup check finds a newer version) ──
         # Inline and non-modal by design: on macOS a messagebox can open behind
         # the main window and silently freeze the app, so update news is shown
         # here, never via a pop-up. Revealed by _show_startup_update_result.
-        self._update_banner = tk.Frame(main_frame, bg=C['bg_surface'], autostyle=False)
+        self._update_banner = tk.Frame(main_frame, bg=C['bg_surface'])
         self._update_banner_lbl = tk.Label(
             self._update_banner, text="", font=font(10, 'bold'),
-            fg=C['accent'], bg=C['bg_surface'], autostyle=False,
+            fg=C['accent'], bg=C['bg_surface'],
         )
         self._update_banner_lbl.pack(side=tk.LEFT, padx=(16, 8), pady=6)
         ttk.Button(
@@ -1270,7 +1253,6 @@ class BulkPDFGenerator:
         _dismiss = tk.Label(
             self._update_banner, text="✕", font=font(11),
             fg=C['text_secondary'], bg=C['bg_surface'], cursor="hand2",
-            autostyle=False,
         )
         _dismiss.pack(side=tk.RIGHT, padx=12)
         _dismiss.bind("<Button-1>", lambda e: self._update_banner.pack_forget())
@@ -1311,8 +1293,8 @@ class BulkPDFGenerator:
         self.tab3 = self.tab3_container.scrollable_frame
 
         # ── Status Bar ──
-        tk.Frame(main_frame, bg=C['border_subtle'], height=1, autostyle=False).pack(fill=tk.X, side=tk.BOTTOM)
-        status_frame = tk.Frame(main_frame, bg=C['bg_surface'], height=32, autostyle=False)
+        tk.Frame(main_frame, bg=C['border_subtle'], height=1).pack(fill=tk.X, side=tk.BOTTOM)
+        status_frame = tk.Frame(main_frame, bg=C['bg_surface'], height=32)
         status_frame.pack(fill=tk.X, side=tk.BOTTOM)
         status_frame.pack_propagate(False)
 
@@ -1322,7 +1304,6 @@ class BulkPDFGenerator:
             fg=C['text_secondary'],
             bg=C['bg_surface'],
             anchor=tk.W,
-            autostyle=False,
         )
         self.status_label.pack(side=tk.LEFT, padx=12)
 
@@ -1332,7 +1313,6 @@ class BulkPDFGenerator:
             fg=C['text_tertiary'],
             bg=C['bg_surface'],
             anchor=tk.E,
-            autostyle=False,
         )
         self.status_template.pack(side=tk.RIGHT, padx=12)
 
@@ -1350,9 +1330,9 @@ class BulkPDFGenerator:
 
     def _make_page_with_action_bar(self):
         """A notebook page: scrollable body on top, fixed action bar below."""
-        page = tk.Frame(self.notebook, bg=COLORS['bg_base'], autostyle=False)
+        page = tk.Frame(self.notebook, bg=COLORS['bg_base'])
         bar = tk.Frame(page, bg=COLORS['bg_base'],
-                       padx=SPACING['page_padding'], pady=8, autostyle=False)
+                       padx=SPACING['page_padding'], pady=8)
         bar.pack(side=tk.BOTTOM, fill=tk.X)
         ttk.Separator(page, orient='horizontal').pack(side=tk.BOTTOM, fill=tk.X)
         body = ScrollableFrame(page)
@@ -1378,7 +1358,6 @@ class BulkPDFGenerator:
             fg=C['text_primary'],
             bg=C['bg_base'],
             anchor=tk.W,
-            autostyle=False,
         ).pack(anchor=tk.W, pady=(0, 6))
 
         # Optional subtitle
@@ -1389,18 +1368,15 @@ class BulkPDFGenerator:
                 fg=C['text_secondary'],
                 bg=C['bg_base'],
                 anchor=tk.W,
-                autostyle=False,
             ).pack(anchor=tk.W, pady=(0, 6))
 
         # Border frame (simulates 1px border via bg color + padding)
-        border_frame = tk.Frame(wrapper, bg=C['border_subtle'], padx=1, pady=1,
-                                autostyle=False)
+        border_frame = tk.Frame(wrapper, bg=C['border_subtle'], padx=1, pady=1)
         border_frame.pack(fill=fill_mode, expand=expand)
 
         # Inner content frame
         inner = tk.Frame(border_frame, bg=C['bg_surface'],
-                         padx=SPACING['inner_padding'], pady=SPACING['inner_padding'],
-                         autostyle=False)
+                         padx=SPACING['inner_padding'], pady=SPACING['inner_padding'])
         inner.pack(fill=fill_mode, expand=expand)
 
         return inner
@@ -1432,7 +1408,6 @@ class BulkPDFGenerator:
             pady=15,
             yscrollcommand=scrollbar.set,
             cursor='arrow',
-            autostyle=False,
         )
         text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.config(command=text_widget.yview)
@@ -1456,33 +1431,31 @@ class BulkPDFGenerator:
 
         # Outer wrapper centres the card horizontally (the page scrolls, so
         # there is no spare height to centre it in vertically)
-        outer = tk.Frame(self.tab_about_frame, bg=C['bg_base'], autostyle=False)
+        outer = tk.Frame(self.tab_about_frame, bg=C['bg_base'])
         outer.pack(fill=tk.BOTH, expand=True, pady=SPACING['page_padding'])
         outer.columnconfigure(0, weight=1)
 
         # Centred card
-        card_border = tk.Frame(outer, bg=C['border_subtle'], padx=1, pady=1,
-                               autostyle=False)
+        card_border = tk.Frame(outer, bg=C['border_subtle'], padx=1, pady=1)
         card_border.grid(row=0, column=0)  # centres in the expanded cell
-        card = tk.Frame(card_border, bg=C['bg_surface'], padx=48, pady=40,
-                        autostyle=False)
+        card = tk.Frame(card_border, bg=C['bg_surface'], padx=48, pady=40)
         card.pack()
 
         # App icon + title
         if 'about' in self._icon_refs:
             tk.Label(card, image=self._icon_refs['about'],
-                     bg=C['bg_surface'], autostyle=False).pack(pady=(0, 8))
+                     bg=C['bg_surface']).pack(pady=(0, 8))
         else:
             tk.Label(card, text="\u25c6", font=font(36), fg=C['accent'],
-                     bg=C['bg_surface'], autostyle=False).pack(pady=(0, 4))
+                     bg=C['bg_surface']).pack(pady=(0, 4))
         tk.Label(card, text="Bulk PDF Generator", font=font(22, 'bold'),
-                 fg=C['text_primary'], bg=C['bg_surface'], autostyle=False).pack()
+                 fg=C['text_primary'], bg=C['bg_surface']).pack()
         tk.Label(card, text="Generate filled PDFs from spreadsheet data",
                  font=font(11), fg=C['text_secondary'],
-                 bg=C['bg_surface'], autostyle=False).pack(pady=(2, 20))
+                 bg=C['bg_surface']).pack(pady=(2, 20))
 
         # Divider
-        tk.Frame(card, bg=C['border_subtle'], height=1, autostyle=False).pack(fill=tk.X, pady=(0, 20))
+        tk.Frame(card, bg=C['border_subtle'], height=1).pack(fill=tk.X, pady=(0, 20))
 
         # Mission statement
         mission = (
@@ -1493,21 +1466,21 @@ class BulkPDFGenerator:
         )
         tk.Label(card, text=mission, font=font(11), fg=C['text_primary'],
                  bg=C['bg_surface'], justify=tk.CENTER,
-                 wraplength=420, autostyle=False).pack(pady=(0, 24))
+                 wraplength=420).pack(pady=(0, 24))
 
         # Developer info
         tk.Label(card, text="Developed by", font=font(10),
-                 fg=C['text_tertiary'], bg=C['bg_surface'], autostyle=False).pack()
+                 fg=C['text_tertiary'], bg=C['bg_surface']).pack()
         tk.Label(card, text="Dave Armstrong", font=font(14, 'bold'),
-                 fg=C['text_primary'], bg=C['bg_surface'], autostyle=False).pack(pady=(2, 2))
+                 fg=C['text_primary'], bg=C['bg_surface']).pack(pady=(2, 2))
         tk.Label(card, text="A Principal-developed app for educators and school leaders",
                  font=font(10), fg=C['text_secondary'],
-                 bg=C['bg_surface'], autostyle=False).pack(pady=(0, 16))
+                 bg=C['bg_surface']).pack(pady=(0, 16))
 
         # Email link
         email_label = tk.Label(card, text="Dave.Armstrong@education.vic.gov.au",
                                font=font(11, 'underline'), fg=C['info'],
-                               bg=C['bg_surface'], cursor='hand2', autostyle=False)
+                               bg=C['bg_surface'], cursor='hand2')
         email_label.pack(pady=(0, 6))
         email_label.bind('<Button-1>',
                          lambda e: webbrowser.open('mailto:Dave.Armstrong@education.vic.gov.au'))
@@ -1515,13 +1488,13 @@ class BulkPDFGenerator:
         # GitHub link
         github_label = tk.Label(card, text="github.com/mrdavearms/bulk-pdf-extractor-and-generator",
                                 font=font(11, 'underline'), fg=C['info'],
-                                bg=C['bg_surface'], cursor='hand2', autostyle=False)
+                                bg=C['bg_surface'], cursor='hand2')
         github_label.pack(pady=(0, 20))
         github_label.bind('<Button-1>',
                           lambda e: webbrowser.open('https://github.com/mrdavearms/bulk-pdf-extractor-and-generator'))
 
         # Divider
-        tk.Frame(card, bg=C['border_subtle'], height=1, autostyle=False).pack(fill=tk.X, pady=(0, 16))
+        tk.Frame(card, bg=C['border_subtle'], height=1).pack(fill=tk.X, pady=(0, 16))
 
         # Disclaimer
         disclaimer = (
@@ -1529,13 +1502,13 @@ class BulkPDFGenerator:
             "Always review all generated outputs before use."
         )
         tk.Label(card, text=disclaimer, font=font(9), fg=C['text_tertiary'],
-                 bg=C['bg_surface'], justify=tk.CENTER, autostyle=False).pack(pady=(0, 12))
+                 bg=C['bg_surface'], justify=tk.CENTER).pack(pady=(0, 12))
 
         # Version — commit hash and build date baked in at build time
         _commit, _date, _version_tag = self._build_info
         version_str = f"{_version_tag}  ·  {_commit}  ·  {_date}"
         tk.Label(card, text=version_str, font=font(10),
-                 fg=C['text_tertiary'], bg=C['bg_surface'], autostyle=False).pack(pady=(0, 8))
+                 fg=C['text_tertiary'], bg=C['bg_surface']).pack(pady=(0, 8))
 
         update_btn = ttk.Button(card, text='Check for Updates', bootstyle='outline-primary',
                                 width=20)
@@ -1551,7 +1524,6 @@ class BulkPDFGenerator:
             card, text='', font=font(10),
             fg=C['text_secondary'], bg=C['bg_surface'],
             wraplength=360, justify=tk.CENTER,
-            autostyle=False,
         )
         self._update_status_lbl.pack(pady=(10, 0))
 
@@ -1697,26 +1669,26 @@ class BulkPDFGenerator:
         load_inner = self.create_section(container, "Load Template")
 
         # PDF selection row
-        pdf_row = tk.Frame(load_inner, bg=COLORS['bg_surface'], autostyle=False)
+        pdf_row = tk.Frame(load_inner, bg=COLORS['bg_surface'])
         pdf_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
         tk.Label(pdf_row, text="PDF Template:", width=18, anchor=tk.W,
-                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface'], autostyle=False).pack(side=tk.LEFT)
+                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
         # Entries stretch to fill; width is only their minimum. At 40 chars the
         # rows outgrew a 1000px window at 150% scaling and pushed Browse... off.
         ttk.Entry(pdf_row, textvariable=self.pdf_template_path, width=20).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
         ttk.Button(pdf_row, text="Browse...", command=self.select_pdf_tab1, width=10, bootstyle='outline-primary').pack(side=tk.LEFT)
 
         # Template name row
-        name_row = tk.Frame(load_inner, bg=COLORS['bg_surface'], autostyle=False)
+        name_row = tk.Frame(load_inner, bg=COLORS['bg_surface'])
         name_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
         name_label = tk.Label(name_row, text="Template Name:", width=18, anchor=tk.W,
-                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface'], autostyle=False)
+                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface'])
         name_label.pack(side=tk.LEFT)
         self.template_name_var = tk.StringVar()
         ttk.Entry(name_row, textvariable=self.template_name_var, width=20).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
 
         # Naming options
-        naming_row = tk.Frame(load_inner, bg=COLORS['bg_surface'], autostyle=False)
+        naming_row = tk.Frame(load_inner, bg=COLORS['bg_surface'])
         # Indent by the label's measured width so the radios sit under the
         # entry boxes at any font size (a fixed 144px drifted with scaling).
         naming_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']),
@@ -1727,10 +1699,10 @@ class BulkPDFGenerator:
         ttk.Radiobutton(naming_row, text="Custom name", variable=self.naming_option_var, value="custom", style='Surface.TRadiobutton').pack(side=tk.LEFT)
 
         # Recent templates dropdown
-        recent_row = tk.Frame(load_inner, bg=COLORS['bg_surface'], autostyle=False)
+        recent_row = tk.Frame(load_inner, bg=COLORS['bg_surface'])
         recent_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
         tk.Label(recent_row, text="Recent Templates:", width=18, anchor=tk.W,
-                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface'], autostyle=False).pack(side=tk.LEFT)
+                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
         self.recent_templates_var = tk.StringVar()
         self.recent_templates_combo = ttk.Combobox(recent_row, textvariable=self.recent_templates_var, state="readonly", width=17)
         self.recent_templates_combo.pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
@@ -1739,7 +1711,7 @@ class BulkPDFGenerator:
         self.populate_recent_templates()
 
         # Analyze button
-        btn_row = tk.Frame(load_inner, bg=COLORS['bg_surface'], autostyle=False)
+        btn_row = tk.Frame(load_inner, bg=COLORS['bg_surface'])
         btn_row.pack(fill=tk.X, pady=(SPACING['element_gap'], 0))
         ttk.Button(btn_row, text="Analyze Fields", command=self.analyze_pdf_fields, bootstyle='primary').pack()
 
@@ -1750,13 +1722,13 @@ class BulkPDFGenerator:
         # Wraps to the card's width: on one line it widened Tab 1 past a
         # 1000px window at 150% scaling.
         self.stats_label = tk.Label(results_inner, text="No analysis performed yet", width=1,
-                                    font=font(10), fg=COLORS['text_secondary'], bg=COLORS['bg_surface'], autostyle=False)
+                                    font=font(10), fg=COLORS['text_secondary'], bg=COLORS['bg_surface'])
         self.stats_label.pack(pady=(0, 8), fill=tk.X)
         self.stats_label.bind('<Configure>', lambda e: e.widget.configure(wraplength=e.width)
                               if str(e.widget.cget('wraplength')) != str(e.width) else None)
 
         # Fields table
-        table_frame = tk.Frame(results_inner, bg=COLORS['bg_surface'], autostyle=False)
+        table_frame = tk.Frame(results_inner, bg=COLORS['bg_surface'])
         table_frame.pack(fill=tk.BOTH, expand=True)
 
         columns = ('field_name', 'type', 'page', 'length', 'data_type')
@@ -1792,15 +1764,15 @@ class BulkPDFGenerator:
         self.fields_tree.bind('<Double-1>', self._on_field_double_click)
 
         # Visual Preview section (nested inside results card)
-        preview_header = tk.Frame(results_inner, bg=COLORS['bg_surface'], autostyle=False)
+        preview_header = tk.Frame(results_inner, bg=COLORS['bg_surface'])
         preview_header.pack(fill=tk.X, pady=(SPACING['element_gap'], 6))
 
         tk.Label(preview_header, text="Field Preview",
                  font=font(11, 'bold'), fg=COLORS['text_primary'],
-                 bg=COLORS['bg_surface'], anchor=tk.W, autostyle=False).pack(side=tk.LEFT)
+                 bg=COLORS['bg_surface'], anchor=tk.W).pack(side=tk.LEFT)
 
         # Zoom controls
-        zoom_frame = tk.Frame(preview_header, bg=COLORS['bg_surface'], autostyle=False)
+        zoom_frame = tk.Frame(preview_header, bg=COLORS['bg_surface'])
         zoom_frame.pack(side=tk.RIGHT)
         self.zoom_level = 1.0
         self._preview_raw_img = None  # Store unscaled PIL image for zoom
@@ -1809,7 +1781,7 @@ class BulkPDFGenerator:
                    command=lambda: self._zoom_preview(-0.25)).pack(side=tk.LEFT, padx=2)
         self.zoom_label = tk.Label(zoom_frame, text="100%", width=5,
                                    font=font(10), fg=COLORS['text_secondary'],
-                                   bg=COLORS['bg_surface'], anchor=tk.CENTER, autostyle=False)
+                                   bg=COLORS['bg_surface'], anchor=tk.CENTER)
         self.zoom_label.pack(side=tk.LEFT, padx=2)
         ttk.Button(zoom_frame, text="+", width=3, bootstyle='outline-primary',
                    command=lambda: self._zoom_preview(0.25)).pack(side=tk.LEFT, padx=2)
@@ -1817,10 +1789,10 @@ class BulkPDFGenerator:
                    command=lambda: self._zoom_preview(0, fit=True)).pack(side=tk.LEFT, padx=(6, 0))
 
         tk.Label(results_inner, text="Click a field above to preview \u2022 Use +/\u2212 to zoom \u2022 Scroll to pan",
-                 font=font(9), fg=COLORS['text_secondary'], bg=COLORS['bg_surface'], anchor=tk.W, autostyle=False).pack(fill=tk.X, pady=(0, 6))
+                 font=font(9), fg=COLORS['text_secondary'], bg=COLORS['bg_surface'], anchor=tk.W).pack(fill=tk.X, pady=(0, 6))
 
         # Preview canvas (scrollable for zoom)
-        canvas_frame = tk.Frame(results_inner, bg=COLORS['canvas_border'], autostyle=False)
+        canvas_frame = tk.Frame(results_inner, bg=COLORS['canvas_border'])
         canvas_frame.pack(fill=tk.BOTH, expand=True)
 
         self.preview_canvas = tk.Canvas(
@@ -1828,7 +1800,6 @@ class BulkPDFGenerator:
             bg=COLORS['canvas_bg'],
             highlightthickness=0,
             xscrollincrement=1, yscrollincrement=1,
-            autostyle=False,
         )
         self.preview_canvas.pack(fill=tk.BOTH, expand=True)
 
@@ -1852,7 +1823,7 @@ class BulkPDFGenerator:
         self._preview_renderer: Optional[PreviewRenderer] = None
 
         # Action buttons row — pinned below the scrolling body
-        action_frame = tk.Frame(self.tab1_actions, bg=COLORS['bg_base'], autostyle=False)
+        action_frame = tk.Frame(self.tab1_actions, bg=COLORS['bg_base'])
         action_frame.pack(fill=tk.X)
 
         ttk.Button(action_frame, text="Export Mapping File (.xlsx)", command=self.export_mapping_file, bootstyle='outline-primary').pack(side=tk.LEFT, padx=(0, 8))
@@ -2776,7 +2747,7 @@ class BulkPDFGenerator:
         container.pack(fill=tk.BOTH, expand=True)
 
         # ── Guidance banner ───────────────────────────────────────────
-        self._tab2_banner_frame = tk.Frame(container, bg=C['bg_surface'], padx=12, pady=8, autostyle=False)
+        self._tab2_banner_frame = tk.Frame(container, bg=C['bg_surface'], padx=12, pady=8)
         self._tab2_banner_frame.pack(fill=tk.X, pady=(0, SPACING['section_gap']))
         self._tab2_banner_label = tk.Label(
             self._tab2_banner_frame,
@@ -2786,7 +2757,6 @@ class BulkPDFGenerator:
             bg=C['bg_surface'],
             anchor='w',
             wraplength=680,
-            autostyle=False,
         )
         self._tab2_banner_label.pack(anchor='w')
 
@@ -2805,7 +2775,6 @@ class BulkPDFGenerator:
             bg=C['bg_surface'],
             anchor='w',
             wraplength=680,
-            autostyle=False,
         )
         self._tab2_file_label.pack(anchor='w', pady=(0, 4))
 
@@ -2825,24 +2794,23 @@ class BulkPDFGenerator:
             fg=C['text_secondary'],
             bg=C['bg_surface'],
             anchor='w',
-            autostyle=False,
         )
         self._tab2_status_label.pack(anchor='w', pady=(0, SPACING['element_gap']))
 
         # Column header row
-        header_frame = tk.Frame(mappings_inner, bg=C['bg_surface'], autostyle=False)
+        header_frame = tk.Frame(mappings_inner, bg=C['bg_surface'])
         header_frame.pack(fill=tk.X, pady=(0, 4))
         tk.Label(header_frame, text="PDF Field", font=font(9, 'bold'),
-                 fg=C['text_secondary'], bg=C['bg_surface'], width=28, anchor='w', autostyle=False).pack(side=tk.LEFT)
+                 fg=C['text_secondary'], bg=C['bg_surface'], width=28, anchor='w').pack(side=tk.LEFT)
         tk.Label(header_frame, text="Excel Column", font=font(9, 'bold'),
-                 fg=C['text_secondary'], bg=C['bg_surface'], width=28, anchor='w', autostyle=False).pack(side=tk.LEFT, padx=(8, 0))
+                 fg=C['text_secondary'], bg=C['bg_surface'], width=28, anchor='w').pack(side=tk.LEFT, padx=(8, 0))
         tk.Label(header_frame, text="Status", font=font(9, 'bold'),
-                 fg=C['text_secondary'], bg=C['bg_surface'], width=2, anchor='w', autostyle=False).pack(side=tk.LEFT, padx=(8, 0))
+                 fg=C['text_secondary'], bg=C['bg_surface'], width=2, anchor='w').pack(side=tk.LEFT, padx=(8, 0))
         tk.Label(header_frame, text="Hint", font=font(9, 'bold'),
-                 fg=C['text_secondary'], bg=C['bg_surface'], anchor='w', autostyle=False).pack(side=tk.LEFT, padx=(8, 0), fill=tk.X, expand=True)
+                 fg=C['text_secondary'], bg=C['bg_surface'], anchor='w').pack(side=tk.LEFT, padx=(8, 0), fill=tk.X, expand=True)
 
         # Thin separator
-        tk.Frame(mappings_inner, bg=C['border_subtle'], height=1, autostyle=False).pack(fill=tk.X, pady=(0, 6))
+        tk.Frame(mappings_inner, bg=C['border_subtle'], height=1).pack(fill=tk.X, pady=(0, 6))
 
         # Scrollable frame that holds the per-field rows
         scroll = ScrollableFrame(mappings_inner)
@@ -2854,7 +2822,7 @@ class BulkPDFGenerator:
         self._tab2_mapping_frame = scroll.scrollable_frame
 
         # ── Buttons ────────────────────────────────────────────────────
-        btn_frame = tk.Frame(container, bg=C['bg_base'], autostyle=False)
+        btn_frame = tk.Frame(container, bg=C['bg_base'])
         btn_frame.pack(fill=tk.X, pady=(SPACING['element_gap'], 0))
 
         self._tab2_auto_btn = ttk.Button(
@@ -2981,7 +2949,7 @@ class BulkPDFGenerator:
             self._mapping_rows = []
 
             for field in self.analyzed_fields:
-                row = tk.Frame(self._tab2_mapping_frame, bg=C['bg_surface'], autostyle=False)
+                row = tk.Frame(self._tab2_mapping_frame, bg=C['bg_surface'])
                 row.pack(fill=tk.X, pady=2)
 
                 # PDF field name label
@@ -2993,7 +2961,6 @@ class BulkPDFGenerator:
                     bg=C['bg_surface'],
                     width=28,
                     anchor='w',
-                    autostyle=False,
                 ).pack(side=tk.LEFT)
 
                 # Determine initial combobox value
@@ -3022,7 +2989,6 @@ class BulkPDFGenerator:
                     bg=C['bg_surface'],
                     width=2,
                     anchor='w',
-                    autostyle=False,
                 )
                 status_lbl.pack(side=tk.LEFT, padx=(8, 0))
 
@@ -3047,7 +3013,6 @@ class BulkPDFGenerator:
                     width=1,
                     anchor='w',
                     justify='left',
-                    autostyle=False,
                 )
                 # Take whatever width is left and wrap there: a fixed 30
                 # characters pushed the row past a 1000px window at 125%.
@@ -3220,11 +3185,11 @@ class BulkPDFGenerator:
         container.pack(fill=tk.BOTH, expand=True)
 
         # Template selection bar
-        template_frame = tk.Frame(container, bg=COLORS['bg_base'], autostyle=False)
+        template_frame = tk.Frame(container, bg=COLORS['bg_base'])
         template_frame.pack(fill=tk.X, pady=(0, 6))
 
         tk.Label(template_frame, text="Template:", font=font(10),
-                 fg=COLORS['text_secondary'], bg=COLORS['bg_base'], autostyle=False).pack(side=tk.LEFT, padx=(0, 10))
+                 fg=COLORS['text_secondary'], bg=COLORS['bg_base']).pack(side=tk.LEFT, padx=(0, 10))
 
         self.selected_template_var = tk.StringVar()
         template_combo = ttk.Combobox(template_frame, textvariable=self.selected_template_var, state="readonly", width=40)
@@ -3240,33 +3205,33 @@ class BulkPDFGenerator:
         file_inner = self.create_section(container, "Select Files")
 
         # PDF Template selection
-        pdf_row = tk.Frame(file_inner, bg=COLORS['bg_surface'], autostyle=False)
+        pdf_row = tk.Frame(file_inner, bg=COLORS['bg_surface'])
         pdf_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
         tk.Label(pdf_row, text="PDF Template:", width=18, anchor=tk.W,
-                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface'], autostyle=False).pack(side=tk.LEFT)
+                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
         ttk.Entry(pdf_row, textvariable=self.pdf_template_path, width=20).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
         ttk.Button(pdf_row, text="Browse...", command=self.select_pdf_tab3, width=10, bootstyle='outline-primary').pack(side=tk.LEFT)
 
         # Excel file selection
-        excel_row = tk.Frame(file_inner, bg=COLORS['bg_surface'], autostyle=False)
+        excel_row = tk.Frame(file_inner, bg=COLORS['bg_surface'])
         excel_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
         tk.Label(excel_row, text="Excel Data File:", width=18, anchor=tk.W,
-                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface'], autostyle=False).pack(side=tk.LEFT)
+                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
         ttk.Entry(excel_row, textvariable=self.excel_file_path, width=20).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
         ttk.Button(excel_row, text="Browse...", command=self.select_excel_tab3, width=10, bootstyle='outline-primary').pack(side=tk.LEFT)
 
         # Output folder selection
-        output_row = tk.Frame(file_inner, bg=COLORS['bg_surface'], autostyle=False)
+        output_row = tk.Frame(file_inner, bg=COLORS['bg_surface'])
         output_row.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
         tk.Label(output_row, text="Output Folder:", width=18, anchor=tk.W,
-                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface'], autostyle=False).pack(side=tk.LEFT)
+                 font=font(11), fg=COLORS['text_primary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT)
         ttk.Entry(output_row, textvariable=self.output_dir_path, width=20).pack(side=tk.LEFT, padx=(0, 8), fill=tk.X, expand=True)
         ttk.Button(output_row, text="Browse...", command=self.select_output_dir_tab3, width=10, bootstyle='outline-primary').pack(side=tk.LEFT)
         tk.Label(output_row, text="(optional)", font=font(9),
-                 fg=COLORS['text_tertiary'], bg=COLORS['bg_surface'], autostyle=False).pack(side=tk.LEFT, padx=(6, 0))
+                 fg=COLORS['text_tertiary'], bg=COLORS['bg_surface']).pack(side=tk.LEFT, padx=(6, 0))
 
         # Load button
-        btn_row = tk.Frame(file_inner, bg=COLORS['bg_surface'], autostyle=False)
+        btn_row = tk.Frame(file_inner, bg=COLORS['bg_surface'])
         btn_row.pack(fill=tk.X, pady=(SPACING['element_gap'], 0))
         ttk.Button(btn_row, text="Load & Preview Data", command=self.load_data_tab3, bootstyle='primary').pack()
 
@@ -3285,18 +3250,17 @@ class BulkPDFGenerator:
             padx=10,
             pady=8,
             font=font(10),
-            autostyle=False,
         )
         self.validation_text_tab3.pack(fill=tk.X)
         # Keep a reference for pack_forget compatibility
         self.validation_frame_tab3 = validation_inner.master.master
 
         # Selection Controls
-        selection_frame = tk.Frame(container, bg=COLORS['bg_base'], autostyle=False)
+        selection_frame = tk.Frame(container, bg=COLORS['bg_base'])
         selection_frame.pack(fill=tk.X, pady=(0, SPACING['element_gap']))
 
         tk.Label(selection_frame, text="Select records to process:", font=font(11),
-                 fg=COLORS['text_primary'], bg=COLORS['bg_base'], autostyle=False).pack(side=tk.LEFT)
+                 fg=COLORS['text_primary'], bg=COLORS['bg_base']).pack(side=tk.LEFT)
 
         ttk.Button(selection_frame, text="Select All", command=self.select_all_tab3, bootstyle='outline-primary').pack(side=tk.LEFT, padx=(15, 5))
         ttk.Button(selection_frame, text="Deselect All", command=self.deselect_all_tab3, bootstyle='outline-primary').pack(side=tk.LEFT, padx=(0, 5))
@@ -3322,7 +3286,7 @@ class BulkPDFGenerator:
 
         # Progress, results and the Generate button are pinned below the
         # scrolling body so they are always on screen.
-        progress_frame = tk.Frame(self.tab3_actions, bg=COLORS['bg_base'], autostyle=False)
+        progress_frame = tk.Frame(self.tab3_actions, bg=COLORS['bg_base'])
         progress_frame.pack(fill=tk.X, pady=(0, 4))
 
         self.progress_var_tab3 = tk.DoubleVar()
@@ -3336,17 +3300,16 @@ class BulkPDFGenerator:
         # Deliberately NOT a messagebox: on macOS a modal can open behind the
         # main window — invisible but blocking — and this fires right after a
         # long batch. It also gives teachers a record that survives a click.
-        self.results_frame_tab3 = tk.Frame(self.tab3_actions, bg=COLORS['bg_surface'], autostyle=False)
+        self.results_frame_tab3 = tk.Frame(self.tab3_actions, bg=COLORS['bg_surface'])
 
         results_inner = tk.Frame(self.results_frame_tab3, bg=COLORS['bg_surface'],
-                                 padx=14, pady=12, autostyle=False)
+                                 padx=14, pady=12)
         results_inner.pack(fill=tk.BOTH, expand=True)
 
         self.results_summary_tab3 = tk.Label(
             results_inner, text="", font=font(12, 'bold'),
             fg=COLORS['text_primary'], bg=COLORS['bg_surface'],
             anchor=tk.W, justify=tk.LEFT,
-            autostyle=False,
         )
         self.results_summary_tab3.pack(fill=tk.X)
 
@@ -3357,7 +3320,7 @@ class BulkPDFGenerator:
             results_inner, width=1, height=4, wrap=tk.WORD, state=tk.DISABLED,   # width: fills; not Tk's 80-char default
             bg=COLORS['bg_input'], fg=COLORS['text_primary'],
             relief='flat', borderwidth=0, padx=10, pady=8,
-            font=font(10), autostyle=False,
+            font=font(10),
         )
         self.results_detail_tab3.pack(fill=tk.X, pady=(8, 8))
 
@@ -3493,18 +3456,16 @@ class BulkPDFGenerator:
         dialog.configure(bg=C['bg_base'])
 
         # Content
-        inner = tk.Frame(dialog, bg=C['bg_base'], padx=24, pady=20, autostyle=False)
+        inner = tk.Frame(dialog, bg=C['bg_base'], padx=24, pady=20)
         inner.pack(fill=tk.BOTH, expand=True)
 
         tk.Label(inner,
             text="This workbook has multiple sheets.",
             font=font(12, 'bold'), fg=C['text_primary'], bg=C['bg_base'],
-            autostyle=False,
         ).pack(anchor=tk.W)
         tk.Label(inner,
             text="Please select the sheet that contains your data:",
             font=font(10), fg=C['text_secondary'], bg=C['bg_base'],
-            autostyle=False,
         ).pack(anchor=tk.W, pady=(2, 10))
 
         combo = ttk.Combobox(inner, values=sheet_names, state='readonly',
@@ -3525,7 +3486,6 @@ class BulkPDFGenerator:
             tk.Label(inner,
                 text='"Data Entry" is the sheet this app created for your data.',
                 font=font(9), fg=C['text_tertiary'], bg=C['bg_base'],
-                autostyle=False,
             ).pack(anchor=tk.W, pady=(6, 0), after=combo)
 
         # Defer grab_set so the window is fully realised by AppKit (macOS crash fix).
@@ -3536,7 +3496,7 @@ class BulkPDFGenerator:
         dialog.after(50, _grab_and_focus)
 
         # Buttons
-        btn_row = tk.Frame(inner, bg=C['bg_base'], autostyle=False)
+        btn_row = tk.Frame(inner, bg=C['bg_base'])
         btn_row.pack(anchor=tk.E, pady=(14, 0))
 
         def on_ok():

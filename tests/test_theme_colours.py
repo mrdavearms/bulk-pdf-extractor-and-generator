@@ -1,7 +1,10 @@
 """Colour regression guards — no Tk instance needed (CI is headless).
 
-1. ttkbootstrap replaces the fg/bg of every plain tk widget created without
-   autostyle=False, silently discarding the colours the code asked for.
+1. Plain tk widgets must keep the colours the code gives them. ttkbootstrap 1.x
+   repainted every one created without autostyle=False; 2.x leaves stock
+   tkinter alone unless enable_global_api() is called or one of its own themed
+   tk classes (ttk.Canvas, ttk.TkLabel, ...) is used, and stock tkinter
+   rejects autostyle= outright (the v2.15-v2.17 start-up crash).
 2. Text colours in COLORS must meet WCAG AA (4.5:1) on the surfaces they
    are drawn on.
 """
@@ -17,8 +20,10 @@ import theme
 from theme import COLORS
 
 REPO = Path(__file__).parent.parent
-PATCHED_TK_WIDGETS = {'Label', 'Frame', 'Text', 'Canvas'}
-COLOUR_KWARGS = {'fg', 'bg', 'foreground', 'background'}
+# ttkbootstrap 2's themed versions of the tk widgets. Each repaints itself
+# with the theme, discarding the colours the code passes.
+THEMED_TK_CLASSES = {'Tk', 'Toplevel', 'Menu', 'Text', 'Canvas', 'Listbox', 'TkFrame', 'TkLabel'}
+GUI_FILES = ('pdf_generator.py', 'markdown_renderer.py', 'theme.py')
 
 
 def _contrast(a: str, b: str) -> float:
@@ -30,25 +35,35 @@ def _contrast(a: str, b: str) -> float:
     return (hi + 0.05) / (lo + 0.05)
 
 
-class TestAutostyleOff(unittest.TestCase):
+class TestTkWidgetsKeepTheirColours(unittest.TestCase):
 
-    def test_coloured_tk_widgets_opt_out_of_autostyle(self):
-        """Every tk.Label/Frame/Text/Canvas passing fg= or bg= also passes autostyle=False."""
-        for filename in ('pdf_generator.py', 'markdown_renderer.py'):
+    def _calls(self):
+        for filename in GUI_FILES:
             tree = ast.parse((REPO / filename).read_text(encoding='utf-8'))
-            offenders = []
             for node in ast.walk(tree):
-                if not (isinstance(node, ast.Call)
-                        and isinstance(node.func, ast.Attribute)
-                        and isinstance(node.func.value, ast.Name)
-                        and node.func.value.id == 'tk'
-                        and node.func.attr in PATCHED_TK_WIDGETS):
-                    continue
-                kwargs = {k.arg for k in node.keywords}
-                if kwargs & COLOUR_KWARGS and 'autostyle' not in kwargs:
-                    offenders.append(f'{filename}:{node.lineno} tk.{node.func.attr}')
-            self.assertEqual(offenders, [],
-                             'ttkbootstrap will overwrite these colours; add autostyle=False')
+                if isinstance(node, ast.Call):
+                    yield filename, node
+
+    def test_no_autostyle_keyword(self):
+        """Stock tkinter widgets reject autostyle=; it crashed v2.15-v2.17 at start-up."""
+        offenders = [f'{f}:{n.lineno}' for f, n in self._calls()
+                     if any(k.arg == 'autostyle' for k in n.keywords)]
+        self.assertEqual(offenders, [])
+
+    def test_global_api_stays_off(self):
+        """enable_global_api() would make ttkbootstrap repaint every plain tk widget."""
+        offenders = [f'{f}:{n.lineno}' for f, n in self._calls()
+                     if getattr(n.func, 'attr', getattr(n.func, 'id', None)) == 'enable_global_api']
+        self.assertEqual(offenders, [])
+
+    def test_tk_widgets_come_from_stock_tkinter(self):
+        """ttk.<Canvas|Text|TkLabel|...> are ttkbootstrap's themed tk classes; use tk.<...>."""
+        offenders = [f'{f}:{n.lineno} {n.func.value.id}.{n.func.attr}' for f, n in self._calls()
+                     if isinstance(n.func, ast.Attribute)
+                     and isinstance(n.func.value, ast.Name)
+                     and n.func.value.id in ('ttk', 'tbs')
+                     and n.func.attr in THEMED_TK_CLASSES]
+        self.assertEqual(offenders, [])
 
 
 class TestTextContrast(unittest.TestCase):

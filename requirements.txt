@@ -7,10 +7,9 @@ pandas==3.1.0
 openpyxl==3.1.5
 # PyMuPDF 2.x adds onnxruntime and pymupdf4llm as hard dependencies.
 PyMuPDF==1.28.2
-# ttkbootstrap 1.20.4 requires Pillow<13. The app only opens its own icon
-# and its own page renders with Pillow, never a user-supplied image.
-Pillow==12.3.0
-# ttkbootstrap 2.x removed the `autostyle` option the GUI uses throughout.
-ttkbootstrap==1.20.4
+Pillow==13.0.0
+# A ttkbootstrap major or minor bump can restyle ttk widgets: theme.py pins
+# the 1.x litera look on top of it. Check the app on screen before merging.
+ttkbootstrap==2.2.6
 certifi==2026.10.23
 cryptography==50.0.2
