@@ -8,6 +8,7 @@ window (hidden) and walks every tab.
 It runs on the Windows and macOS CI runners, which have a display. It skips
 where Tk cannot start, such as the headless Linux `test` job.
 """
+import logging
 import tempfile
 import tkinter as tk
 import traceback
@@ -33,6 +34,13 @@ class TestAppStarts(unittest.TestCase):
             self.root.destroy()
         except tk.TclError:
             pass
+        # Close the app.log the app opened in data_dir: Windows cannot delete
+        # an open file, and later tests must not log into a deleted folder.
+        logger = logging.getLogger('bulk_pdf_generator')
+        for handler in list(logger.handlers):
+            if self.data_dir.name in getattr(handler, 'baseFilename', ''):
+                logger.removeHandler(handler)
+                handler.close()
         self.data_dir.cleanup()
 
     def test_main_window_builds_and_every_tab_opens(self):
