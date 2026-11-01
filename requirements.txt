@@ -9,7 +9,7 @@ openpyxl==3.1.5
 PyMuPDF==1.28.2
 # ttkbootstrap 1.20.4 requires Pillow<13. The app only opens its own icon
 # and its own page renders with Pillow, never a user-supplied image.
-Pillow==12.3.0
+Pillow==13.0.0
 # ttkbootstrap 2.x removed the `autostyle` option the GUI uses throughout.
 ttkbootstrap==1.20.4
 certifi==2026.10.23
