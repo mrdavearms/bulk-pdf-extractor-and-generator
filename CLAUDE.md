@@ -17,7 +17,7 @@ A Python desktop app (tkinter/ttkbootstrap GUI) that batch-fills PDF forms from 
 | Excel export | openpyxl |
 | Image processing | Pillow |
 | Packaging | PyInstaller (single-file .exe) |
-| Python | 3.10+ |
+| Python | 3.13 (CI and release builds; local venv is 3.14) |
 
 ## Repository
 
@@ -116,6 +116,8 @@ This block is guarded by `tests/test_release_template.py`, which fails CI (the T
 
 ### CI & repository facts
 
+- **Dependencies are pinned exactly (CRITICAL)** in `requirements.txt`. With `>=` floors, v2.15-v2.17 shipped ttkbootstrap 2.x, which removed the `autostyle` option used ~120 times in `pdf_generator.py`, so those releases crashed at start-up while every test passed. Stay on ttkbootstrap 1.20.x until the GUI is migrated; 1.20.x caps Pillow below 13, and PyMuPDF 2.x adds onnxruntime. `dependabot.yml` ignores major bumps of all three.
+
 - **Public repo → GitHub Actions are free** on standard runners (Linux/Windows/macOS) — builds and tests cost nothing.
 - **`test.yml`** (pytest) runs on every push to `main`/`test` and PRs to `main`, on **Linux + Windows + macOS** (the `test` job stays Linux to keep the branch-protection check name; a `test-cross-platform` matrix adds Windows/macOS). **`release.yml`** (binary build + release) runs **only on `v*` tag pushes** — branch pushes never build binaries.
 - **`main` is protected**: pushes require the `test` status check. Authorised direct pushes succeed via admin bypass and print `remote: Bypassed rule violations…` — this is expected, not an error.
@@ -149,7 +151,7 @@ Excel serial date range validation: only serials 10000–2958465 are converted (
 - **Run the app from source**: `venv/bin/python pdf_generator.py` (launches the GUI on macOS from the shell).
 - **Verify GUI logic without clicking**: instantiate `BulkPDFGenerator(tk.Tk())` with `root.withdraw()`, call the handler directly, and assert widget state (`w['text']`, `w.winfo_manager()` for packed/hidden). Proves behaviour and that no modal blocks.
 - **Headless method tests**: call generation/dialog methods without the GUI via `BulkPDFGenerator.__new__(BulkPDFGenerator)` (skips `__init__`). `_generate_single_pdf` only needs the `ctx` snapshot + `format_value_tab3` (staticmethod) — no `self.*`.
-- **Don't instantiate Tk in automated tests** — headless CI (Linux) has no display. Guard GUI logic with `inspect.getsource` structural tests (see `test_performance.py`), e.g. assert the startup update path contains no `messagebox`.
+- **Don't instantiate Tk in automated tests** — headless CI (Linux) has no display. The one exception is `tests/test_startup_smoke.py`, which builds the real window and skips where Tk cannot start; it runs on the Windows/macOS CI jobs. Guard GUI logic with `inspect.getsource` structural tests (see `test_performance.py`), e.g. assert the startup update path contains no `messagebox`.
 - **Radio-button groups CAN be tested end-to-end.** `page.widgets()` yields one widget per radio *kid*, each reporting the group's field name but only its own on-state — `PDFAnalyzer._merge_widgets_by_name()` pools them into a single `PDFField` whose `on_states` holds every option (this is what makes `normalize_button_value` apply radio rather than checkbox semantics). PyMuPDF's `add_widget` cannot author a radio group, so `tests/_form_fixture.build_radio_form()` writes the PDF bytes directly.
 - **Gotcha — `test_data_fidelity.py` asserts `format_value_tab3(...)` and `data_type` sit on the SAME source line** (via `inspect.getsource`); don't split that call across lines.
 - **Reviewing a session's work**: this repo is committed+pushed to `test` continuously, so by review time `HEAD == origin/test` and `/security-review` (or any diff-vs-upstream) sees an empty diff. Review against the session's starting commit instead: `git diff <base>..HEAD`.

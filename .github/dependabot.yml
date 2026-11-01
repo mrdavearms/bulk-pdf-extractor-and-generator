@@ -9,6 +9,16 @@ updates:
     commit-message:
       prefix: "deps"
     open-pull-requests-limit: 5
+    # Major versions that need code changes first (see requirements.txt):
+    # ttkbootstrap 2 drops `autostyle`, which needs Pillow 13 with it, and
+    # PyMuPDF 2 adds onnxruntime. Remove these once the app is migrated.
+    ignore:
+      - dependency-name: "ttkbootstrap"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Pillow"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "PyMuPDF"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
